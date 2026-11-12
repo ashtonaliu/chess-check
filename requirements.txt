@@ -2,6 +2,7 @@ anthropic>=2.8.0
 chess==1.11.2
 duckdb>=1.2
 fastapi>=0.115
+mcp>=2.3
 numpy
 pandas
 requests

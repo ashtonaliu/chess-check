@@ -27,7 +27,7 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - name: Build TypeScript frontend
         working-directory: web
-        run: npm ci && npm run build
+        run: npm ci && npm test && npm run build
       - name: Assemble static site
         run: scripts/build_static.sh
       - uses: actions/configure-pages@v5

@@ -1,3 +1,5 @@
+import { analyzeInBrowser } from "./browser/pipeline";
+
 // Weakness Finder UI. Plain TypeScript, no framework: fetches /api/analyze and
 // /api/coach and renders cards, an SVG forest plot and the verified report.
 
@@ -35,8 +37,10 @@ const esc = (s: string) => s.replace(/[&<>"']/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
 const side = (c: string) => (c === "white" ? "as White" : "as Black");
 
-interface StaticConfig { analysis: string; report: string; repo: string; }
+interface StaticConfig { analysis: string; report: string; repo: string; browser?: boolean; }
 const STATIC = (window as unknown as { WF_STATIC?: StaticConfig }).WF_STATIC ?? null;
+const ENGINE_URL = new URL("engine/stockfish-19-lite-single.js", import.meta.url).href;
+const BROWSER_DEPTH = 8;
 
 let lastReq: { username: string; games: number; time_class: string | null } | null = null;
 
@@ -178,8 +182,11 @@ function renderMarkdown(md: string, facts: Map<string, string>): string {
 
 function renderCoach(c: CoachResp, example = false) {
   const facts = new Map(c.facts.map(f => [f.id, f.text]));
+  const shown = ($("username") as HTMLInputElement).value.trim().toLowerCase();
+  const other = example && c.username && shown && shown !== c.username.toLowerCase()
+    ? ` The live coach for <strong>${esc(shown)}</strong> needs Claude, which runs in the full app.` : "";
   const banner = example
-    ? `<p class="verify ok">This is a saved example report for <strong>${esc(c.username ?? "")}</strong>. Live coaching runs locally with Claude Code or with an API key; see the README.</p>`
+    ? `<p class="verify ok">This is a saved example report for <strong>${esc(c.username ?? "")}</strong>. Live coaching runs locally with Claude Code or with an API key; see the README.${other}</p>`
     : "";
   const v = c.verification;
   const issues = v.unsupported.map(u => `<li>${esc(u.type)} <code>${esc(String(u.claim))}</code></li>`).join("");
@@ -206,7 +213,17 @@ async function analyze(ev: Event) {
   $("coach").innerHTML = "";
   setStatus(`Fetching ${username}'s games and running Stockfish on every move. This takes 15-60 seconds…`);
   try {
-    const p = await post<Payload>("/api/analyze", { username, games, time_class });
+    const p: Payload = STATIC?.browser
+      ? await analyzeInBrowser({ username, games, timeClass: time_class, depth: BROWSER_DEPTH,
+                                 engineUrl: ENGINE_URL, onStatus: m => setStatus(m) })
+      : await post<Payload>("/api/analyze", { username, games, time_class });
+    if (STATIC?.browser) {
+      $("snapshot").innerHTML = `<strong>Analyzed in your browser.</strong> Stockfish (WebAssembly, depth ${BROWSER_DEPTH}) ran on
+        your computer over ${p.overall.games} games; nothing was sent to a server except the requests to Chess.com.
+        It uses Stockfish's smaller "lite" network, which flags somewhat fewer blunders than the full engine in the
+        snapshot, so compare players within one version, not across them.
+        The blunder model and live coach run in the <a href="${esc(STATIC.repo)}" target="_blank" rel="noopener">full app</a>.`;
+    }
     lastReq = { username, games, time_class };
     renderSummary(p);
     renderForest(p.openings);
@@ -266,11 +283,14 @@ async function initCoach() {
 // Snapshot mode (GitHub Pages): no backend, so the page renders a saved
 // analysis and the saved, verified coach report instead of calling the API.
 async function initStatic(cfg: StaticConfig) {
-  const form = $("form") as HTMLFormElement;
-  for (const el of Array.from(form.elements)) (el as HTMLInputElement).disabled = true;
+  if (!cfg.browser) {
+    const form = $("form") as HTMLFormElement;
+    for (const el of Array.from(form.elements)) (el as HTMLInputElement).disabled = true;
+  }
   try {
     const p = await (await fetch(cfg.analysis)).json() as Payload;
-    ($("username") as HTMLInputElement).value = p.username;
+    const qsUser = new URLSearchParams(location.search).get("u");
+    ($("username") as HTMLInputElement).value = qsUser || p.username;
     if (p.time_class) ($("time_class") as HTMLSelectElement).value = p.time_class;
     renderSummary(p);
     renderForest(p.openings);
@@ -278,9 +298,14 @@ async function initStatic(cfg: StaticConfig) {
     $("results").hidden = false;
     const when = p.generated_at ? new Date(p.generated_at).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }) : "";
     $("snapshot").innerHTML = `<strong>Snapshot.</strong> This is a saved analysis of <strong>${esc(p.username)}</strong>'s
-      last ${p.overall.games} ${esc(p.time_class ?? "")} games${when ? `, run on ${esc(when)}` : ""}. The full app analyzes any
-      Chess.com username, but Stockfish and the coach need a server, so it runs locally:
-      <a href="${esc(cfg.repo)}" target="_blank" rel="noopener">code and setup on GitHub</a>.`;
+      last ${p.overall.games} ${esc(p.time_class ?? "")} games${when ? `, run on ${esc(when)}` : ""}. ` + (cfg.browser
+      ? `<strong>Enter any Chess.com username above</strong> to analyze it right here: Stockfish runs in your browser, no account or key needed.
+         The blunder model and live coach run in the <a href="${esc(cfg.repo)}" target="_blank" rel="noopener">full app</a>.`
+      : `The full app analyzes any Chess.com username, but Stockfish and the coach need a server, so it runs locally:
+         <a href="${esc(cfg.repo)}" target="_blank" rel="noopener">code and setup on GitHub</a>.`);
+    if (qsUser && cfg.browser && qsUser.toLowerCase() !== p.username.toLowerCase()) {
+      ($("form") as HTMLFormElement).requestSubmit();
+    }
     $("snapshot").hidden = false;
   } catch (e) {
     setStatus(`Couldn't load the snapshot: ${(e as Error).message}`, true);

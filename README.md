@@ -18,7 +18,7 @@ Enter a Chess.com username and get an honest answer to "what am I actually bad a
 | Developing, training and deploying ML models into a product | Hierarchical Bayesian opening model and a blunder-risk classifier, benchmarked in scikit-learn and PyTorch. The classifier was reimplemented in TypeScript and ships to every visitor's browser |
 | Math and traditional ML | Elo expectation, a normal-normal hierarchical model with the variance integrated out, multiple comparisons, Poisson intervals, grouped cross-validation, and calibration vs. discrimination |
 | LLM applications: context engineering, RAG, evals, agentic patterns | Tool-using agent (SQL, semantic search over your games, Stockfish) with computed facts instead of raw games, served over the API or MCP. Retrieval combines sentence embeddings (all-MiniLM-L6-v2, in Python and in the browser) with BM25 and is measured by its own eval. Verifier and repair loop, plus a five-player hallucination eval with a manual audit |
-| SQL | DuckDB tables and aggregations (standard SQL, portable to BigQuery), and a sandboxed read-only SQL tool for the agent |
+| SQL | DuckDB for in-process analytics (standard SQL, portable to BigQuery). MySQL 8 as the persistent store and the coach's query layer, with one schema per analysis, a SELECT-only database user, read-only transactions and a statement timeout. The two engines are parity-tested to give the same answers |
 | Python and TypeScript | Python is the reference implementation. The TypeScript port runs the whole product in the browser and is parity-tested against it in CI: statistics match to 1e-9, model probabilities to 1e-8, and the coach's facts character for character |
 | Ownership | Real data exposed mistakes in my own method, and the fixes are documented below: collapsed shrinkage, a self-referential baseline, verifier bugs and a solver stopping early |
 
@@ -92,6 +92,7 @@ Chess.com public API ──► PGN parsing (python-chess) ──► DuckDB: game
 |---|---|
 | Fetch + parse games, canonical opening families | `wf/fetch.py` |
 | DuckDB tables, SQL aggregation, sandboxed SQL tool | `wf/db.py` |
+| MySQL store and read-only SQL tool; Compose stack and database users | `wf/mysql_store.py`, `docker-compose.yml`, `deploy/mysql/init.sh` |
 | Elo residuals, shrinkage, intervals, worst branch | `wf/stats.py` |
 | Game summaries, embeddings + BM25 hybrid search | `wf/search.py`, `web/src/browser/search.ts`; eval: `scripts/eval_search.py` |
 | Stockfish analysis + feature engineering | `wf/engine.py` |
@@ -111,6 +112,7 @@ Chess.com public API ──► PGN parsing (python-chess) ──► DuckDB: game
 - **Integrate over the between-opening variance; don't plug in an estimate.** The first version used empirical Bayes. On real data (300 games, 34 openings) both method of moments and maximum likelihood put the between-opening SD near 0. Yet values anywhere from 0 to 10 points fit within one log-likelihood unit. Plugging in ~0 shrank a 12-game, −25-point result to −2 with a falsely narrow interval. The current model puts a half-normal prior on that SD and averages over a grid of values.
 - **Multiple comparisons.** With 34 openings checked, one at z ≈ −2 is expected by chance. Those results are flagged "worth watching" rather than called weaknesses.
 - **Solvers should converge.** scikit-learn's default lbfgs solver stopped up to 0.7% short in probability, and even at tol=1e-8 it left gaps of 1e-6. Parity testing against the browser's Newton solver surfaced both. Python now uses scikit-learn's Newton solver (`newton-cholesky`), the same algorithm as the browser, and the two agree to 1e-8.
+- **DuckDB and MySQL do different jobs.** DuckDB is embedded and columnar. It runs the statistics in-process and is the only SQL engine that also runs in the browser (WebAssembly), so the static demo uses it. MySQL is a server, the right home for persistent, multi-user data. With `WF_SQL_BACKEND=mysql`, each analysis is written to its own schema (`wf_<hash>`) and the coach queries it as `wf_reader`, which MySQL itself limits to `SELECT`. Tests show `INSERT`, `DROP`, `CREATE DATABASE` and `SELECT … INTO OUTFILE` all fail even when the tool's own check is bypassed, and a runaway cross join is killed at 5 s. The tool tells the model which dialect it's writing, and on MySQL it wrote MySQL-specific SQL (`SUM(wp_loss >= 20)`, `FIELD()`) correctly. One limit: schemas are isolated by unguessable names, not by permissions. A multi-tenant production setup would give each tenant its own database user.
 - **Measure retrieval; don't assume embeddings win.** On short, templated summaries, plain embeddings lost to BM25 (0.35 vs 0.41 precision@5). Fusing the two ranked lists beat both (0.45), and the eval shows which kinds of question each one handles.
 - **The family named first wins.** Opening families were matched against a fixed list in order, so "Nimzowitsch-Larsen Attack, Modern Variation" was filed under Modern Defense, and "Four Knights Game, Scotch Variation" under the Scotch. The bug surfaced while testing the coach's example-game tool in the browser. Families now match by where they appear in the name, and both languages share the test cases.
 - **"Worth watching" was the right call.** My Scotch as Black was flagged at 21% over 12 games, below rating expectation but not significant across 34 openings. Sixteen games later it's 38%, well within normal range: regression to the mean, which is what the multiple-comparisons caution predicted.
@@ -139,10 +141,13 @@ Open http://localhost:8765. Other commands:
 
 ```bash
 .venv/bin/python -m pytest -q                                # tests (no API calls)
+WF_TEST_MYSQL=1 .venv/bin/python -m pytest -q tests/test_mysql.py   # against a running MySQL
 .venv/bin/python scripts/benchmark_model.py USER --games 200  # model table
 .venv/bin/python scripts/eval_coach.py USER1 USER2 USER3     # hallucination eval
 .venv/bin/python scripts/make_snapshot.py USER               # snapshot + report for the static demo
 ```
+
+**With MySQL:** copy `.env.example` to `.env`, set the three MySQL passwords, then run `docker compose up --build`. That starts MySQL 8.4 (with its users created by `deploy/mysql/init.sh`) and the app on http://localhost:8080, with the coach's SQL on MySQL. For development, `docker compose up -d mysql` starts just the database, and the commented settings in `.env.example` point a local app at it.
 
 **Deploy:** the public demo is a static snapshot on GitHub Pages (`scripts/make_snapshot.py`, then the `pages.yml` workflow builds and deploys `web/` on push). Free hosts that can run Stockfish for live requests are either paid or too slow (0.1 vCPU). The Docker image runs the full app on any container host, for example Hugging Face Spaces (free tier, 2 vCPU): run `hf auth login` once, then `scripts/deploy_hf.sh <hf-user>/weakness-finder`. That pushes the committed HEAD with the Space's required README header. Hosting defaults in the Dockerfile cap a request at 150 games, Stockfish depth 8 and 2 engine workers. A cold analysis takes about a minute. PyTorch is left out of the image because only the offline benchmark uses it. With no API key on the host, the coach shows the saved example report. Set `ANTHROPIC_API_KEY` as a Space secret to turn live coaching on.
 

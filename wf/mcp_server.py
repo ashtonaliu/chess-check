@@ -17,7 +17,7 @@ from pathlib import Path
 
 from mcp.server.mcpserver import MCPServer
 
-from .coach import TOOLS, ToolBox
+from .coach import ToolBox, tools_for
 
 STATE = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(".")
 TOOL_FACTS = STATE / "tool_facts.jsonl"
@@ -38,7 +38,7 @@ def _load_box() -> ToolBox:
 box = _load_box()
 server = MCPServer(name="weakness-finder",
                    instructions="Tools over one chess player's analysed games.")
-DESC = {t["name"]: t["description"] for t in TOOLS}
+DESC = {t["name"]: t["description"] for t in tools_for(box.sql.dialect)}
 
 
 def _call(name: str, args: dict) -> str:

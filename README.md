@@ -21,13 +21,17 @@ Enter a Chess.com username and get an honest answer to "what am I actually bad a
 
 The top features by permutation importance are fraction of clock left, then the engine eval before the move. Time pressure predicts blunders better than position type does.
 
-**Coach hallucination eval** (`scripts/eval_coach.py`). The same verifier scores three conditions: the model reading raw PGNs, the grounded agent's first draft, and the final report after repair. *To fill in after running it on 3–5 players.*
+**Coach hallucination eval** (`scripts/eval_coach.py`). 5 players (me plus four similar-rated recent opponents), 120 blitz games each, run through Claude Opus 5.5. The same verifier scores three conditions:
 
-| Condition | Claims checked | Unsupported rate | Reports fully verified |
-|---|---:|---:|---:|
-| Raw PGN, no context engineering | | | |
-| Facts + tools, first draft | | | |
-| Facts + tools + verifier repair | | | |
+| Condition | Unsupported claims (lenient) | Clean reports | Unsupported claims (strict) | Clean reports |
+|---|---:|---:|---:|---:|
+| Raw PGNs, no context engineering | 46 / 323 (14.2%) | 0 / 5 | n/a | n/a |
+| Computed facts + tools, first draft | 4 / 214 (1.9%) | 2 / 5 | 19 / 214 (8.9%) | 0 / 5 |
+| Facts + tools + verifier repair | 0 / 202 (0.0%) | 5 / 5 | 0 / 202 (0.0%) | 5 / 5 |
+
+*Lenient:* a number, move or link counts as supported if it appears anywhere in the computed analysis or in the games the model was shown. That's fair to the raw baseline, which was never asked to cite. *Strict:* it must appear in the specific fact its sentence cites.
+
+**What "unsupported" means.** I checked one raw report by hand against the games. All 7 move sequences it cited were real, and its Black record (6–9–1) was right. Its White record ("10–4") was wrong: the truth was 9–5. Most of its other flagged numbers were training advice ("20 minutes a day"). So the raw model isn't 14% wrong. Its claims can't be checked automatically, and when one is wrong, nothing catches it. The grounded coach makes every claim checkable. Its first drafts mostly fail strict checking by citing the wrong fact for a correct number, and one repair turn fixed all 5.
 
 ## How it works
 

@@ -22,6 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from wf import coach  # noqa: E402
+from wf.env import load_env  # noqa: E402
 from wf.pipeline import analyze  # noqa: E402
 from wf.verify import verify  # noqa: E402
 
@@ -64,6 +65,7 @@ def main():
     ap.add_argument("--out", default="eval_results")
     args = ap.parse_args()
 
+    load_env()
     import anthropic
     client = anthropic.Anthropic()
     out = Path(args.out)

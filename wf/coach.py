@@ -43,14 +43,21 @@ Format (Markdown, under 350 words): a one-sentence summary, then "## Biggest \
 weaknesses" with up to 3 items (evidence, then what to do), then \
 "## What's working" (1-2 items), then "## Training plan" (3-5 bullet points)."""
 
+def tools_for(dialect: str = "DuckDB") -> list[dict]:
+    """The tool list, with run_sql describing the SQL dialect the backend speaks."""
+    tools = [dict(t) for t in TOOLS]
+    tools[0]["description"] = tools[0]["description"].replace("DuckDB SQL", f"{dialect} SQL", 1)
+    return tools
+
+
 TOOLS = [
     {
         "name": "run_sql",
         "description": (
             "Run a read-only DuckDB SQL query (SELECT/WITH only) over the player's "
             "games and engine-analysed moves. Use it to drill into a weakness, e.g. "
-            "results by time class, or blunders by phase in one opening. Returns CSV, "
-            "at most 50 rows. Tables:\n" + SCHEMA_DOC),
+            "results by time class, or blunders by phase in one opening. Write SQL for "
+            "this dialect only. Returns CSV, at most 50 rows. Tables:\n" + SCHEMA_DOC),
         "input_schema": {"type": "object", "additionalProperties": False,
                          "properties": {"query": {"type": "string",
                                                   "description": "The SQL query."}},
@@ -118,7 +125,11 @@ class ToolBox:
         self.games = games
         self.summaries = summaries or []
         self._index = None
-        self.sql = ReadOnlySQL(games, moves)
+        from . import mysql_store
+        if mysql_store.enabled():
+            self.sql = mysql_store.MySQLReadOnlySQL(mysql_store.load(games, moves))
+        else:
+            self.sql = ReadOnlySQL(games, moves)
         self.facts = facts
         self.calls: list[dict] = []
 
@@ -192,12 +203,12 @@ def _client():
     return anthropic.Anthropic()
 
 
-def _call(client, messages):
+def _call(client, messages, tools=None):
     return client.beta.messages.create(
         model=MODEL,
         max_tokens=16000,
         system=SYSTEM,
-        tools=TOOLS,
+        tools=tools or TOOLS,
         messages=messages,
         output_config={"effort": "medium"},
         betas=["server-side-fallback-2026-07-01"],
@@ -212,7 +223,7 @@ def _text(resp) -> str:
 def _agent_turns(client, messages, box: ToolBox, usage: dict):
     """Run until the model stops calling tools; returns the final response."""
     for _ in range(MAX_TOOL_TURNS + 1):
-        resp = _call(client, messages)
+        resp = _call(client, messages, tools_for(box.sql.dialect))
         for k in ("input_tokens", "output_tokens"):
             usage[k] = usage.get(k, 0) + getattr(resp.usage, k, 0)
         if resp.stop_reason == "refusal":

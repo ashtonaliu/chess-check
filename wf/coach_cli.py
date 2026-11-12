@@ -38,8 +38,10 @@ def available() -> bool:
 def _claude(prompt: str, state: Path, resume: str | None = None) -> dict:
     cfg = {"mcpServers": {"wf": {
         "command": sys.executable, "args": ["-m", "wf.mcp_server", str(state)],
-        "env": {"PYTHONPATH": str(ROOT), **({"STOCKFISH_PATH": os.environ["STOCKFISH_PATH"]}
-                                          if "STOCKFISH_PATH" in os.environ else {})},
+        # the tool server is a separate process: pass through engine and SQL-backend settings
+        "env": {"PYTHONPATH": str(ROOT), **{k: v for k, v in os.environ.items()
+                                            if k in ("STOCKFISH_PATH", "WF_SQL_BACKEND",
+                                                     "WF_MYSQL_WRITER_URL", "WF_MYSQL_READER_URL")}},
     }}}
     (state / "mcp.json").write_text(json.dumps(cfg))
     cmd = ["claude", "-p", prompt, "--output-format", "json",

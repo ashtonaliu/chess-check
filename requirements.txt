@@ -5,6 +5,7 @@ fastapi>=0.115
 mcp>=2.3
 numpy
 pandas
+pymysql>=1.1
 rank-bm25
 requests
 scikit-learn>=1.5

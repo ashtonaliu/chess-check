@@ -11,10 +11,14 @@ interface Opening {
 }
 interface Phase { moves: number; avg_loss: number; blunder_rate: number; }
 interface Blunder { move: string; best: string | null; loss: number; phase: string; url: string; }
-interface Risk {
-  moves: number; actual: number; expected: number; ratio: number;
-  buckets: { label: string; moves: number; actual: number; expected: number; ratio: number }[];
-}
+interface RiskBand { moves: number; actual: number; expected: number; ratio: number; ci_low?: number; ci_high?: number; }
+interface Risk extends RiskBand { model?: string; buckets: (RiskBand & { label: string })[]; }
+// Only call a ratio high or low when its 90% interval excludes 1.
+const riskClass = (r: RiskBand) => r.ci_low === undefined
+  ? (r.ratio > 1.15 ? "weak" : r.ratio < 0.85 ? "strong" : "")
+  : (r.ci_low > 1 ? "weak" : r.ci_high! < 1 ? "strong" : "");
+const ratioText = (r: RiskBand) => `${r.ratio.toFixed(2)}×` +
+  (r.ci_low !== undefined ? ` <span class="ci">(${r.ci_low.toFixed(2)}–${r.ci_high!.toFixed(2)})</span>` : "");
 interface Fact { id: string; text: string; }
 interface Payload {
   username: string; generated_at?: string; time_class?: string | null;
@@ -80,8 +84,9 @@ function renderSummary(p: Payload) {
       : "none clear after adjusting for rating, sample size and number of openings", flagged.length ? "weak" : ""));
   if (p.risk) {
     html.push(card("Blunders vs model expectation", `${p.risk.ratio.toFixed(2)}×`,
-      `${p.risk.actual} actual vs ${p.risk.expected.toFixed(1)} expected`,
-      p.risk.ratio > 1.15 ? "weak" : p.risk.ratio < 0.85 ? "strong" : ""));
+      `${p.risk.actual} actual vs ${p.risk.expected.toFixed(1)} expected` +
+      (p.risk.ci_low !== undefined ? `; 90% interval ${p.risk.ci_low.toFixed(2)}–${p.risk.ci_high!.toFixed(2)}` : ""),
+      riskClass(p.risk)));
   }
   $("summary").innerHTML = html.join("");
 }
@@ -141,11 +146,13 @@ function renderEngine(p: Payload) {
 
   if (p.risk && p.risk.buckets.length) {
     $("risk").innerHTML = `<table><thead><tr><th>Clock</th><th class="num">Moves</th>
-      <th class="num">Blunders</th><th class="num">Model expected</th><th class="num">Ratio</th></tr></thead><tbody>` +
+      <th class="num">Blunders</th><th class="num">Model expected</th><th class="num">Ratio (90% interval)</th></tr></thead><tbody>` +
       p.risk.buckets.map(b => `<tr><td>${esc(b.label)}</td><td class="num">${b.moves}</td>
         <td class="num">${b.actual}</td><td class="num">${b.expected.toFixed(1)}</td>
-        <td class="num ${b.ratio > 1.15 ? "weak" : b.ratio < 0.85 ? "strong" : ""}">${b.ratio.toFixed(2)}×</td></tr>`).join("") +
-      `</tbody></table><p class="note">"Expected" comes from a gradient-boosting model trained only on your opponents' moves (similar-rated players), scored on held-out games.</p>`;
+        <td class="num ${riskClass(b)}">${ratioText(b)}</td></tr>`).join("") +
+      `</tbody></table><p class="note">"Expected" comes from a ${esc(p.risk.model ?? "gradient boosting")} model trained only on
+      your opponents' moves (similar-rated players) and scored on your games in held-out folds. A ratio is highlighted only when its
+      90% interval excludes 1; with few low-clock blunders, those intervals are wide.</p>`;
   }
   $("blunders").innerHTML = p.blunders.slice(0, 3).map(b =>
     `<div class="blunder"><span class="moves">${esc(b.move)}</span> <span class="chip">${esc(b.phase)}</span>
@@ -222,7 +229,7 @@ async function analyze(ev: Event) {
         your computer over ${p.overall.games} games; nothing was sent to a server except the requests to Chess.com.
         It uses Stockfish's smaller "lite" network, which flags somewhat fewer blunders than the full engine in the
         snapshot, so compare players within one version, not across them.
-        The blunder model and live coach run in the <a href="${esc(STATIC.repo)}" target="_blank" rel="noopener">full app</a>.`;
+        The live AI coach runs in the <a href="${esc(STATIC.repo)}" target="_blank" rel="noopener">full app</a>.`;
     }
     lastReq = { username, games, time_class };
     renderSummary(p);
@@ -300,7 +307,7 @@ async function initStatic(cfg: StaticConfig) {
     $("snapshot").innerHTML = `<strong>Snapshot.</strong> This is a saved analysis of <strong>${esc(p.username)}</strong>'s
       last ${p.overall.games} ${esc(p.time_class ?? "")} games${when ? `, run on ${esc(when)}` : ""}. ` + (cfg.browser
       ? `<strong>Enter any Chess.com username above</strong> to analyze it right here: Stockfish runs in your browser, no account or key needed.
-         The blunder model and live coach run in the <a href="${esc(cfg.repo)}" target="_blank" rel="noopener">full app</a>.`
+         The live AI coach runs in the <a href="${esc(cfg.repo)}" target="_blank" rel="noopener">full app</a>.`
       : `The full app analyzes any Chess.com username, but Stockfish and the coach need a server, so it runs locally:
          <a href="${esc(cfg.repo)}" target="_blank" rel="noopener">code and setup on GitHub</a>.`);
     if (qsUser && cfg.browser && qsUser.toLowerCase() !== p.username.toLowerCase()) {

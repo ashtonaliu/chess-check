@@ -43,6 +43,7 @@ button:disabled { opacity: .55; cursor: progress; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }
 th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
 td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.ci { color: var(--muted); font-size: 12px; }
 #coach { margin-top: 14px; }
 .report { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 4px 18px 12px; }
 .report h2 { font-size: 17px; margin-top: 18px; }

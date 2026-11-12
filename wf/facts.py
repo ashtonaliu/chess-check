@@ -60,12 +60,16 @@ def build_facts(df: pd.DataFrame, analyses: list[dict] | None = None,
             f"A blunder-risk model trained only on your opponents' moves "
             f"(players of similar rating) expected {risk['expected']:.1f} blunders in "
             f"your {risk['moves']} moves given how hard the positions were; you "
-            f"made {risk['actual']}, {risk['ratio']:.2f} times the expected count.")
+            f"made {risk['actual']}, {risk['ratio']:.2f} times the expected count"
+            + (f" (90% interval {risk['ci_low']:.2f} to {risk['ci_high']:.2f})" if "ci_low" in risk else "")
+            + ".")
         for b in risk["buckets"]:
             add("model",
                 f"With {b['label']}, you made {b['actual']} blunders in "
                 f"{b['moves']} moves versus {b['expected']:.1f} expected "
-                f"({b['ratio']:.2f} times expected).")
+                f"({b['ratio']:.2f} times expected"
+                + (f", 90% interval {b['ci_low']:.2f} to {b['ci_high']:.2f}" if "ci_low" in b else "")
+                + "). Treat a band as different from expected only if its interval excludes 1.")
 
     table = opening_table(df)
     extras["table"] = table

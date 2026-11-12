@@ -1,9 +1,9 @@
 {
  "username": "ashton-iwnl",
- "generated_at": "2026-11-12T21:34:47+00:00",
- "report": "# Chess report for ashton-iwnl\n\nYou're scoring about what your rating predicts: 51% against an expected 49% over 300 games [F1]. Your blunder rate is normal for your level, at 0.98 times the expected count [F2], so none of your results show a clear weakness.\n\n## Biggest weaknesses\n\nNo opening family shows a weakness that is clear once opponent rating, sample size and the number of openings checked are taken into account [F9]. One area is worth watching:\n\n1. **Scotch Game as Black (thin evidence).** You scored 21% here against 46% expected, across only 12 games [F8]. With 34 openings checked, one result this extreme is expected by luck alone [F8]. In moves 13-25 of these games you lost 6.2 win% per move, against 5.1 across all your games [F15]. Your losses include a Goring Gambit Declined line with 4.c3 d5 and a Scotch Gambit line with 4.Bc4 d6 [T1]. That Scotch Gambit game also contains your most costly move: 43...Kh7 lost 93 win% when Qxf4+ was available [F16]. **What to do:** pick one solid answer each to 4.c3 and 4.Bc4, and replay these three games [T1] to see where the early middlegame went wrong.\n\n## What's working\n\n- **Queen's Gambit as White:** you scored 60% against 50% expected over 48 games [F6], with a median eval of +1.0 pawns after move 12 [F13]. Your preparation is getting you good positions.\n- **Handling time pressure:** with under 10% of your clock left you made 0.89 times the expected number of blunders [F3]. With 10-30% left it was 0.84 times expected [F4]. You hold up well in time trouble.\n\n## Training plan\n\n- When you have plenty of time, slow down and check for checks. Most of your blunders come with over 30% of the clock left: 421 of them, at 1.02 times expected [F5]. For example, 38...Qh2+ lost 88 win% when Bf6 was better [F18].\n- Do middlegame puzzles: https://lichess.org/training/middlegame [F19]. Your middlegame blunder rate is 6.6% [F11], the highest of the three phases. It matches your opponents' rate, so this is about gaining an edge rather than fixing a flaw.\n- Do hanging-piece puzzles: https://lichess.org/training/hangingPiece [F20]. 7...h5 missed Nxg4 and cost 89 win% [F17].\n- Learn one repertoire line against the Scotch and its gambits, and review your losses with it [T1].\n- Keep playing the Queen's Gambit, and look over your moves 13-25 in it, where you lose 5.2 win% per move [F13].",
+ "generated_at": "2026-11-12T22:05:55+00:00",
+ "report": "Your results are about what your rating predicts: you scored 51% against 49% expected [F1], and you blundered about as often as similar-rated players would in the same positions (0.98 times expected) [F2].\n\n## Biggest weaknesses\n\nThe data doesn't show any clear weakness. No opening family stands out once opponent rating and sample size are taken into account [F9]. Your blunder rates in every phase are close to your opponents' [F10][F11][F12]. One thing is worth keeping an eye on:\n\n1. **Scotch Game as Black (worth watching, not confirmed).** You scored 21% here against 46% expected, but that's from only 12 games, and among 34 openings checked, one result this extreme is expected by luck alone [F8]. In moves 13-25 of these games you lost 6.2 win% per move, against 5.1 across all your games [F15]. Your worst games came through different lines: 4.c3 d5 5.Bb5 dxe4, the main line with 4.Nxd4 d6, and the Scotch Gambit 4.Bc4 [T1]. In that last game, 43...Kh7 lost 93 win% where Qxf4+ was available (https://www.chess.com/game/live/186801649660) [F16][T1].\n   *What to do:* Choose one solid reply to 3.d4 and learn its typical middlegame plans, since that's where these games went wrong [F15].\n\n## What's working\n\n- **Low clock.** With under 10% of your time left, you made 75 blunders against 84.2 expected [F3]. Between 10% and 30% left, it was 61 against 73.0 [F4]. Neither result is clearly different from expected, but there's no sign that you collapse when short on time.\n- **Queen's Gambit as White.** You scored 60% against 50% expected over 48 games, which counts as a possible strength [F6]. The median engine eval after move 12 was +1.0 for you [F13]. The Four Knights as Black also looks promising: 72% from 9 games [F7].\n\n## Training plan\n\n- Go over the three worst Scotch games [T1] and compare your moves to the engine's around moves 13-25, where you lose the most [F15].\n- Middlegame is where you blunder most often, on 6.6% of moves [F11], so do middlegame puzzles regularly: https://lichess.org/training/middlegame [F19].\n- Before each move, check for loose pieces, and drill hanging-piece puzzles: https://lichess.org/training/hangingPiece [F20]. Two examples of what to look for: 7...h5 missed Nxg4 (https://www.chess.com/game/live/186801191354) [F17], and 38...Qh2+ was played where Bf6 was better (https://www.chess.com/game/live/186706648876) [F18].\n- Keep playing the Queen's Gambit as White and build on the advantages you get out of the opening [F13].",
  "verification": {
-  "checked": 46,
+  "checked": 48,
   "unsupported": [],
   "uncited": [],
   "bad_citations": [],
@@ -11,14 +11,34 @@
   "ok": true
  },
  "first_verification": {
-  "checked": 46,
-  "unsupported": [],
-  "uncited": [],
+  "checked": 48,
+  "unsupported": [
+   {
+    "type": "miscited number",
+    "claim": 25.0,
+    "sentence": "Go over the three worst Scotch games [T1] and compare your moves to the engine's around moves 13-25."
+   },
+   {
+    "type": "miscited number",
+    "claim": 13.0,
+    "sentence": "Go over the three worst Scotch games [T1] and compare your moves to the engine's around moves 13-25."
+   }
+  ],
+  "uncited": [
+   {
+    "claim": 25.0,
+    "sentence": "Go over the three worst Scotch games [T1] and compare your moves to the engine's around moves 13-25."
+   },
+   {
+    "claim": 13.0,
+    "sentence": "Go over the three worst Scotch games [T1] and compare your moves to the engine's around moves 13-25."
+   }
+  ],
   "bad_citations": [],
-  "unsupported_rate": 0.0,
-  "ok": true
+  "unsupported_rate": 0.041666666666666664,
+  "ok": false
  },
- "repaired": false,
+ "repaired": true,
  "tool_calls": [
   {
    "name": "example_games",
@@ -32,7 +52,7 @@
  ],
  "usage": {
   "backend": "claude-code",
-  "turns": 2
+  "turns": 3
  },
  "facts": [
   {
@@ -41,19 +61,19 @@
   },
   {
    "id": "F2",
-   "text": "A blunder-risk model trained only on your opponents' moves (players of similar rating) expected 569.2 blunders in your 12292 moves given how hard the positions were; you made 557, 0.98 times the expected count."
+   "text": "A blunder-risk model trained only on your opponents' moves (players of similar rating) expected 569.2 blunders in your 12292 moves given how hard the positions were; you made 557, 0.98 times the expected count (90% interval 0.91 to 1.05)."
   },
   {
    "id": "F3",
-   "text": "With under 10% of the clock left, you made 75 blunders in 1407 moves versus 84.2 expected (0.89 times expected)."
+   "text": "With under 10% of the clock left, you made 75 blunders in 1407 moves versus 84.2 expected (0.89 times expected, 90% interval 0.73 to 1.08). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F4",
-   "text": "With 10-30% of the clock left, you made 61 blunders in 1653 moves versus 73.0 expected (0.84 times expected)."
+   "text": "With 10-30% of the clock left, you made 61 blunders in 1653 moves versus 73.0 expected (0.84 times expected, 90% interval 0.67 to 1.03). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F5",
-   "text": "With over 30% of the clock left, you made 421 blunders in 9232 moves versus 412.0 expected (1.02 times expected)."
+   "text": "With over 30% of the clock left, you made 421 blunders in 9232 moves versus 412.0 expected (1.02 times expected, 90% interval 0.94 to 1.11). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F6",

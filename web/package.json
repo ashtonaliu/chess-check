@@ -3,11 +3,18 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && esbuild src/main.ts --bundle --format=esm --target=es2020 --outfile=dist/main.js",
-    "typecheck": "tsc --noEmit"
+    "build": "tsc --noEmit && esbuild src/main.ts --bundle --format=esm --target=es2020 --outfile=dist/main.js && npm run copy-engine",
+    "typecheck": "tsc --noEmit",
+    "copy-engine": "mkdir -p dist/engine && cp node_modules/stockfish/bin/stockfish-19-lite-single.js node_modules/stockfish/bin/stockfish-19-lite-single.wasm dist/engine/",
+    "test": "node --import tsx --test test/*.test.ts"
   },
   "devDependencies": {
     "esbuild": "0.25.10",
+    "stockfish": "19.0.1",
+    "tsx": "4.23.15",
     "typescript": "5.9.3"
+  },
+  "dependencies": {
+    "chess.js": "1.4.0"
   }
 }

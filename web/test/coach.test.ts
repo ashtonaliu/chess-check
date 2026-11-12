@@ -99,3 +99,8 @@ test("agent loop: SQL tool rejects writes before touching the database", async (
   const r = await box.run("run_sql", { query: "DROP TABLE games" });
   assert.ok(r.isError && /only SELECT/.test(r.out));
 });
+
+test("half-way values round like Python (to even)", async () => {
+  const { pyRound } = await import("../src/browser/facts");
+  assert.deepEqual([36.5, 37.5, 22.5, 20.5, -0.5, 2.4, 2.6].map(pyRound), [36, 38, 22, 20, -0, 2, 3]);
+});

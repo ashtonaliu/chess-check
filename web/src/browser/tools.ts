@@ -4,6 +4,7 @@ import type { Fact } from "./facts";
 import { formatMoves, type GameRow } from "./stats";
 import { Engine } from "./engine";
 import type { Row } from "./model";
+import { GameIndex } from "./search";
 
 export const SCHEMA_DOC = `games(url, color, my_rating, opp_rating, score, expected, residual,
       time_class, eco, opening, family, end_time, moves)
@@ -36,6 +37,21 @@ export const TOOLS = [
         color: { type: "string", enum: ["white", "black"] },
         k: { type: "integer", description: "How many games (1-5)." },
       }, required: ["family", "color", "k"] },
+    strict: true,
+  },
+  {
+    name: "search_games",
+    description: "Search the player's games by meaning: each game has a plain-English summary " +
+      "(result and how it ended, opening, rating gap, eval after the opening, the worst mistake with " +
+      "phase and clock, blunder count), ranked by a hybrid of sentence embeddings and keyword matching. " +
+      "Use it for descriptive questions such as 'games where I collapsed in time trouble' to find concrete " +
+      "examples. For exact filters (a specific result, opening or rating) prefer run_sql. Returns the top k " +
+      "summaries with links.",
+    input_schema: { type: "object" as const, additionalProperties: false,
+      properties: {
+        query: { type: "string", description: "What to look for, in plain English." },
+        k: { type: "integer", description: "How many games (1-8)." },
+      }, required: ["query", "k"] },
     strict: true,
   },
   {
@@ -89,9 +105,11 @@ function csv(rows: Record<string, unknown>[], cols: string[], max = 50): string 
 export class ToolBox {
   calls: { name: string; input: Record<string, unknown>; error: boolean }[] = [];
   private conn: Promise<Conn> | null = null;
+  private index: GameIndex | null = null;
   private engine: Engine | null = null;
 
-  constructor(private games: GameRow[], private moves: Row[], public facts: Fact[], private engineUrl: string) {}
+  constructor(private games: GameRow[], private moves: Row[], public facts: Fact[], private engineUrl: string,
+              private summaries: [string, string][] = []) {}
 
   private register(text: string): string {
     const id = `T${this.facts.filter(f => f.id.startsWith("T")).length + 1}`;
@@ -116,6 +134,7 @@ export class ToolBox {
         }
       }
       if (name === "example_games") return done(this.register(this.examples(String(input.family), String(input.color), Number(input.k))));
+      if (name === "search_games") return done(this.register(await this.search(String(input.query), Number(input.k))));
       if (name === "engine_eval") return done(this.register(await this.evalFen(String(input.fen))));
       return done(`Unknown tool ${name}`, true);
     } catch (e) {
@@ -130,6 +149,14 @@ export class ToolBox {
     const res = (s: number) => (s === 1 ? "won" : s === 0.5 ? "drew" : "lost");
     return [`Worst ${family} games as ${color}:`, ...rows.map(r =>
       `- ${r.url}: you ${res(r.score)} (${r.myRating} vs ${r.oppRating}), ${r.opening}; ${formatMoves(r.moves.slice(0, 12).join(" "))}`)].join("\n");
+  }
+
+  private async search(query: string, k: number): Promise<string> {
+    if (!this.summaries.length) return "No game summaries are available.";
+    this.index ??= new GameIndex(this.summaries.map(s => s[0]), this.summaries.map(s => s[1]));
+    const hits = await this.index.search(query, Math.max(1, Math.min(k || 5, 8)));
+    return [`Games best matching '${query}' (hybrid search over game summaries):`,
+      ...hits.map(h => `- ${this.index!.urls[h.i]}: ${this.index!.texts[h.i]}`)].join("\n");
   }
 
   private async evalFen(fen: string): Promise<string> {

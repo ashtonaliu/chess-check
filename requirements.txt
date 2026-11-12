@@ -5,9 +5,11 @@ fastapi>=0.115
 mcp>=2.3
 numpy
 pandas
+rank-bm25
 requests
 scikit-learn>=1.5
 scipy
+sentence-transformers>=6
 tabulate
 torch>=2.4
 uvicorn[standard]

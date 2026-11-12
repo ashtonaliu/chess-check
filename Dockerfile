@@ -16,10 +16,10 @@ ENV STOCKFISH_PATH=/usr/games/stockfish PYTHONUNBUFFERED=1 \
     WF_CACHE=/tmp/wf-cache WF_ENGINE_WORKERS=2 WF_MAX_GAMES=150 WF_ENGINE_DEPTH=8
 WORKDIR /app
 COPY requirements.txt .
-# PyTorch is only used by the offline model benchmark, not by the web app,
-# so it is left out of the image (saves ~800 MB).
-RUN grep -v '^torch' requirements.txt > /tmp/req.txt \
-    && pip install --no-cache-dir -r /tmp/req.txt
+# sentence-transformers (the coach's search_games tool) needs PyTorch: install
+# the CPU-only build first, or pip pulls the multi-gigabyte CUDA build from PyPI.
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir -r requirements.txt
 COPY wf/ wf/
 COPY server.py .
 COPY web/index.html web/style.css web/example_report.json web/

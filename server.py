@@ -86,7 +86,8 @@ async def api_coach(r: AnalyzeReq):
                                  "locally with Claude Code or with an API key.")
     a = await run_in_threadpool(_get, r)
     try:
-        res = await run_in_threadpool(run_coach_auto, a.username, a.facts, a.games, a.moves)
+        res = await run_in_threadpool(lambda: run_coach_auto(a.username, a.facts, a.games, a.moves,
+                                                             summaries=a.summaries))
     except RuntimeError as e:
         raise HTTPException(502, str(e))
     return {"report": res.report, "verification": res.verification,

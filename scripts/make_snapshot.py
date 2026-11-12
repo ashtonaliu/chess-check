@@ -39,7 +39,7 @@ def main():
     print(f"analysis: {payload['overall']['games']} games")
     if args.no_coach:
         return
-    r = run_coach_auto(a.username, a.facts, a.games, a.moves)
+    r = run_coach_auto(a.username, a.facts, a.games, a.moves, summaries=a.summaries)
     report = {"username": a.username, "generated_at": payload["generated_at"],
               "report": r.report, "verification": r.verification,
               "first_verification": r.first_verification, "repaired": r.repaired,

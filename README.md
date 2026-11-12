@@ -8,7 +8,7 @@ Enter a Chess.com username and get an honest answer to "what am I actually bad a
 - **Where it goes wrong.** For each weak opening, it finds the move sequence where your results drop off, for example *"after 1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Qxd4 you score 22% in 6 games"*.
 - **Engine analysis of every move.** Stockfish runs on every position. Losses are measured in win probability, not centipawns, and split by game phase.
 - **A blunder-risk model.** It predicts whether a move will lose 20 or more win% from position and clock features. It learns from your opponents' moves (players of similar rating) and then scores yours, so it can say *"you made 1.6× the blunders the model expects in positions this hard, mostly with under 10% of your clock left."*
-- **A grounded LLM coach, with evals.** An agent with SQL, retrieval and Stockfish tools writes the report. A verifier checks every number, move and link in it against the facts and tool results the agent was given. If anything is unsupported, the checker's findings go back to the agent for one repair turn.
+- **A grounded LLM coach, with evals.** An agent with SQL, semantic game search and Stockfish tools writes the report. A verifier checks every number, move and link in it against the facts and tool results the agent was given. If anything is unsupported, the checker's findings go back to the agent for one repair turn.
 
 ## Skills demonstrated
 
@@ -17,7 +17,7 @@ Enter a Chess.com username and get an honest answer to "what am I actually bad a
 | Data preprocessing and feature engineering pipelines | PGN and clock parsing, per-move engine and position features, canonical opening families. Parallel, cached Stockfish runs 300 games in about 30 s on the server and 150 in about 17 s in the browser |
 | Developing, training and deploying ML models into a product | Hierarchical Bayesian opening model and a blunder-risk classifier, benchmarked in scikit-learn and PyTorch. The classifier was reimplemented in TypeScript and ships to every visitor's browser |
 | Math and traditional ML | Elo expectation, a normal-normal hierarchical model with the variance integrated out, multiple comparisons, Poisson intervals, grouped cross-validation, and calibration vs. discrimination |
-| LLM applications: context engineering, RAG, evals, agentic patterns | Tool-using agent (SQL, retrieval over your games, Stockfish) with computed facts instead of raw games, served over the API or MCP. Verifier and repair loop, plus a five-player hallucination eval with a manual audit |
+| LLM applications: context engineering, RAG, evals, agentic patterns | Tool-using agent (SQL, semantic search over your games, Stockfish) with computed facts instead of raw games, served over the API or MCP. Retrieval combines sentence embeddings (all-MiniLM-L6-v2, in Python and in the browser) with BM25 and is measured by its own eval. Verifier and repair loop, plus a five-player hallucination eval with a manual audit |
 | SQL | DuckDB tables and aggregations (standard SQL, portable to BigQuery), and a sandboxed read-only SQL tool for the agent |
 | Python and TypeScript | Python is the reference implementation. The TypeScript port runs the whole product in the browser and is parity-tested against it in CI: statistics match to 1e-9, model probabilities to 1e-8, and the coach's facts character for character |
 | Ownership | Real data exposed mistakes in my own method, and the fixes are documented below: collapsed shrinkage, a self-referential baseline, verifier bugs and a solver stopping early |
@@ -54,6 +54,17 @@ The band features cost a little AUC (0.840 → 0.824) and buy calibration where 
 
 *Lenient:* a number, move or link counts as supported if it appears anywhere in the computed analysis or in the games the model was shown. That's fair to the raw baseline, which was never asked to cite. *Strict:* it must appear in the specific fact its sentence cites.
 
+**Game search (RAG) eval** (`scripts/eval_search.py`). The coach's `search_games` tool turns each game into a plain-English summary and retrieves games for questions like "threw away a winning position". 13 test queries, scored over 5 players × 150 games. The right answers come from the structured data, never from the summary text, and the queries avoid the summaries' wording ("got flagged" vs "lost on time").
+
+| Retriever | Precision@5 | Recall@10 |
+|---|---:|---:|
+| Random | 0.17 | n/a |
+| BM25 (keywords) | 0.41 | 0.19 |
+| Sentence embeddings | 0.35 | 0.16 |
+| **Hybrid (rank fusion)** | **0.45** | **0.23** |
+
+Embeddings win on paraphrase: "got flagged" scores 0.48 against BM25's 0.00, and "saved a lost game" 0.56 against 0.04. They fail where meaning hinges on who did what, or on negation: "my king got mated" scores 0.04, because the model confuses "got checkmated" with "won by checkmate", and "games *without* big errors" scores 0.00. Keywords handle exactly those. The hybrid is the default, and the tool's description steers exact filters ("lost on time", a specific opening) to SQL, where they belong. In the browser, transformers.js runs an 8-bit ONNX copy of the same model. Its embeddings match Python's with cosine similarity 0.99, and 19 of 20 top-5 results agree.
+
 **What "unsupported" means.** I checked one raw report by hand against the games. All 7 move sequences it cited were real, and its Black record (6–9–1) was right. Its White record ("10–4") was wrong: the truth was 9–5. Most of its other flagged numbers were training advice ("20 minutes a day"). So the raw model isn't 14% wrong. Its claims can't be checked automatically, and when one is wrong, nothing catches it. The grounded coach makes every claim checkable. Its first drafts mostly fail strict checking by citing the wrong fact for a correct number, and one repair turn fixed all 5.
 
 ## How it works
@@ -82,6 +93,7 @@ Chess.com public API ──► PGN parsing (python-chess) ──► DuckDB: game
 | Fetch + parse games, canonical opening families | `wf/fetch.py` |
 | DuckDB tables, SQL aggregation, sandboxed SQL tool | `wf/db.py` |
 | Elo residuals, shrinkage, intervals, worst branch | `wf/stats.py` |
+| Game summaries, embeddings + BM25 hybrid search | `wf/search.py`, `web/src/browser/search.ts`; eval: `scripts/eval_search.py` |
 | Stockfish analysis + feature engineering | `wf/engine.py` |
 | Blunder model: logistic regression, gradient boosting, PyTorch MLP | `wf/model.py` |
 | Facts given to the coach | `wf/facts.py` |
@@ -99,6 +111,7 @@ Chess.com public API ──► PGN parsing (python-chess) ──► DuckDB: game
 - **Integrate over the between-opening variance; don't plug in an estimate.** The first version used empirical Bayes. On real data (300 games, 34 openings) both method of moments and maximum likelihood put the between-opening SD near 0. Yet values anywhere from 0 to 10 points fit within one log-likelihood unit. Plugging in ~0 shrank a 12-game, −25-point result to −2 with a falsely narrow interval. The current model puts a half-normal prior on that SD and averages over a grid of values.
 - **Multiple comparisons.** With 34 openings checked, one at z ≈ −2 is expected by chance. Those results are flagged "worth watching" rather than called weaknesses.
 - **Solvers should converge.** scikit-learn's default lbfgs solver stopped up to 0.7% short in probability, and even at tol=1e-8 it left gaps of 1e-6. Parity testing against the browser's Newton solver surfaced both. Python now uses scikit-learn's Newton solver (`newton-cholesky`), the same algorithm as the browser, and the two agree to 1e-8.
+- **Measure retrieval; don't assume embeddings win.** On short, templated summaries, plain embeddings lost to BM25 (0.35 vs 0.41 precision@5). Fusing the two ranked lists beat both (0.45), and the eval shows which kinds of question each one handles.
 - **The family named first wins.** Opening families were matched against a fixed list in order, so "Nimzowitsch-Larsen Attack, Modern Variation" was filed under Modern Defense, and "Four Knights Game, Scotch Variation" under the Scotch. The bug surfaced while testing the coach's example-game tool in the browser. Families now match by where they appear in the name, and both languages share the test cases.
 - **"Worth watching" was the right call.** My Scotch as Black was flagged at 21% over 12 games, below rating expectation but not significant across 34 openings. Sixteen games later it's 38%, well within normal range: regression to the mean, which is what the multiple-comparisons caution predicted.
 - **Medians for "eval after move 12".** One −7 blowout shouldn't define an opening.

@@ -2,13 +2,25 @@
 
 Enter a Chess.com username and get an honest answer to "what am I actually bad at?"
 
-**[Live demo](https://ashtonaliu.github.io/weakness-finder/)**: enter any Chess.com username and the analysis runs entirely in your browser. Games come straight from Chess.com's API, and Stockfish runs as WebAssembly across parallel workers (about 15–40 s for 150 games). There's no server and no key. The page opens on a snapshot of my own games with the coach's verified report. The blunder model and live coach are in the full app ([Run it](#run-it)).
+**[Live demo](https://ashtonaliu.github.io/weakness-finder/)**: enter any Chess.com username and the analysis runs entirely in your browser. Games come straight from Chess.com's API, and Stockfish runs as WebAssembly across parallel workers (about 15–40 s for 150 games). The blunder-risk model trains in the browser too (logistic regression, fitted by Newton's method). There's no server and no key. The page opens on a snapshot of my own games with the coach's verified report. The live AI coach is in the full app ([Run it](#run-it)).
 
 - **Openings, adjusted properly.** "You score 38% against the Sicilian" says little if those opponents were stronger or there were only 6 games. Each game's result is compared with its Elo-expected score. Per-opening averages go into a hierarchical Bayesian model that shrinks them toward the player's mean, with a 90% interval for each. Openings that look bad on their own but could be chance among ~30 tested are labeled "worth watching", not "weakness".
 - **Where it goes wrong.** For each weak opening, it finds the move sequence where your results drop off, for example *"after 1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Qxd4 you score 22% in 6 games"*.
 - **Engine analysis of every move.** Stockfish runs on every position. Losses are measured in win probability, not centipawns, and split by game phase.
 - **A blunder-risk model.** It predicts whether a move will lose 20 or more win% from position and clock features. It learns from your opponents' moves (players of similar rating) and then scores yours, so it can say *"you made 1.6× the blunders the model expects in positions this hard, mostly with under 10% of your clock left."*
 - **A grounded LLM coach, with evals.** An agent with SQL, retrieval and Stockfish tools writes the report. A verifier checks every number, move and link in it against the facts and tool results the agent was given. If anything is unsupported, the checker's findings go back to the agent for one repair turn.
+
+## Skills demonstrated
+
+| Area | In this project |
+|---|---|
+| Data preprocessing and feature engineering pipelines | PGN and clock parsing, per-move engine and position features, canonical opening families. Parallel, cached Stockfish runs 300 games in about 30 s on the server and 150 in about 17 s in the browser |
+| Developing, training and deploying ML models into a product | Hierarchical Bayesian opening model and a blunder-risk classifier, benchmarked in scikit-learn and PyTorch. The classifier was reimplemented in TypeScript and ships to every visitor's browser |
+| Math and traditional ML | Elo expectation, a normal-normal hierarchical model with the variance integrated out, multiple comparisons, Poisson intervals, grouped cross-validation, and calibration vs. discrimination |
+| LLM applications: context engineering, RAG, evals, agentic patterns | Tool-using agent (SQL, retrieval over your games, Stockfish) with computed facts instead of raw games, served over the API or MCP. Verifier and repair loop, plus a five-player hallucination eval with a manual audit |
+| SQL | DuckDB tables and aggregations (standard SQL, portable to BigQuery), and a sandboxed read-only SQL tool for the agent |
+| Python and TypeScript | Python is the reference implementation. The TypeScript port is parity-tested against it in CI: statistics match to 1e-9 and model probabilities to 1e-6 |
+| Ownership | Real data exposed mistakes in my own method, and the fixes are documented below: collapsed shrinkage, a self-referential baseline, verifier bugs and a solver stopping early |
 
 ## Results
 
@@ -17,11 +29,20 @@ Enter a Chess.com username and get an honest answer to "what am I actually bad a
 | Model | ROC AUC | Log loss | Brier |
 |---|---:|---:|---:|
 | Base rate | 0.500 | 0.073 | 0.014 |
-| Logistic regression (scikit-learn) | 0.840 | 0.063 | 0.013 |
+| Logistic regression (scikit-learn, with clock and eval band features) | 0.824 | 0.064 | 0.014 |
 | Gradient boosting (scikit-learn) | 0.835 | 0.064 | 0.013 |
 | MLP (PyTorch) | 0.848 | 0.062 | 0.014 |
 
 The top features by permutation importance are fraction of clock left, then the engine eval before the move. Time pressure predicts blunders better than position type does.
+
+**Calibration matters more than AUC here.** The page reports *actual ÷ expected* blunders per clock band, so what matters is whether predicted totals are right within each band, not just the ranking. A plain logistic model ranks well (AUC 0.840) but can't bend at low clock: across five players it disagreed with gradient boosting by up to 0.75 in the low-clock ratio. Adding indicator features for the reported bands makes a logistic model match observed and predicted totals within each band on its training data. On held-out opponent moves, pooled across five players (actual ÷ predicted, by band <10% / 10–30% / >30% of clock):
+
+| Model | <10% | 10–30% | >30% |
+|---|---:|---:|---:|
+| Logistic regression with band features | 0.96 | 0.99 | 0.99 |
+| Gradient boosting | 1.12 | 0.95 | 0.99 |
+
+The band features cost a little AUC (0.840 → 0.824) and buy calibration where the page needs it. So the browser uses logistic regression, and every ratio now carries a 90% Poisson interval. Opponents make only about 15–30 low-clock blunders per player, so those intervals are wide, and the page highlights a band only when its interval excludes 1.
 
 **Coach hallucination eval** (`scripts/eval_coach.py`). 5 players (me plus four similar-rated recent opponents), 120 blitz games each, run through Claude Opus 5.5. The same verifier scores three conditions:
 
@@ -77,6 +98,7 @@ Chess.com public API ──► PGN parsing (python-chess) ──► DuckDB: game
 - **Shrinkage, not thresholds.** A "minimum 10 games" rule throws away information and still flags noise at 10 games. A normal-normal hierarchical model gives every opening an estimate and an interval.
 - **Integrate over the between-opening variance; don't plug in an estimate.** The first version used empirical Bayes. On real data (300 games, 34 openings) both method of moments and maximum likelihood put the between-opening SD near 0. Yet values anywhere from 0 to 10 points fit within one log-likelihood unit. Plugging in ~0 shrank a 12-game, −25-point result to −2 with a falsely narrow interval. The current model puts a half-normal prior on that SD and averages over a grid of values.
 - **Multiple comparisons.** With 34 openings checked, one at z ≈ −2 is expected by chance. Those results are flagged "worth watching" rather than called weaknesses.
+- **Solvers should converge.** scikit-learn's default logistic-regression tolerance (1e-4) stopped up to 0.7% short in probability. Parity testing against the browser's Newton solver surfaced it, and Python now uses tol=1e-8.
 - **Medians for "eval after move 12".** One −7 blowout shouldn't define an opening.
 - **The blunder model learns only from opponents.** Training on the user's own moves pulls their actual/expected ratio toward 1 by construction.
 - **Win probability, not centipawns.** Going from +9 to +6 doesn't matter; going from +1 to −2 does. Losses use Lichess's logistic mapping from centipawns to win%.
@@ -113,6 +135,7 @@ Open http://localhost:8765. Other commands:
 - Peer baseline: compare each opening against all Lichess players at the same rating (open database), not just the player's own average.
 - Tactical-motif tags for blunders (missed forks, pins, back-rank) and links to matching Lichess puzzles.
 - Run the warehouse in BigQuery. The SQL is standard and only the connection changes.
+- Bring-your-own-key coach in the browser: the visitor's Anthropic key calls the API directly from the page, with DuckDB-WASM for the SQL tool and the verifier ported to TypeScript.
 
 ## Licenses
 

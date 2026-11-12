@@ -3,6 +3,7 @@
 // renders either one.
 import { analyseGames, BLUNDER_DROP, moveLabel, phaseSummary, worstBlunders } from "./engine";
 import { fetchGames } from "./games";
+import { playerRisk, rowsOf } from "./model";
 import { formatMoves, openingTable, overall, withExpected, worstBranch } from "./stats";
 
 export interface BrowserOptions {
@@ -25,6 +26,9 @@ export async function analyzeInBrowser(o: BrowserOptions) {
         (cached ? ` (${cached} cached)` : "") + ` · ${secs}s` + (left !== null && done < total ? ` · about ${left}s left` : ""));
     },
   });
+  o.onStatus?.("Training the blunder model on your opponents' moves…");
+  await new Promise(r => setTimeout(r, 0));   // let the status paint
+  const risk = playerRisk(rowsOf(analyses));
   const openings = openingTable(rows).map(r => {
     const flagged = r.verdict.endsWith("weakness") || r.verdict === "worth watching";
     const b = flagged ? worstBranch(rows, r.color, r.family) : null;
@@ -38,7 +42,7 @@ export async function analyzeInBrowser(o: BrowserOptions) {
   return {
     username: o.username, time_class: o.timeClass, generated_at: new Date().toISOString(),
     overall: overall(rows), openings, phases: phaseSummary(analyses), blunders,
-    risk: null, facts: [], engine: true, analyses,
+    risk, facts: [], engine: true, analyses,
     seconds: Math.round((performance.now() - t0) / 1000),
   };
 }

@@ -55,6 +55,8 @@ class Game:
     family: str           # opening family, e.g. "Sicilian Defense"
     end_time: int
     time_control: str = ""
+    result: str = ""          # Chess.com result code for the user, e.g. "timeout"
+    opp_result: str = ""      # ...and for the opponent ("win", "resigned", ...)
     moves_san: list[str] = field(default_factory=list)
     pgn: str = ""
 
@@ -115,6 +117,7 @@ def parse_game(raw: dict, user: str) -> Game | None:
         time_class=raw.get("time_class", ""), eco=pg.headers.get("ECO", "?"),
         opening=full, family=family, end_time=raw.get("end_time", 0),
         time_control=raw.get("time_control", ""),
+        result=me.get("result", ""), opp_result=opp.get("result", ""),
         moves_san=sans, pgn=raw["pgn"],
     )
 

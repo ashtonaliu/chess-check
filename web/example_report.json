@@ -1,9 +1,9 @@
 {
  "username": "ashton-iwnl",
- "generated_at": "2026-11-12T22:30:35+00:00",
- "report": "Your results are about what your rating predicts: you scored 50% against an expected 49% [F1], and the data shows no clear weakness.\n\n## Biggest weaknesses\n\n**No clear weakness showed up.** You made 557 blunders where the model expected 566.9, which is 0.98 times expected (90% interval 0.92 to 1.05) [F2]. No opening family is a clear problem once you adjust for opponent rating and sample size [F8]. The evidence for any single weakness is thin, so treat the points below as things to keep an eye on, not proven problems.\n\n- **The middlegame is where most of your points slip away.** You blunder on 6.6% of middlegame moves, the same rate as your opponents [F10]. That is still about double your rate in the opening (3.1%) [F9] and endgame (3.1%) [F11]. One example is 38...Qh2+, which lost 88 win% when the engine preferred Bf6 [F16] (https://www.chess.com/game/live/186706648876). **What to do:** before each check or capture, ask what your opponent's best reply is.\n- **Single moves that lose the game.** 7...h5 lost 89 win% when the engine preferred Nxg4 [F15] (https://www.chess.com/game/live/186801191354). In an endgame, 43...Kh7 lost 93 win% when Qxf4+ was available [F14] (https://www.chess.com/game/live/186801649660). In both games you missed a forcing capture or check. **What to do:** go through every check and capture for both sides before you move.\n\n## What's working\n\n- **You handle low time well.** With under 10% of your clock left, you made 75 blunders against 81.8 expected [F3]. With 10-30% left, it was 61 against 74.0 [F4]. Both intervals include 1 [F3][F4], so this isn't proven, but time pressure is clearly not hurting you.\n- **Your Queen's Gambit and Benoni games as White.** In the Queen's Gambit as White you scored 58% against 50% expected [F6], with a median eval of +0.9 after move 12 [F12]. Against the Benoni as White you scored 70% in 10 games [F7]. Both are rated \"possible strength.\"\n\n## Training plan\n\n- Do Lichess middlegame puzzles every day: https://lichess.org/training/middlegame [F17].\n- Practise spotting hanging pieces: https://lichess.org/training/hangingPiece [F18].\n- Replay the three games linked above. For each one, write down the check or capture you missed.\n- Keep playing the Queen's Gambit, and spend your study time on the plans for moves 13-25 [F12]. In those moves you lose 5.1 win% per move, the same as your overall average [F12], so that's where your good openings could turn into more wins.",
+ "generated_at": "2026-11-12T22:43:12+00:00",
+ "report": "**Summary:** Across 300 games you scored 50% against 49% expected [F1], and you made 0.97 times the blunders expected for your positions [F2]. No clear weakness shows up, so this plan is about polishing your play rather than fixing a hole.\n\n## Biggest weaknesses\n\nThe evidence here is thin. No opening family shows a clear weakness once rating, sample size and the number of openings checked are taken into account [F8]. Your overall blunder count is not different from expected (interval 0.91 to 1.04) [F2]. Two things are worth watching, but neither has been shown to be a weakness:\n\n1. **Middlegame volatility (not a confirmed weakness).** You blunder on 6.6% of middlegame moves, against 6.5% for your opponents [F10]. That is level with them, but it is the phase where you blunder most often. Your costliest mistakes include 38...Qh2+, which lost 88 win% when Bf6 was better [F16] (https://www.chess.com/game/live/186706648876). *What to do:* before any check or capture, look for every reply your opponent has, then drill the [middlegame theme](https://lichess.org/training/middlegame) [F17].\n2. **Occasional big lapses in calm positions (not a confirmed weakness).** When you have over 30% of your clock left, you blunder at 1.03 times expected (interval 0.95 to 1.12) [F5]. That interval does not rule out a normal rate, so it is not a proven problem. Still, 7...h5 lost 89 win% when Nxg4 was available [F15] (https://www.chess.com/game/live/186801191354). *What to do:* when you have time, do a quick \"what's hanging?\" check before each move, and practise the [hanging piece theme](https://lichess.org/training/hangingPiece) [F18].\n\n## What's working\n\n- **Playing under time pressure.** With under 10% of your clock left you made 0.83 times the expected blunders (interval 0.68 to 1.01) [F3]. With 10-30% left it was 0.82 times (interval 0.66 to 1.01) [F4]. Neither interval clearly rules out a normal rate, so this is a good sign rather than a proven strength.\n- **Your White openings.** In the Queen's Gambit you scored 57% against 50% expected over 51 games [F7], with a median eval of +0.9 after move 12 [F13]. In the Benoni you scored 70% against 49% expected [F6]. Both are rated \"possible strength.\"\n\n## Training plan\n\n- Do [middlegame puzzles](https://lichess.org/training/middlegame) every day [F17], focusing on checking all of your opponent's replies.\n- Do a short set of [hanging piece puzzles](https://lichess.org/training/hangingPiece) [F18] before you play.\n- Go back over the 43...Kh7 game, where Qxf4+ was better (https://www.chess.com/game/live/186801649660) [F14], and the two games linked above. For each one, write down what you missed.\n- Keep playing the Queen's Gambit [F7]. Review how you play moves 13-25, where you lose 5.1 win% per move, the same as your overall average [F13]. Turning your early edge into wins is where you can improve most.",
  "verification": {
-  "checked": 41,
+  "checked": 46,
   "unsupported": [],
   "uncited": [],
   "bad_citations": [],
@@ -11,50 +11,41 @@
   "ok": true
  },
  "first_verification": {
-  "checked": 43,
+  "checked": 46,
   "unsupported": [
    {
     "type": "miscited number",
     "claim": 1.0,
-    "sentence": "Both intervals include 1, so this isn't proven, but time pressure is clearly not hurting you."
+    "sentence": "That interval includes 1, so it is not a proven problem."
+   },
+   {
+    "type": "miscited number",
+    "claim": 1.0,
+    "sentence": "Both intervals just reach 1, so this is a good sign rather than a proven strength."
    },
    {
     "type": "move",
     "claim": "d4",
-    "sentence": "**Your 1.d4 openings.** In the Queen's Gambit as White you scored 58% against 50% expected [F6], with a median eval of +0.9 after move 12 [F12]."
+    "sentence": "**Your 1.d4 openings as White.** In the Queen's Gambit you scored 57% against 50% expected over 51 games [F7], with a median eval of +0.9 after move 12 [F13]."
    },
    {
     "type": "number",
     "claim": 15.0,
-    "sentence": "Do 15 minutes a day of Lichess middlegame puzzles: https://lichess.org/training/middlegame [F17]."
-   },
-   {
-    "type": "miscited number",
-    "claim": 25.0,
-    "sentence": "Keep playing the Queen's Gambit, and spend your study time on the plans for moves 13-25."
-   },
-   {
-    "type": "miscited number",
-    "claim": 13.0,
-    "sentence": "Keep playing the Queen's Gambit, and spend your study time on the plans for moves 13-25."
+    "sentence": "Do 15 minutes a day of [middlegame puzzles](https://lichess.org/training/middlegame) [F17], focusing on checking all of your opponent's replies."
    }
   ],
   "uncited": [
    {
     "claim": 1.0,
-    "sentence": "Both intervals include 1, so this isn't proven, but time pressure is clearly not hurting you."
+    "sentence": "That interval includes 1, so it is not a proven problem."
    },
    {
-    "claim": 25.0,
-    "sentence": "Keep playing the Queen's Gambit, and spend your study time on the plans for moves 13-25."
-   },
-   {
-    "claim": 13.0,
-    "sentence": "Keep playing the Queen's Gambit, and spend your study time on the plans for moves 13-25."
+    "claim": 1.0,
+    "sentence": "Both intervals just reach 1, so this is a good sign rather than a proven strength."
    }
   ],
   "bad_citations": [],
-  "unsupported_rate": 0.11627906976744186,
+  "unsupported_rate": 0.08695652173913043,
   "ok": false
  },
  "repaired": true,
@@ -70,27 +61,27 @@
   },
   {
    "id": "F2",
-   "text": "A blunder-risk model trained only on your opponents' moves (players of similar rating) expected 566.9 blunders in your 12269 moves given how hard the positions were; you made 557, 0.98 times the expected count (90% interval 0.92 to 1.05)."
+   "text": "A blunder-risk model trained only on your opponents' moves (players of similar rating) expected 577.2 blunders in your 12355 moves given how hard the positions were; you made 561, 0.97 times the expected count (90% interval 0.91 to 1.04)."
   },
   {
    "id": "F3",
-   "text": "With under 10% of the clock left, you made 75 blunders in 1407 moves versus 81.8 expected (0.92 times expected, 90% interval 0.75 to 1.11). Treat a band as different from expected only if its interval excludes 1."
+   "text": "With under 10% of the clock left, you made 77 blunders in 1443 moves versus 92.5 expected (0.83 times expected, 90% interval 0.68 to 1.01). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F4",
-   "text": "With 10-30% of the clock left, you made 61 blunders in 1653 moves versus 74.0 expected (0.82 times expected, 90% interval 0.66 to 1.02). Treat a band as different from expected only if its interval excludes 1."
+   "text": "With 10-30% of the clock left, you made 62 blunders in 1671 moves versus 75.6 expected (0.82 times expected, 90% interval 0.66 to 1.01). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F5",
-   "text": "With over 30% of the clock left, you made 421 blunders in 9209 moves versus 411.1 expected (1.02 times expected, 90% interval 0.94 to 1.11). Treat a band as different from expected only if its interval excludes 1."
+   "text": "With over 30% of the clock left, you made 422 blunders in 9241 moves versus 409.2 expected (1.03 times expected, 90% interval 0.95 to 1.12). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F6",
-   "text": "Queen's Gambit as White: 52 games, scored 58% versus 50% expected. Rating-adjusted gap after shrinkage: +3 points (90% interval -2 to +10). Verdict: possible strength."
+   "text": "Benoni Defense as White: 10 games, scored 70% versus 49% expected. Rating-adjusted gap after shrinkage: +3 points (90% interval -3 to +12). Verdict: possible strength."
   },
   {
    "id": "F7",
-   "text": "Benoni Defense as White: 10 games, scored 70% versus 49% expected. Rating-adjusted gap after shrinkage: +3 points (90% interval -3 to +12). Verdict: possible strength."
+   "text": "Queen's Gambit as White: 51 games, scored 57% versus 50% expected. Rating-adjusted gap after shrinkage: +3 points (90% interval -2 to +9). Verdict: possible strength."
   },
   {
    "id": "F8",
@@ -102,19 +93,19 @@
   },
   {
    "id": "F10",
-   "text": "In the middlegame you lose an average of 5.1 win% per move, with a blunder (a drop of 20 win% or more) on 6.6% of moves (4933 moves analysed). Your opponents: 5.1 win% per move, blunders on 6.6% of moves."
+   "text": "In the middlegame you lose an average of 5.1 win% per move, with a blunder (a drop of 20 win% or more) on 6.6% of moves (4965 moves analysed). Your opponents: 5.1 win% per move, blunders on 6.5% of moves."
   },
   {
    "id": "F11",
-   "text": "In the endgame you lose an average of 2.9 win% per move, with a blunder (a drop of 20 win% or more) on 3.1% of moves (3745 moves analysed). Your opponents: 2.7 win% per move, blunders on 3.2% of moves."
+   "text": "In the endgame you lose an average of 2.9 win% per move, with a blunder (a drop of 20 win% or more) on 3.2% of moves (3799 moves analysed). Your opponents: 2.8 win% per move, blunders on 3.3% of moves."
   },
   {
    "id": "F12",
-   "text": "In your Queen's Gambit games as White, the engine eval after move 12 had a median of +0.9 pawns for you; in moves 13-25 you lost 5.1 win% per move, versus 5.1 across all your games."
+   "text": "In your Benoni Defense games as White, the engine eval after move 12 had a median of +0.5 pawns for you; in moves 13-25 you lost 4.7 win% per move, versus 5.1 across all your games."
   },
   {
    "id": "F13",
-   "text": "In your Benoni Defense games as White, the engine eval after move 12 had a median of +0.5 pawns for you; in moves 13-25 you lost 4.7 win% per move, versus 5.1 across all your games."
+   "text": "In your Queen's Gambit games as White, the engine eval after move 12 had a median of +0.9 pawns for you; in moves 13-25 you lost 5.1 win% per move, versus 5.1 across all your games."
   },
   {
    "id": "F14",

@@ -2,13 +2,13 @@
  "username": "ashton-iwnl",
  "overall": {
   "games": 300,
-  "score": 0.505,
-  "expected": 0.49344824431069034,
-  "resid": 0.011551755689309636,
+  "score": 0.5033333333333333,
+  "expected": 0.49339549132221044,
+  "resid": 0.009937842011122931,
   "avg_rating": 1703,
-  "first_ts": 1793814166,
-  "last_ts": 1794522578,
-  "se": 0.026636524748258648
+  "first_ts": 1793814626,
+  "last_ts": 1794523370,
+  "se": 0.026587005089745448
  },
  "openings": [
   {
@@ -18,10 +18,10 @@
    "score": 0.0,
    "expected": 0.47448154490271477,
    "raw": -0.47448154490271477,
-   "shrunk": -0.011925366819892258,
-   "ci_low": -0.11599999999999999,
-   "ci_high": 0.050999999999999934,
-   "p_below": 0.4744072739057997,
+   "shrunk": -0.0136894595469142,
+   "ci_low": -0.118,
+   "ci_high": 0.04899999999999993,
+   "p_below": 0.4942931376316451,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -32,10 +32,10 @@
    "score": 0.1,
    "expected": 0.48133575952656316,
    "raw": -0.3813357595265632,
-   "shrunk": -0.0074260968895643155,
-   "ci_low": -0.10399999999999998,
-   "ci_high": 0.05600000000000005,
-   "p_below": 0.44562787385483654,
+   "shrunk": -0.009146322712603346,
+   "ci_low": -0.10599999999999998,
+   "ci_high": 0.05400000000000005,
+   "p_below": 0.4654045550257545,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -46,10 +46,10 @@
    "score": 0.375,
    "expected": 0.47502187335374096,
    "raw": -0.10002187335374095,
-   "shrunk": -0.002374343745333403,
-   "ci_low": -0.08299999999999996,
-   "ci_high": 0.05699999999999994,
-   "p_below": 0.4214569218136075,
+   "shrunk": -0.0038884660242038587,
+   "ci_low": -0.08499999999999996,
+   "ci_high": 0.05600000000000005,
+   "p_below": 0.4405812023830273,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -60,10 +60,24 @@
    "score": 0.3333333333333333,
    "expected": 0.4759233893080876,
    "raw": -0.1425900559747542,
-   "shrunk": -0.0007271355975059065,
-   "ci_low": -0.08499999999999996,
-   "ci_high": 0.06299999999999994,
-   "p_below": 0.40382655374881266,
+   "shrunk": -0.002318105776349443,
+   "ci_low": -0.08599999999999997,
+   "ci_high": 0.06099999999999994,
+   "p_below": 0.4230774121103941,
+   "verdict": "not enough evidence",
+   "branch": null
+  },
+  {
+   "color": "white",
+   "family": "Queen's Pawn Opening",
+   "n": 11,
+   "score": 0.36363636363636365,
+   "expected": 0.4812195930369546,
+   "raw": -0.117583229400591,
+   "shrunk": -0.0021017149521293656,
+   "ci_low": -0.08399999999999996,
+   "ci_high": 0.06099999999999994,
+   "p_below": 0.4230559153663899,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -74,10 +88,10 @@
    "score": 0.3125,
    "expected": 0.46067570399311936,
    "raw": -0.1481757039931193,
-   "shrunk": 6.533382495972352e-06,
-   "ci_low": -0.08399999999999996,
-   "ci_high": 0.06400000000000006,
-   "p_below": 0.3977702944079085,
+   "shrunk": -0.0015927545925542947,
+   "ci_low": -0.08599999999999997,
+   "ci_high": 0.06299999999999994,
+   "p_below": 0.41700248015479496,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -88,24 +102,10 @@
    "score": 0.25,
    "expected": 0.49030050111669865,
    "raw": -0.24030050111669868,
-   "shrunk": 0.0015791336356500833,
-   "ci_low": -0.08299999999999996,
-   "ci_high": 0.06899999999999995,
-   "p_below": 0.38387710682377624,
-   "verdict": "not enough evidence",
-   "branch": null
-  },
-  {
-   "color": "white",
-   "family": "Queen's Pawn Opening",
-   "n": 10,
-   "score": 0.4,
-   "expected": 0.48178609845271625,
-   "raw": -0.08178609845271623,
-   "shrunk": 0.003452622259540867,
-   "ci_low": -0.07499999999999996,
-   "ci_high": 0.06899999999999995,
-   "p_below": 0.37351486692521546,
+   "shrunk": -7.069545469831638e-05,
+   "ci_low": -0.08499999999999996,
+   "ci_high": 0.06699999999999995,
+   "p_below": 0.40314547198285405,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -116,10 +116,10 @@
    "score": 0.4,
    "expected": 0.501151508508282,
    "raw": -0.10115150850828203,
-   "shrunk": 0.0061077905586676695,
-   "ci_low": -0.07299999999999995,
-   "ci_high": 0.07600000000000007,
-   "p_below": 0.35295946711854215,
+   "shrunk": 0.004519517196894706,
+   "ci_low": -0.07399999999999995,
+   "ci_high": 0.07400000000000007,
+   "p_below": 0.37173608372877637,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -130,10 +130,10 @@
    "score": 0.42857142857142855,
    "expected": 0.4969169041843008,
    "raw": -0.06834547561287221,
-   "shrunk": 0.006389360445092214,
-   "ci_low": -0.07099999999999995,
-   "ci_high": 0.07499999999999996,
-   "p_below": 0.3512597030869034,
+   "shrunk": 0.004833292287549699,
+   "ci_low": -0.07199999999999995,
+   "ci_high": 0.07400000000000007,
+   "p_below": 0.36990929206622614,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -144,10 +144,10 @@
    "score": 0.45,
    "expected": 0.49375769383785484,
    "raw": -0.043757693837854814,
-   "shrunk": 0.006752431601936277,
-   "ci_low": -0.06799999999999995,
-   "ci_high": 0.07400000000000007,
-   "p_below": 0.34885191819025146,
+   "shrunk": 0.005239079305091089,
+   "ci_low": -0.06899999999999995,
+   "ci_high": 0.07299999999999995,
+   "p_below": 0.3673218838616908,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -158,10 +158,10 @@
    "score": 0.4,
    "expected": 0.466836726693651,
    "raw": -0.06683672669365096,
-   "shrunk": 0.007765315538041162,
-   "ci_low": -0.06899999999999995,
-   "ci_high": 0.07899999999999996,
-   "p_below": 0.3413919862605182,
+   "shrunk": 0.0061932026845829685,
+   "ci_low": -0.07099999999999995,
+   "ci_high": 0.07699999999999996,
+   "p_below": 0.35997798659223107,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -172,10 +172,10 @@
    "score": 0.3333333333333333,
    "expected": 0.4431365012195488,
    "raw": -0.10980316788621548,
-   "shrunk": 0.007854100549796359,
-   "ci_low": -0.06999999999999995,
-   "ci_high": 0.08000000000000007,
-   "p_below": 0.34075746399276186,
+   "shrunk": 0.006251303564844437,
+   "ci_low": -0.07199999999999995,
+   "ci_high": 0.07899999999999996,
+   "p_below": 0.3594373860720332,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -186,10 +186,10 @@
    "score": 0.5,
    "expected": 0.4995563233093334,
    "raw": 0.0004436766906665665,
-   "shrunk": 0.009756046349802094,
-   "ci_low": -0.05499999999999994,
-   "ci_high": 0.07299999999999995,
-   "p_below": 0.3236881400729092,
+   "shrunk": 0.008393042019791703,
+   "ci_low": -0.05699999999999994,
+   "ci_high": 0.07200000000000006,
+   "p_below": 0.3412026802151042,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -200,10 +200,10 @@
    "score": 0.5,
    "expected": 0.4957123457244144,
    "raw": 0.004287654275585584,
-   "shrunk": 0.011140386120173812,
-   "ci_low": -0.061999999999999944,
-   "ci_high": 0.08400000000000007,
-   "p_below": 0.317658781044357,
+   "shrunk": 0.009614844405099054,
+   "ci_low": -0.06299999999999994,
+   "ci_high": 0.08299999999999996,
+   "p_below": 0.33576064365122493,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -214,10 +214,10 @@
    "score": 0.5,
    "expected": 0.4906848929529132,
    "raw": 0.009315107047086824,
-   "shrunk": 0.011463190862221743,
-   "ci_low": -0.061999999999999944,
-   "ci_high": 0.08600000000000008,
-   "p_below": 0.31615610573580866,
+   "shrunk": 0.009912935091819806,
+   "ci_low": -0.06399999999999995,
+   "ci_high": 0.08499999999999996,
+   "p_below": 0.33432808246187173,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -228,10 +228,10 @@
    "score": 0.5,
    "expected": 0.490656373440187,
    "raw": 0.009343626559813037,
-   "shrunk": 0.01146432015256514,
-   "ci_low": -0.061999999999999944,
-   "ci_high": 0.08600000000000008,
-   "p_below": 0.31614846348986986,
+   "shrunk": 0.009914075758785784,
+   "ci_low": -0.06399999999999995,
+   "ci_high": 0.08499999999999996,
+   "p_below": 0.33432028908813854,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -242,10 +242,10 @@
    "score": 0.5357142857142857,
    "expected": 0.5042089935812685,
    "raw": 0.031505292133017164,
-   "shrunk": 0.01380491525920423,
-   "ci_low": -0.051999999999999935,
-   "ci_high": 0.08499999999999996,
-   "p_below": 0.2947699945729512,
+   "shrunk": 0.01239205326767403,
+   "ci_low": -0.05399999999999994,
+   "ci_high": 0.08400000000000007,
+   "p_below": 0.31204977302960063,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -256,10 +256,10 @@
    "score": 0.5833333333333334,
    "expected": 0.5181633081141014,
    "raw": 0.065170025219232,
-   "shrunk": 0.014588184172075722,
-   "ci_low": -0.05499999999999994,
-   "ci_high": 0.09099999999999997,
-   "p_below": 0.293856987054244,
+   "shrunk": 0.013095234966313814,
+   "ci_low": -0.05699999999999994,
+   "ci_high": 0.09000000000000008,
+   "p_below": 0.3114655846074178,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -270,10 +270,10 @@
    "score": 0.5555555555555556,
    "expected": 0.49696796343280436,
    "raw": 0.05858759212275119,
-   "shrunk": 0.015298616556686573,
-   "ci_low": -0.051999999999999935,
-   "ci_high": 0.09000000000000008,
-   "p_below": 0.28691227246507867,
+   "shrunk": 0.013846955065948498,
+   "ci_low": -0.05399999999999994,
+   "ci_high": 0.08899999999999997,
+   "p_below": 0.3042301083966542,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -284,10 +284,10 @@
    "score": 0.6666666666666666,
    "expected": 0.48723388356486136,
    "raw": 0.1794327831018053,
-   "shrunk": 0.016667049948073276,
-   "ci_low": -0.05399999999999994,
-   "ci_high": 0.09800000000000009,
-   "p_below": 0.2824790178995058,
+   "shrunk": 0.015156184643411003,
+   "ci_low": -0.05499999999999994,
+   "ci_high": 0.09600000000000009,
+   "p_below": 0.29997507856701955,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -298,10 +298,10 @@
    "score": 0.6,
    "expected": 0.4810684444498496,
    "raw": 0.11893155555015042,
-   "shrunk": 0.01673857871825809,
-   "ci_low": -0.051999999999999935,
-   "ci_high": 0.09600000000000009,
-   "p_below": 0.28021224047242627,
+   "shrunk": 0.015253953230624897,
+   "ci_low": -0.05399999999999994,
+   "ci_high": 0.09499999999999997,
+   "p_below": 0.29755852661702153,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -312,10 +312,10 @@
    "score": 0.6666666666666666,
    "expected": 0.4760470012733243,
    "raw": 0.1906196653933423,
-   "shrunk": 0.01700791154298573,
-   "ci_low": -0.052999999999999936,
-   "ci_high": 0.09800000000000009,
-   "p_below": 0.28029976199333523,
+   "shrunk": 0.015500601912791828,
+   "ci_low": -0.05499999999999994,
+   "ci_high": 0.09699999999999998,
+   "p_below": 0.2977446524369743,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -326,10 +326,10 @@
    "score": 0.75,
    "expected": 0.5222611955612846,
    "raw": 0.22773880443871541,
-   "shrunk": 0.02011213850031038,
-   "ci_low": -0.04699999999999993,
-   "ci_high": 0.10400000000000009,
-   "p_below": 0.2595891374614224,
+   "shrunk": 0.01864901338998316,
+   "ci_low": -0.04899999999999993,
+   "ci_high": 0.10299999999999998,
+   "p_below": 0.276475941500202,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -340,10 +340,24 @@
    "score": 0.8333333333333334,
    "expected": 0.5195937035975858,
    "raw": 0.31373962973574754,
-   "shrunk": 0.02075934704732322,
-   "ci_low": -0.04699999999999993,
-   "ci_high": 0.10699999999999998,
-   "p_below": 0.25684997642718094,
+   "shrunk": 0.019291170260610665,
+   "ci_low": -0.04799999999999993,
+   "ci_high": 0.1060000000000001,
+   "p_below": 0.27371262639432936,
+   "verdict": "not enough evidence",
+   "branch": null
+  },
+  {
+   "color": "black",
+   "family": "Reti Opening",
+   "n": 3,
+   "score": 0.8333333333333334,
+   "expected": 0.5076228208651049,
+   "raw": 0.3257105124682284,
+   "shrunk": 0.019659725022818025,
+   "ci_low": -0.04799999999999993,
+   "ci_high": 0.1060000000000001,
+   "p_below": 0.2714315266417608,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -354,11 +368,11 @@
    "score": 0.59375,
    "expected": 0.5001796570832424,
    "raw": 0.09357034291675768,
-   "shrunk": 0.021788932798406522,
-   "ci_low": -0.038000000000000034,
-   "ci_high": 0.10000000000000009,
-   "p_below": 0.23543626080882893,
-   "verdict": "possible strength",
+   "shrunk": 0.020453772463008616,
+   "ci_low": -0.040000000000000036,
+   "ci_high": 0.09899999999999998,
+   "p_below": 0.25118995840258673,
+   "verdict": "not enough evidence",
    "branch": null
   },
   {
@@ -368,10 +382,10 @@
    "score": 0.7142857142857143,
    "expected": 0.5125079165718367,
    "raw": 0.20177779771387758,
-   "shrunk": 0.02384282008126331,
-   "ci_low": -0.040000000000000036,
-   "ci_high": 0.1100000000000001,
-   "p_below": 0.2325573153836606,
+   "shrunk": 0.02244697706792129,
+   "ci_low": -0.040999999999999925,
+   "ci_high": 0.10899999999999999,
+   "p_below": 0.24858194616609583,
    "verdict": "possible strength",
    "branch": null
   },
@@ -382,10 +396,10 @@
    "score": 0.65,
    "expected": 0.48565946614648176,
    "raw": 0.16434053385351827,
-   "shrunk": 0.024809578169782708,
-   "ci_low": -0.03700000000000003,
-   "ci_high": 0.1100000000000001,
-   "p_below": 0.22255950814578954,
+   "shrunk": 0.023449237300677266,
+   "ci_low": -0.038000000000000034,
+   "ci_high": 0.10899999999999999,
+   "p_below": 0.23817466973256382,
    "verdict": "possible strength",
    "branch": null
   },
@@ -396,10 +410,24 @@
    "score": 0.75,
    "expected": 0.49639719396475734,
    "raw": 0.25360280603524266,
-   "shrunk": 0.025259223498274974,
-   "ci_low": -0.038000000000000034,
+   "shrunk": 0.023867149095323822,
+   "ci_low": -0.040000000000000036,
    "ci_high": 0.1140000000000001,
-   "p_below": 0.22545619502253553,
+   "p_below": 0.24131800240193718,
+   "verdict": "possible strength",
+   "branch": null
+  },
+  {
+   "color": "white",
+   "family": "Queen's Gambit",
+   "n": 51,
+   "score": 0.5686274509803921,
+   "expected": 0.5002364618632937,
+   "raw": 0.06839098911709834,
+   "shrunk": 0.025480837284468774,
+   "ci_low": -0.02300000000000002,
+   "ci_high": 0.09400000000000008,
+   "p_below": 0.18327191893626352,
    "verdict": "possible strength",
    "branch": null
   },
@@ -410,24 +438,10 @@
    "score": 0.7,
    "expected": 0.4909997380546164,
    "raw": 0.20900026194538363,
-   "shrunk": 0.028684802215568336,
-   "ci_low": -0.031000000000000028,
+   "shrunk": 0.027357298957977498,
+   "ci_low": -0.03300000000000003,
    "ci_high": 0.119,
-   "p_below": 0.19936505641370025,
-   "verdict": "possible strength",
-   "branch": null
-  },
-  {
-   "color": "white",
-   "family": "Queen's Gambit",
-   "n": 52,
-   "score": 0.5769230769230769,
-   "expected": 0.5001488906783254,
-   "raw": 0.07677418624475144,
-   "shrunk": 0.029002577910040014,
-   "ci_low": -0.019000000000000017,
-   "ci_high": 0.09899999999999998,
-   "p_below": 0.1530793835707845,
+   "p_below": 0.21426865768633152,
    "verdict": "possible strength",
    "branch": null
   }
@@ -435,18 +449,18 @@
  "phases": {
   "opening": {
    "moves": 3591,
-   "avg_loss": 3.412614870509618,
+   "avg_loss": 3.4127541074909624,
    "blunder_rate": 0.031467557783347255
   },
   "middlegame": {
-   "moves": 4933,
-   "avg_loss": 5.115953780660845,
-   "blunder_rate": 0.06628826272045409
+   "moves": 4965,
+   "avg_loss": 5.10281973816716,
+   "blunder_rate": 0.06586102719033232
   },
   "endgame": {
-   "moves": 3745,
-   "avg_loss": 2.855674232309756,
-   "blunder_rate": 0.03124165554072096
+   "moves": 3799,
+   "avg_loss": 2.876757041326675,
+   "blunder_rate": 0.03185048697025533
   }
  },
  "blunders": [
@@ -493,41 +507,41 @@
  ],
  "risk": {
   "model": "gradient boosting",
-  "moves": 12269,
-  "actual": 557,
-  "expected": 566.8855071147493,
+  "moves": 12355,
+  "actual": 561,
+  "expected": 577.2421416589726,
   "buckets": [
    {
     "label": "under 10% of the clock left",
-    "moves": 1407,
-    "actual": 75,
-    "expected": 81.84841578628831,
-    "ratio": 0.9163280593705078,
-    "ci_low": 0.7494935123069666,
-    "ci_high": 1.1104140516645882
+    "moves": 1443,
+    "actual": 77,
+    "expected": 92.46784604828758,
+    "ratio": 0.8327218951308747,
+    "ci_low": 0.6830036706718676,
+    "ci_high": 1.006548992804869
    },
    {
     "label": "10-30% of the clock left",
-    "moves": 1653,
-    "actual": 61,
-    "expected": 73.98043098458382,
-    "ratio": 0.8245423713834716,
-    "ci_low": 0.6588962828026277,
-    "ci_high": 1.020471922078396
+    "moves": 1671,
+    "actual": 62,
+    "expected": 75.55593350618334,
+    "ratio": 0.8205841304961979,
+    "ci_low": 0.6570014573052272,
+    "ci_high": 1.0138080109364112
    },
    {
     "label": "over 30% of the clock left",
-    "moves": 9209,
-    "actual": 421,
-    "expected": 411.05666034387724,
-    "ratio": 1.0241897057398472,
-    "ci_low": 0.9434848352517062,
-    "ci_high": 1.1101909851840133
+    "moves": 9241,
+    "actual": 422,
+    "expected": 409.2183621045018,
+    "ratio": 1.0312342726503416,
+    "ci_low": 0.9500689309524405,
+    "ci_high": 1.1177197016371343
    }
   ],
-  "ratio": 0.9825617219161888,
-  "ci_low": 0.9150942525445961,
-  "ci_high": 1.053860592375689
+  "ratio": 0.9718625157680045,
+  "ci_low": 0.905364403869288,
+  "ci_high": 1.0421230746990906
  },
  "facts": [
   {
@@ -536,27 +550,27 @@
   },
   {
    "id": "F2",
-   "text": "A blunder-risk model trained only on your opponents' moves (players of similar rating) expected 566.9 blunders in your 12269 moves given how hard the positions were; you made 557, 0.98 times the expected count (90% interval 0.92 to 1.05)."
+   "text": "A blunder-risk model trained only on your opponents' moves (players of similar rating) expected 577.2 blunders in your 12355 moves given how hard the positions were; you made 561, 0.97 times the expected count (90% interval 0.91 to 1.04)."
   },
   {
    "id": "F3",
-   "text": "With under 10% of the clock left, you made 75 blunders in 1407 moves versus 81.8 expected (0.92 times expected, 90% interval 0.75 to 1.11). Treat a band as different from expected only if its interval excludes 1."
+   "text": "With under 10% of the clock left, you made 77 blunders in 1443 moves versus 92.5 expected (0.83 times expected, 90% interval 0.68 to 1.01). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F4",
-   "text": "With 10-30% of the clock left, you made 61 blunders in 1653 moves versus 74.0 expected (0.82 times expected, 90% interval 0.66 to 1.02). Treat a band as different from expected only if its interval excludes 1."
+   "text": "With 10-30% of the clock left, you made 62 blunders in 1671 moves versus 75.6 expected (0.82 times expected, 90% interval 0.66 to 1.01). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F5",
-   "text": "With over 30% of the clock left, you made 421 blunders in 9209 moves versus 411.1 expected (1.02 times expected, 90% interval 0.94 to 1.11). Treat a band as different from expected only if its interval excludes 1."
+   "text": "With over 30% of the clock left, you made 422 blunders in 9241 moves versus 409.2 expected (1.03 times expected, 90% interval 0.95 to 1.12). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F6",
-   "text": "Queen's Gambit as White: 52 games, scored 58% versus 50% expected. Rating-adjusted gap after shrinkage: +3 points (90% interval -2 to +10). Verdict: possible strength."
+   "text": "Benoni Defense as White: 10 games, scored 70% versus 49% expected. Rating-adjusted gap after shrinkage: +3 points (90% interval -3 to +12). Verdict: possible strength."
   },
   {
    "id": "F7",
-   "text": "Benoni Defense as White: 10 games, scored 70% versus 49% expected. Rating-adjusted gap after shrinkage: +3 points (90% interval -3 to +12). Verdict: possible strength."
+   "text": "Queen's Gambit as White: 51 games, scored 57% versus 50% expected. Rating-adjusted gap after shrinkage: +3 points (90% interval -2 to +9). Verdict: possible strength."
   },
   {
    "id": "F8",
@@ -568,19 +582,19 @@
   },
   {
    "id": "F10",
-   "text": "In the middlegame you lose an average of 5.1 win% per move, with a blunder (a drop of 20 win% or more) on 6.6% of moves (4933 moves analysed). Your opponents: 5.1 win% per move, blunders on 6.6% of moves."
+   "text": "In the middlegame you lose an average of 5.1 win% per move, with a blunder (a drop of 20 win% or more) on 6.6% of moves (4965 moves analysed). Your opponents: 5.1 win% per move, blunders on 6.5% of moves."
   },
   {
    "id": "F11",
-   "text": "In the endgame you lose an average of 2.9 win% per move, with a blunder (a drop of 20 win% or more) on 3.1% of moves (3745 moves analysed). Your opponents: 2.7 win% per move, blunders on 3.2% of moves."
+   "text": "In the endgame you lose an average of 2.9 win% per move, with a blunder (a drop of 20 win% or more) on 3.2% of moves (3799 moves analysed). Your opponents: 2.8 win% per move, blunders on 3.3% of moves."
   },
   {
    "id": "F12",
-   "text": "In your Queen's Gambit games as White, the engine eval after move 12 had a median of +0.9 pawns for you; in moves 13-25 you lost 5.1 win% per move, versus 5.1 across all your games."
+   "text": "In your Benoni Defense games as White, the engine eval after move 12 had a median of +0.5 pawns for you; in moves 13-25 you lost 4.7 win% per move, versus 5.1 across all your games."
   },
   {
    "id": "F13",
-   "text": "In your Benoni Defense games as White, the engine eval after move 12 had a median of +0.5 pawns for you; in moves 13-25 you lost 4.7 win% per move, versus 5.1 across all your games."
+   "text": "In your Queen's Gambit games as White, the engine eval after move 12 had a median of +0.9 pawns for you; in moves 13-25 you lost 5.1 win% per move, versus 5.1 across all your games."
   },
   {
    "id": "F14",
@@ -604,6 +618,6 @@
   }
  ],
  "engine": true,
- "generated_at": "2026-11-12T22:30:35+00:00",
+ "generated_at": "2026-11-12T22:43:12+00:00",
  "time_class": "blitz"
 }

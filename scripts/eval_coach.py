@@ -91,7 +91,8 @@ def main():
     for i, user in enumerate(args.users, 1):
         t = time.time()
         a = analyze(user, max_games=args.games, time_class=args.time_class)
-        res = coach_cli.run_coach_auto(user, a.facts, a.games, a.moves, repair=True)
+        res = coach_cli.run_coach_auto(user, a.facts, a.games, a.moves, repair=True,
+                                       summaries=a.summaries)
         raw_text, pgns = raw_report(user, a)
         seen = res.facts + [{"id": "PGN", "text": pgns}]
         conds = {

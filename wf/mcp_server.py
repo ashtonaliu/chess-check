@@ -30,7 +30,9 @@ def _load_box() -> ToolBox:
     facts = json.loads((STATE / "facts.json").read_text())
     if TOOL_FACTS.exists():
         facts += [json.loads(line) for line in TOOL_FACTS.read_text().splitlines() if line]
-    return ToolBox(games, moves, facts)
+    summ_path = STATE / "summaries.json"
+    summaries = [tuple(x) for x in json.loads(summ_path.read_text())] if summ_path.exists() else []
+    return ToolBox(games, moves, facts, summaries)
 
 
 box = _load_box()
@@ -60,6 +62,11 @@ def run_sql(query: str) -> str:
 @server.tool(name="example_games", description=DESC["example_games"])
 def example_games(family: str, color: str, k: int = 3) -> str:
     return _call("example_games", {"family": family, "color": color, "k": k})
+
+
+@server.tool(name="search_games", description=DESC["search_games"])
+def search_games(query: str, k: int = 5) -> str:
+    return _call("search_games", {"query": query, "k": k})
 
 
 @server.tool(name="engine_eval", description=DESC["engine_eval"])

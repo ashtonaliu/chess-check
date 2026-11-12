@@ -4,6 +4,7 @@
 import { analyseGames, BLUNDER_DROP, moveLabel, phaseSummary, worstBlunders } from "./engine";
 import { fetchGames } from "./games";
 import { buildFacts } from "./facts";
+import { summarize } from "./search";
 import { playerRisk, rowsOf } from "./model";
 import { formatMoves, openingTable, overall, withExpected, worstBranch } from "./stats";
 
@@ -45,6 +46,7 @@ export async function analyzeInBrowser(o: BrowserOptions) {
     overall: overall(rows), openings, phases: phaseSummary(analyses), blunders,
     risk, facts: buildFacts(rows, analyses, risk), engine: true, analyses,
     gameRows: rows, moveRows: rowsOf(analyses),
+    summaries: games.map((g, i) => [g.url, summarize(g, analyses[i])] as [string, string]),
     seconds: Math.round((performance.now() - t0) / 1000),
   };
 }

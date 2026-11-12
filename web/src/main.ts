@@ -1,5 +1,6 @@
 import { costUsd, describeError, makeClient, runCoach } from "./browser/coach";
 import { analyzeInBrowser } from "./browser/pipeline";
+import { embed } from "./browser/search";
 
 // Weakness Finder UI. Plain TypeScript, no framework: fetches /api/analyze and
 // /api/coach and renders cards, an SVG forest plot and the verified report.
@@ -262,7 +263,7 @@ async function browserCoach() {
   try {
     const res = await runCoach({
       client: await makeClient(key), username: run.username, facts: run.facts,
-      games: run.gameRows, moves: run.moveRows, engineUrl: ENGINE_URL, onStatus: status,
+      games: run.gameRows, moves: run.moveRows, engineUrl: ENGINE_URL, onStatus: status, summaries: run.summaries,
     });
     renderCoach({ ...res, username: run.username }, false,
       `Cost: about $${costUsd(res.usage).toFixed(2)} on your key (${res.usage.input_tokens.toLocaleString()} input and ` +
@@ -358,5 +359,5 @@ if (qs) { ($("username") as HTMLInputElement).value = qs; }
 // Debug hook (only with ?debug=1): lets the real coach tools (DuckDB-WASM, Stockfish)
 // be exercised from the console with a scripted client, without an API key.
 if (new URLSearchParams(location.search).get("debug") === "1") {
-  (window as unknown as Record<string, unknown>).__wf = { runCoach, getRun: () => browserRun, engineUrl: ENGINE_URL };
+  (window as unknown as Record<string, unknown>).__wf = { runCoach, getRun: () => browserRun, engineUrl: ENGINE_URL, embed };
 }

@@ -16,7 +16,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from wf.coach import run_coach
+from wf.env import load_env
 from wf.pipeline import Analysis, analyze, to_payload
+
+load_env()
 
 app = FastAPI(title="Weakness Finder")
 WEB = Path(__file__).parent / "web"

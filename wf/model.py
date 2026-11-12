@@ -143,16 +143,22 @@ CLOCK_BUCKETS = [(-0.01, 0.1, "under 10% of the clock left"),
 
 
 def player_risk(moves: pd.DataFrame, n_splits: int = 5) -> dict | None:
-    """Actual vs model-expected blunders for the user's moves."""
+    """Actual vs model-expected blunders for the user's moves.
+
+    The model learns only from the opponents' moves (similar-rated players),
+    then predicts the user's moves in held-out games. Training on the user's
+    own moves would pull the ratio toward 1 by construction.
+    """
     X, y, groups = features(moves)
+    me = moves.is_me.to_numpy().astype(bool)
     n_groups = len(np.unique(groups))
-    if y.sum() < 10 or n_groups < n_splits:
+    if y[~me].sum() < 10 or n_groups < n_splits:
         return None
     oof = np.zeros(len(X))
     for tr, te in GroupKFold(n_splits).split(X, y, groups):
-        mdl = _hgb().fit(X.iloc[tr], y[tr])
+        tr_opp = tr[~me[tr]]
+        mdl = _hgb().fit(X.iloc[tr_opp], y[tr_opp])
         oof[te] = mdl.predict_proba(X.iloc[te])[:, 1]
-    me = moves.is_me.to_numpy().astype(bool)
     out = {"moves": int(me.sum()), "actual": int(y[me].sum()),
            "expected": float(oof[me].sum()), "buckets": []}
     out["ratio"] = out["actual"] / out["expected"] if out["expected"] else float("nan")

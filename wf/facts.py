@@ -57,8 +57,8 @@ def build_facts(df: pd.DataFrame, analyses: list[dict] | None = None,
 
     if risk:
         add("model",
-            f"A blunder-risk model trained on every move in these games (yours "
-            f"and your opponents') expected {risk['expected']:.1f} blunders in "
+            f"A blunder-risk model trained only on your opponents' moves "
+            f"(players of similar rating) expected {risk['expected']:.1f} blunders in "
             f"your {risk['moves']} moves given how hard the positions were; you "
             f"made {risk['actual']}, {risk['ratio']:.2f} times the expected count.")
         for b in risk["buckets"]:
@@ -73,6 +73,7 @@ def build_facts(df: pd.DataFrame, analyses: list[dict] | None = None,
         table = table.assign(verdict=[verdict(r) for r in table.itertuples()])
         extras["table"] = table
         weak = table[table.verdict.isin(["weakness", "possible weakness"])].head(3)
+        watch = table[table.verdict == "worth watching"].head(2)
         strong = table[table.verdict.isin(["strength", "possible strength"])] \
             .sort_values("shrunk", ascending=False).head(2)
         for r in pd.concat([weak, strong]).itertuples():
@@ -90,21 +91,42 @@ def build_facts(df: pd.DataFrame, analyses: list[dict] | None = None,
                     f"{format_moves(b['moves'])} you scored {pct(b['score'])} "
                     f"in {b['n']} games versus {pct(b['expected'])} expected.",
                     color=r.color, family=r.family)
+        for r in watch.itertuples():
+            add("opening",
+                f"{r.family} {_side(r.color)}: {r.n} games, scored "
+                f"{pct(r.score)} versus {pct(r.expected)} expected "
+                f"({_pts(r.mean_resid)} points unadjusted). Verdict: worth "
+                f"watching. On its own this is unlikely to be chance, but "
+                f"among the {r.n_openings} openings checked one result this "
+                f"extreme is expected by luck alone; more games will tell.",
+                color=r.color, family=r.family)
+            b = worst_branch(df, r.color, r.family)
+            if b:
+                add("branch",
+                    f"In the {r.family} {_side(r.color)}, after "
+                    f"{format_moves(b['moves'])} you scored {pct(b['score'])} "
+                    f"in {b['n']} games versus {pct(b['expected'])} expected.",
+                    color=r.color, family=r.family)
         if weak.empty:
             add("opening",
                 "No opening family shows a weakness that is clear after "
-                "adjusting for opponent rating and sample size.")
+                "adjusting for opponent rating, sample size and the number "
+                "of openings checked.")
 
     if analyses:
         ps = eng.phase_summary(analyses)
+        opp = eng.phase_summary(analyses, mine=False)
         for p, s in ps.items():
             if s["moves"]:
+                o = opp[p]
                 add("phase",
                     f"In the {p} you lose an average of {s['avg_loss']:.1f} "
                     f"win% per move, with a blunder (a drop of "
                     f"{int(eng.BLUNDER_DROP)} win% or more) on "
                     f"{100 * s['blunder_rate']:.1f}% of moves "
-                    f"({s['moves']} moves analysed).", phase=p)
+                    f"({s['moves']} moves analysed). Your opponents: "
+                    f"{o['avg_loss']:.1f} win% per move, blunders on "
+                    f"{100 * o['blunder_rate']:.1f}% of moves.", phase=p)
         worst_phase = max((p for p in ps if ps[p]["moves"]),
                           key=lambda p: ps[p]["avg_loss"], default=None)
         extras["worst_phase"] = worst_phase
@@ -118,7 +140,7 @@ def build_facts(df: pd.DataFrame, analyses: list[dict] | None = None,
             if ex and base and ex["games"] >= 3:
                 add("exit",
                     f"In your {f['family']} games {_side(f['color'])}, the "
-                    f"engine eval after move 12 averaged "
+                    f"engine eval after move 12 had a median of "
                     f"{_pawns(ex['avg_eval_after_12'])} pawns for you; in moves "
                     f"13-25 you lost {ex['avg_loss_13_25']:.1f} win% per move, "
                     f"versus {base['avg_loss_13_25']:.1f} across all your games.",

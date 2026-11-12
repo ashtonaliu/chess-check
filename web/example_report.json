@@ -1,8 +1,9 @@
 {
  "username": "ashton-iwnl",
- "report": "Your results match your rating: you scored 50% against an expected 49% [F1], and you blunder slightly less than similar-rated players would in your positions (0.97 times the expected count [F2]).\n\n## Biggest weaknesses\nNo opening shows a clear weakness once rating, sample size and the number of openings checked are taken into account [F9]. The model also found no excess blunders overall [F2]. What follows is one thing to keep an eye on, not a confirmed problem.\n\n1. **Scotch Game as Black (worth watching, small sample).** You scored 21% against 46% expected over 12 games [F8]. Across 34 openings, one result this extreme is expected by luck alone [F8]. In moves 13-25 you lost 6.2 win% per move here, against 5.1 across all your games [F15]. Your worst games include the Goring Gambit Declined (4.c3 d5 5.Bb5) and the Scotch Gambit (4.Bc4 d6) [T1]. One of those also had your 43...Kh7, which lost 93 win% when Qxf4+ was available [F16][T1]. *What to do:* choose one reliable answer to 4.c3 and one to 4.Bc4, and replay these three games [T1] to find where the middlegame went wrong.\n\n## What's working\n- **Clock management under pressure.** With under 10% of your clock left, you made 0.85 times the expected blunders [F3]. With 10-30% left, it was 0.83 times [F4]. Your mistakes happen with plenty of time left (1.02 times expected [F5]), which points to calculation errors rather than time trouble.\n- **Queen's Gambit as White.** You scored 60% against 50% expected (possible strength) [F6], with a median eval of +1.0 after move 12 [F13]. The Four Knights as Black also looks promising: 72% against 49% expected [F7].\n\n## Training plan\n- Do short sessions of middlegame puzzles: https://lichess.org/training/middlegame [F19]. The middlegame is where you blunder most often, on 6.7% of moves [F11].\n- Before each move when you have time, check which pieces are hanging. Practise with https://lichess.org/training/hangingPiece [F20]. For an example, see 7...h5, which missed Nxg4 [F17].\n- Look at your biggest single swings, such as 38...Qh2+ where Bf6 was better [F18]. Ask yourself whether you slowed down enough before playing a check.\n- Fix your Scotch repertoire as described above, then check again after more games [F8].\n- Keep playing the Queen's Gambit, and in moves 13-25 aim to turn your opening advantage into a win [F13].",
+ "generated_at": "2026-11-12T21:34:47+00:00",
+ "report": "# Chess report for ashton-iwnl\n\nYou're scoring about what your rating predicts: 51% against an expected 49% over 300 games [F1]. Your blunder rate is normal for your level, at 0.98 times the expected count [F2], so none of your results show a clear weakness.\n\n## Biggest weaknesses\n\nNo opening family shows a weakness that is clear once opponent rating, sample size and the number of openings checked are taken into account [F9]. One area is worth watching:\n\n1. **Scotch Game as Black (thin evidence).** You scored 21% here against 46% expected, across only 12 games [F8]. With 34 openings checked, one result this extreme is expected by luck alone [F8]. In moves 13-25 of these games you lost 6.2 win% per move, against 5.1 across all your games [F15]. Your losses include a Goring Gambit Declined line with 4.c3 d5 and a Scotch Gambit line with 4.Bc4 d6 [T1]. That Scotch Gambit game also contains your most costly move: 43...Kh7 lost 93 win% when Qxf4+ was available [F16]. **What to do:** pick one solid answer each to 4.c3 and 4.Bc4, and replay these three games [T1] to see where the early middlegame went wrong.\n\n## What's working\n\n- **Queen's Gambit as White:** you scored 60% against 50% expected over 48 games [F6], with a median eval of +1.0 pawns after move 12 [F13]. Your preparation is getting you good positions.\n- **Handling time pressure:** with under 10% of your clock left you made 0.89 times the expected number of blunders [F3]. With 10-30% left it was 0.84 times expected [F4]. You hold up well in time trouble.\n\n## Training plan\n\n- When you have plenty of time, slow down and check for checks. Most of your blunders come with over 30% of the clock left: 421 of them, at 1.02 times expected [F5]. For example, 38...Qh2+ lost 88 win% when Bf6 was better [F18].\n- Do middlegame puzzles: https://lichess.org/training/middlegame [F19]. Your middlegame blunder rate is 6.6% [F11], the highest of the three phases. It matches your opponents' rate, so this is about gaining an edge rather than fixing a flaw.\n- Do hanging-piece puzzles: https://lichess.org/training/hangingPiece [F20]. 7...h5 missed Nxg4 and cost 89 win% [F17].\n- Learn one repertoire line against the Scotch and its gambits, and review your losses with it [T1].\n- Keep playing the Queen's Gambit, and look over your moves 13-25 in it, where you lose 5.2 win% per move [F13].",
  "verification": {
-  "checked": 42,
+  "checked": 46,
   "unsupported": [],
   "uncited": [],
   "bad_citations": [],
@@ -10,7 +11,7 @@
   "ok": true
  },
  "first_verification": {
-  "checked": 42,
+  "checked": 46,
   "unsupported": [],
   "uncited": [],
   "bad_citations": [],
@@ -36,31 +37,31 @@
  "facts": [
   {
    "id": "F1",
-   "text": "Across 300 games (average rating 1702), you scored 50% versus 49% expected from ratings (+1 points)."
+   "text": "Across 300 games (average rating 1702), you scored 51% versus 49% expected from ratings (+1 points)."
   },
   {
    "id": "F2",
-   "text": "A blunder-risk model trained only on your opponents' moves (players of similar rating) expected 577.3 blunders in your 12206 moves given how hard the positions were; you made 559, 0.97 times the expected count."
+   "text": "A blunder-risk model trained only on your opponents' moves (players of similar rating) expected 569.2 blunders in your 12292 moves given how hard the positions were; you made 557, 0.98 times the expected count."
   },
   {
    "id": "F3",
-   "text": "With under 10% of the clock left, you made 75 blunders in 1374 moves versus 88.7 expected (0.85 times expected)."
+   "text": "With under 10% of the clock left, you made 75 blunders in 1407 moves versus 84.2 expected (0.89 times expected)."
   },
   {
    "id": "F4",
-   "text": "With 10-30% of the clock left, you made 61 blunders in 1635 moves versus 73.7 expected (0.83 times expected)."
+   "text": "With 10-30% of the clock left, you made 61 blunders in 1653 moves versus 73.0 expected (0.84 times expected)."
   },
   {
    "id": "F5",
-   "text": "With over 30% of the clock left, you made 423 blunders in 9197 moves versus 414.8 expected (1.02 times expected)."
+   "text": "With over 30% of the clock left, you made 421 blunders in 9232 moves versus 412.0 expected (1.02 times expected)."
   },
   {
    "id": "F6",
-   "text": "Queen's Gambit as White: 47 games, scored 60% versus 50% expected. Rating-adjusted gap after shrinkage: +4 points (90% interval -2 to +12). Verdict: possible strength."
+   "text": "Queen's Gambit as White: 48 games, scored 60% versus 50% expected. Rating-adjusted gap after shrinkage: +4 points (90% interval -1 to +13). Verdict: possible strength."
   },
   {
    "id": "F7",
-   "text": "Four Knights Game as Black: 9 games, scored 72% versus 49% expected. Rating-adjusted gap after shrinkage: +4 points (90% interval -4 to +15). Verdict: possible strength."
+   "text": "Four Knights Game as Black: 9 games, scored 72% versus 49% expected. Rating-adjusted gap after shrinkage: +4 points (90% interval -3 to +15). Verdict: possible strength."
   },
   {
    "id": "F8",
@@ -72,19 +73,19 @@
   },
   {
    "id": "F10",
-   "text": "In the opening you lose an average of 3.4 win% per move, with a blunder (a drop of 20 win% or more) on 3.2% of moves (3590 moves analysed). Your opponents: 3.4 win% per move, blunders on 2.8% of moves."
+   "text": "In the opening you lose an average of 3.4 win% per move, with a blunder (a drop of 20 win% or more) on 3.1% of moves (3591 moves analysed). Your opponents: 3.3 win% per move, blunders on 2.8% of moves."
   },
   {
    "id": "F11",
-   "text": "In the middlegame you lose an average of 5.2 win% per move, with a blunder (a drop of 20 win% or more) on 6.7% of moves (4904 moves analysed). Your opponents: 5.1 win% per move, blunders on 6.6% of moves."
+   "text": "In the middlegame you lose an average of 5.1 win% per move, with a blunder (a drop of 20 win% or more) on 6.6% of moves (4933 moves analysed). Your opponents: 5.1 win% per move, blunders on 6.6% of moves."
   },
   {
    "id": "F12",
-   "text": "In the endgame you lose an average of 2.8 win% per move, with a blunder (a drop of 20 win% or more) on 3.1% of moves (3712 moves analysed). Your opponents: 2.8 win% per move, blunders on 3.2% of moves."
+   "text": "In the endgame you lose an average of 2.8 win% per move, with a blunder (a drop of 20 win% or more) on 3.1% of moves (3768 moves analysed). Your opponents: 2.7 win% per move, blunders on 3.2% of moves."
   },
   {
    "id": "F13",
-   "text": "In your Queen's Gambit games as White, the engine eval after move 12 had a median of +1.0 pawns for you; in moves 13-25 you lost 5.3 win% per move, versus 5.1 across all your games."
+   "text": "In your Queen's Gambit games as White, the engine eval after move 12 had a median of +1.0 pawns for you; in moves 13-25 you lost 5.2 win% per move, versus 5.1 across all your games."
   },
   {
    "id": "F14",

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weakness Finder</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>Weakness Finder</h1>
+    <p class="sub">Finds where you actually lose points in your Chess.com games. Results are adjusted for opponent rating and sample size, checked with Stockfish, and explained by a coach whose every claim is verified.</p>
+    <form id="form">
+      <input id="username" name="username" placeholder="Chess.com username" autocomplete="off" required>
+      <select id="time_class" name="time_class">
+        <option value="">All time controls</option>
+        <option value="bullet">Bullet</option>
+        <option value="blitz" selected>Blitz</option>
+        <option value="rapid">Rapid</option>
+        <option value="daily">Daily</option>
+      </select>
+      <select id="games" name="games">
+        <option value="80">80 games</option>
+        <option value="150" selected>150 games</option>
+        <option value="300">300 games</option>
+      </select>
+      <button type="submit" id="go">Analyze</button>
+    </form>
+    <p id="status" role="status"></p>
+  </header>
+  <main id="results" hidden>
+    <section id="summary" class="cards"></section>
+    <section>
+      <h2>Openings, adjusted for rating</h2>
+      <p class="note">Dot: your score minus the Elo-expected score, shrunk toward your average when the sample is small. Bar: 90% interval. Hollow dot: the raw, unshrunk number.</p>
+      <div id="forest"></div>
+      <div id="branches"></div>
+    </section>
+    <section>
+      <h2>Where in the game you lose win chances</h2>
+      <div id="phases" class="cards"></div>
+      <div id="risk"></div>
+      <div id="blunders"></div>
+    </section>
+    <section>
+      <h2>Coach</h2>
+      <p class="note">An agent with SQL, retrieval and Stockfish tools writes the report. A checker then verifies every number, move and link against the facts and tool results it was given.</p>
+      <button id="coachBtn">Write my coaching report</button>
+      <div id="coach"></div>
+    </section>
+  </main>
+  <footer>Data: Chess.com public API. Engine: Stockfish. Puzzles: Lichess.</footer>
+  <script src="/static/dist/main.js" type="module"></script>
+</body>
+</html>

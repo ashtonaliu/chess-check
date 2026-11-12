@@ -1,0 +1,13 @@
+{
+  "name": "weakness-finder-web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && esbuild src/main.ts --bundle --format=esm --target=es2020 --outfile=dist/main.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.10",
+    "typescript": "5.9.3"
+  }
+}

@@ -7,8 +7,9 @@ import { formatMoves, openingTable, overall, worstBranch, type GameRow, type Ope
 
 export interface Fact { id: string; kind: string; text: string; color?: string; family?: string; fen?: string; }
 
-// Python's round() rounds halves to even; Math.round rounds them up.
-function pyRound(x: number): number {
+// Python's round() and "{:.0f}" round exact halves to even; Math.round and
+// toFixed round them up. Win% losses are stored to one decimal, so x.5 is common.
+export function pyRound(x: number): number {
   const r = Math.round(x);
   return Math.abs(x % 1) === 0.5 ? 2 * Math.round(x / 2) : r;
 }
@@ -124,7 +125,7 @@ export function buildFacts(rows: GameRow[], analyses: GameAnalysis[] | null, ris
     for (const m of worstBlunders(analyses, 3)) {
       if (m.wp_loss < BLUNDER_DROP) break;
       const best = m.best ? `; the engine preferred ${m.best}` : "";
-      add("blunder", `Your move ${moveLabel(m)} (${m.phase}) lost ${m.wp_loss.toFixed(0)} win%${best}. ` +
+      add("blunder", `Your move ${moveLabel(m)} (${m.phase}) lost ${pyRound(m.wp_loss)} win%${best}. ` +
         `Game: ${m.url}`, { fen: m.fen });
     }
     const themes: string[] = [];

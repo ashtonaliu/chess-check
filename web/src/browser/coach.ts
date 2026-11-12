@@ -51,10 +51,10 @@ export function describeError(e: unknown): string {
 
 export async function runCoach(opts: {
   client: CoachClient; username: string; facts: Fact[]; games: GameRow[]; moves: Row[];
-  engineUrl: string; repair?: boolean; onStatus?: (msg: string) => void;
+  engineUrl: string; repair?: boolean; onStatus?: (msg: string) => void; summaries?: [string, string][];
 }): Promise<CoachResult> {
   const facts = opts.facts.map(f => ({ ...f }));       // tool results get appended
-  const box = new ToolBox(opts.games, opts.moves, facts, opts.engineUrl);
+  const box = new ToolBox(opts.games, opts.moves, facts, opts.engineUrl, opts.summaries ?? []);
   const usage = { input_tokens: 0, output_tokens: 0 };
   const messages: Record<string, unknown>[] = [{ role: "user", content:
     `Player: ${opts.username}\n\nFacts:\n${factsText(facts)}\n\nWrite the report. Use the tools if a weakness needs more detail.` }];

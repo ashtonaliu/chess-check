@@ -22,6 +22,7 @@ class Analysis:
     risk: dict | None
     facts: list[dict]
     extras: dict
+    summaries: list[tuple[str, str]]   # (url, plain-English summary) for search_games
 
 
 def analyze(username: str, max_games: int = 150, time_class: str | None = None,
@@ -40,8 +41,11 @@ def analyze(username: str, max_games: int = 150, time_class: str | None = None,
         except ValueError:
             risk = None
     facts, extras = build_facts(df, analyses, risk)
+    from .search import summarize
+    by_url = {a["url"]: a for a in analyses or []}
+    summaries = [(g.url, summarize(g, by_url.get(g.url))) for g in games]
     return Analysis(username, df, moves, analyses, extras.get("table", pd.DataFrame()),
-                    risk, facts, extras)
+                    risk, facts, extras, summaries)
 
 
 def _clean(x):

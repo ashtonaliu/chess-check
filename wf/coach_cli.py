@@ -26,7 +26,8 @@ from .facts import facts_text
 from .verify import feedback, verify
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOL_NAMES = ["mcp__wf__run_sql", "mcp__wf__example_games", "mcp__wf__engine_eval"]
+TOOL_NAMES = ["mcp__wf__run_sql", "mcp__wf__example_games", "mcp__wf__search_games",
+              "mcp__wf__engine_eval"]
 TIMEOUT = 600
 
 
@@ -87,12 +88,14 @@ def _facts_now(state: Path, base: list[dict]) -> list[dict]:
 
 def run_coach_cli(username: str, facts: list[dict], games: pd.DataFrame,
                   moves: pd.DataFrame | None, repair: bool = True,
-                  keep_state: bool = False) -> CoachResult:
+                  keep_state: bool = False,
+                  summaries: list[tuple[str, str]] | None = None) -> CoachResult:
     state = Path(tempfile.mkdtemp(prefix="wf-coach-"))
     try:
         (state / "games.pkl").write_bytes(pickle.dumps(games))
         if moves is not None:
             (state / "moves.pkl").write_bytes(pickle.dumps(moves))
+        (state / "summaries.json").write_text(json.dumps(summaries or []))
         (state / "facts.json").write_text(json.dumps(
             [{k: v for k, v in f.items() if isinstance(v, (str, int, float))} for f in facts]))
         prompt = (f"Player: {username}\n\nFacts:\n{facts_text(facts)}\n\n"

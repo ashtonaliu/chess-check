@@ -191,3 +191,17 @@ def test_verify_url_punctuation_on_both_sides():
     facts = [{"id": "T1", "text": "- https://www.chess.com/game/live/42: you lost"}]
     r = verify("Replay https://www.chess.com/game/live/42, then review it [T1].", facts)
     assert r["ok"], r
+
+
+# ---------- game search ----------
+
+def test_search_games_tool_ranks_and_registers_a_fact():
+    summaries = [
+        ("u1", "You lost on time as White in the Italian Game. Your worst mistake was 40.Kg2 in the endgame, in time trouble."),
+        ("u2", "You won by checkmate as Black in the Sicilian Defense. You made no serious blunders."),
+        ("u3", "You drew by repetition as White in the London System. The opening went about equal."),
+    ]
+    box = coach.ToolBox(_games(), None, [], summaries)
+    out, err = box.run("search_games", {"query": "flagged because my clock ran out", "k": 1})
+    assert not err and out.startswith("[T1]")
+    assert "u1:" in out and "u2:" not in out

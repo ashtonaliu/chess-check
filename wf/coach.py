@@ -73,6 +73,23 @@ TOOLS = [
         "strict": True,
     },
     {
+        "name": "search_games",
+        "description": (
+            "Search the player's games by meaning: each game has a plain-English summary "
+            "(result and how it ended, opening, rating gap, eval after the opening, the "
+            "worst mistake with phase and clock, blunder count), ranked by a hybrid of "
+            "sentence embeddings and keyword matching. Use it for descriptive questions "
+            "such as 'games where I collapsed in time trouble' to find concrete examples. "
+            "For exact filters (a specific result, opening or rating) prefer run_sql. "
+            "Returns the top k summaries with links."),
+        "input_schema": {"type": "object", "additionalProperties": False,
+                         "properties": {"query": {"type": "string",
+                                                  "description": "What to look for, in plain English."},
+                                        "k": {"type": "integer", "description": "How many games (1-8)."}},
+                         "required": ["query", "k"]},
+        "strict": True,
+    },
+    {
         "name": "engine_eval",
         "description": "Stockfish evaluation and best move for a FEN position.",
         "input_schema": {"type": "object", "additionalProperties": False,
@@ -97,8 +114,10 @@ class CoachResult:
 
 class ToolBox:
     def __init__(self, games: pd.DataFrame, moves: pd.DataFrame | None,
-                 facts: list[dict]):
+                 facts: list[dict], summaries: list[tuple[str, str]] | None = None):
         self.games = games
+        self.summaries = summaries or []
+        self._index = None
         self.sql = ReadOnlySQL(games, moves)
         self.facts = facts
         self.calls: list[dict] = []
@@ -118,11 +137,26 @@ class ToolBox:
                 return self._register(f"Query: {args['query']}\nResult:\n{out}"), False
             if name == "example_games":
                 return self._register(self._examples(**args)), False
+            if name == "search_games":
+                return self._register(self._search(args["query"], int(args.get("k", 5)))), False
             if name == "engine_eval":
                 return self._register(_engine_eval(args["fen"])), False
             return f"Unknown tool {name}", True
         except Exception as e:
             return f"Tool error: {e}", True
+
+    def _search(self, query: str, k: int) -> str:
+        if not self.summaries:
+            return "No game summaries are available (engine analysis was skipped)."
+        if self._index is None:
+            from .search import GameIndex
+            self._index = GameIndex.from_texts([u for u, _ in self.summaries],
+                                               [t for _, t in self.summaries])
+        hits = self._index.search(query, max(1, min(k, 8)), "hybrid")
+        lines = [f"Games best matching '{query}' (hybrid search over game summaries):"]
+        for i, _ in hits:
+            lines.append(f"- {self._index.urls[i]}: {self._index.texts[i]}")
+        return "\n".join(lines)
 
     def _examples(self, family: str, color: str, k: int) -> str:
         from .stats import format_moves
@@ -199,10 +233,11 @@ def _agent_turns(client, messages, box: ToolBox, usage: dict):
 
 
 def run_coach(username: str, facts: list[dict], games: pd.DataFrame,
-              moves: pd.DataFrame | None, client=None, repair: bool = True) -> CoachResult:
+              moves: pd.DataFrame | None, client=None, repair: bool = True,
+              summaries: list[tuple[str, str]] | None = None) -> CoachResult:
     client = client or _client()
     facts = [dict(f) for f in facts]  # tool results get appended
-    box = ToolBox(games, moves, facts)
+    box = ToolBox(games, moves, facts, summaries)
     usage: dict = {}
     messages = [{"role": "user", "content":
                  f"Player: {username}\n\nFacts:\n{facts_text(facts)}\n\n"

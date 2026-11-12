@@ -46,11 +46,27 @@ def main():
         "games": [{"url": g.url, "color": g.color, "myRating": g.my_rating, "oppRating": g.opp_rating,
                    "score": g.score, "timeClass": g.time_class, "timeControl": g.time_control,
                    "eco": g.eco, "opening": g.opening, "family": g.family, "endTime": g.end_time,
-                   "moves": g.moves_san[:16], "pgn": ""} for g in games],
+                   "result": g.result, "oppResult": g.opp_result,
+                   "moves": g.moves_san, "pgn": ""} for g in games],
         "opening_eval": {a["url"]: a["opening_eval"] for a in analyses},
     }
     facts, _ = build_facts(games_frame(games), analyses, fixture["risk"])
     fixture["facts"] = [{"id": f["id"], "text": f["text"]} for f in facts]
+
+    # search: summaries, BM25 scores, embeddings and hybrid rankings
+    from wf.search import GameIndex, embedder
+    idx = GameIndex.build(games, analyses)
+    queries = ["ran out of clock and got flagged", "threw away a completely winning game",
+               "my king got mated", "games that ended in a draw"]
+    fixture["search"] = {
+        "summaries": idx.texts,
+        "queries": queries,
+        "bm25": [idx.scores(q, "bm25").tolist() for q in queries],
+        "doc_vectors": idx.vectors.round(7).tolist(),
+        "query_vectors": embedder().encode(queries, normalize_embeddings=True).round(7).tolist(),
+        "hybrid_top5": [[i for i, _ in idx.search(q, 5, "hybrid")] for q in queries],
+        "embed_top5": [[i for i, _ in idx.search(q, 5, "embed")] for q in queries],
+    }
     out = ROOT / "web" / "test" / "fixtures" / "model.json"
     out.write_text(json.dumps(fixture))
     print(f"wrote {out.relative_to(ROOT)}: {len(rows)} moves from {len(games)} games, "

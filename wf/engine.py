@@ -172,7 +172,10 @@ def analyse_games(games: list[Game], depth: int = 10, workers: int | None = None
     path = find_stockfish()
     if not path:
         raise RuntimeError("Stockfish not found; install it or set STOCKFISH_PATH")
-    workers = workers or max(1, (os.cpu_count() or 2) - 1)
+    # WF_ENGINE_WORKERS caps Stockfish processes on small hosts, where
+    # os.cpu_count() reports the machine's cores, not the container's share
+    workers = workers or int(os.environ.get("WF_ENGINE_WORKERS", 0)) \
+        or max(1, (os.cpu_count() or 2) - 1)
     out: list[dict | None] = [None] * len(games)
     try:
         with ThreadPoolExecutor(workers) as pool:

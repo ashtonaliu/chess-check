@@ -10,12 +10,16 @@ RUN npm run build
 FROM python:3.12-slim
 RUN apt-get update && apt-get install -y --no-install-recommends stockfish \
     && rm -rf /var/lib/apt/lists/*
-ENV STOCKFISH_PATH=/usr/games/stockfish PYTHONUNBUFFERED=1
+# Hosting defaults (2 vCPU). Engine cache goes to /tmp: hosts like Hugging
+# Face Spaces run the container as a non-root user that can't write to /app.
+ENV STOCKFISH_PATH=/usr/games/stockfish PYTHONUNBUFFERED=1 \
+    WF_CACHE=/tmp/wf-cache WF_ENGINE_WORKERS=2 WF_MAX_GAMES=150 WF_ENGINE_DEPTH=8
 WORKDIR /app
 COPY requirements.txt .
-# CPU-only PyTorch keeps the image small
-RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
-    && pip install --no-cache-dir -r requirements.txt
+# PyTorch is only used by the offline model benchmark, not by the web app,
+# so it is left out of the image (saves ~800 MB).
+RUN grep -v '^torch' requirements.txt > /tmp/req.txt \
+    && pip install --no-cache-dir -r /tmp/req.txt
 COPY wf/ wf/
 COPY server.py .
 COPY web/index.html web/style.css web/example_report.json web/

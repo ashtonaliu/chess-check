@@ -103,7 +103,7 @@ Open http://localhost:8765. Other commands:
 .venv/bin/python scripts/make_example.py USER                # saved report for hosted demos
 ```
 
-**Deploy:** `docker build -t weakness-finder . && docker run -p 8080:8080 weakness-finder` works on Render, Fly.io or Cloud Run. Without a key, the hosted coach shows the saved example report. Add `-e ANTHROPIC_API_KEY=...` to turn live coaching on.
+**Deploy:** the Docker image runs on any container host. The live demo is on Hugging Face Spaces (free tier, 2 vCPU): run `hf auth login` once, then `scripts/deploy_hf.sh <hf-user>/weakness-finder`. That pushes the committed HEAD with the Space's required README header. Hosting defaults in the Dockerfile cap a request at 150 games, Stockfish depth 8 and 2 engine workers. A cold analysis takes about a minute. PyTorch is left out of the image because only the offline benchmark uses it. With no API key on the host, the coach shows the saved example report. Set `ANTHROPIC_API_KEY` as a Space secret to turn live coaching on.
 
 ## Next steps
 

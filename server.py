@@ -27,6 +27,9 @@ WEB = Path(__file__).parent / "web"
 USER_RE = re.compile(r"^[A-Za-z0-9_-]{3,25}$")
 _cache: dict[tuple, tuple[float, Analysis]] = {}
 CACHE_TTL = 3600
+# Small hosts (e.g. Render's free tier) set these to keep requests fast.
+MAX_GAMES = int(os.environ.get("WF_MAX_GAMES", 400))
+ENGINE_DEPTH = int(os.environ.get("WF_ENGINE_DEPTH", 10))
 
 
 class AnalyzeReq(BaseModel):
@@ -36,7 +39,7 @@ class AnalyzeReq(BaseModel):
 
 
 def _key(r: AnalyzeReq) -> tuple:
-    return (r.username.lower(), r.games, r.time_class)
+    return (r.username.lower(), min(r.games, MAX_GAMES), r.time_class)
 
 
 def _get(r: AnalyzeReq) -> Analysis:
@@ -46,7 +49,8 @@ def _get(r: AnalyzeReq) -> Analysis:
     if hit and time.time() - hit[0] < CACHE_TTL:
         return hit[1]
     try:
-        a = analyze(r.username, max_games=r.games, time_class=r.time_class)
+        a = analyze(r.username, max_games=min(r.games, MAX_GAMES),
+                    time_class=r.time_class, depth=ENGINE_DEPTH)
     except ValueError as e:
         raise HTTPException(404, str(e))
     _cache[_key(r)] = (time.time(), a)

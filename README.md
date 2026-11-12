@@ -2,6 +2,8 @@
 
 Enter a Chess.com username and get an honest answer to "what am I actually bad at?"
 
+**[Live demo](https://ashtonaliu.github.io/weakness-finder/)**: a snapshot of my own analysis (300 blitz games) and the coach's verified report. The full app analyzes any username and runs locally; see [Run it](#run-it).
+
 - **Openings, adjusted properly.** "You score 38% against the Sicilian" says little if those opponents were stronger or there were only 6 games. Each game's result is compared with its Elo-expected score. Per-opening averages go into a hierarchical Bayesian model that shrinks them toward the player's mean, with a 90% interval for each. Openings that look bad on their own but could be chance among ~30 tested are labeled "worth watching", not "weakness".
 - **Where it goes wrong.** For each weak opening, it finds the move sequence where your results drop off, for example *"after 1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Qxd4 you score 22% in 6 games"*.
 - **Engine analysis of every move.** Stockfish runs on every position. Losses are measured in win probability, not centipawns, and split by game phase.
@@ -103,7 +105,7 @@ Open http://localhost:8765. Other commands:
 .venv/bin/python scripts/make_snapshot.py USER               # snapshot + report for the static demo
 ```
 
-**Deploy:** the Docker image runs on any container host. The live demo is on Hugging Face Spaces (free tier, 2 vCPU): run `hf auth login` once, then `scripts/deploy_hf.sh <hf-user>/weakness-finder`. That pushes the committed HEAD with the Space's required README header. Hosting defaults in the Dockerfile cap a request at 150 games, Stockfish depth 8 and 2 engine workers. A cold analysis takes about a minute. PyTorch is left out of the image because only the offline benchmark uses it. With no API key on the host, the coach shows the saved example report. Set `ANTHROPIC_API_KEY` as a Space secret to turn live coaching on.
+**Deploy:** the public demo is a static snapshot on GitHub Pages (`scripts/make_snapshot.py`, then the `pages.yml` workflow builds and deploys `web/` on push). Free hosts that can run Stockfish for live requests are either paid or too slow (0.1 vCPU). The Docker image runs the full app on any container host, for example Hugging Face Spaces (free tier, 2 vCPU): run `hf auth login` once, then `scripts/deploy_hf.sh <hf-user>/weakness-finder`. That pushes the committed HEAD with the Space's required README header. Hosting defaults in the Dockerfile cap a request at 150 games, Stockfish depth 8 and 2 engine workers. A cold analysis takes about a minute. PyTorch is left out of the image because only the offline benchmark uses it. With no API key on the host, the coach shows the saved example report. Set `ANTHROPIC_API_KEY` as a Space secret to turn live coaching on.
 
 ## Next steps
 

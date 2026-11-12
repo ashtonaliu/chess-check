@@ -548,6 +548,7 @@
   }
  ],
  "risk": {
+  "model": "gradient boosting",
   "moves": 12292,
   "actual": 557,
   "expected": 569.1768209891875,
@@ -557,24 +558,32 @@
     "moves": 1407,
     "actual": 75,
     "expected": 84.15358966404378,
-    "ratio": 0.8912275792323708
+    "ratio": 0.8912275792323708,
+    "ci_low": 0.7289630409032564,
+    "ci_high": 1.0799970786559667
    },
    {
     "label": "10-30% of the clock left",
     "moves": 1653,
     "actual": 61,
     "expected": 73.03038068504787,
-    "ratio": 0.8352688213836608
+    "ratio": 0.8352688213836608,
+    "ci_low": 0.6674678471977168,
+    "ci_high": 1.0337472144450028
    },
    {
     "label": "over 30% of the clock left",
     "moves": 9232,
     "actual": 421,
     "expected": 411.99285064009575,
-    "ratio": 1.0218623923835335
+    "ratio": 1.0218623923835335,
+    "ci_low": 0.9413409112830751,
+    "ci_high": 1.1076682471664392
    }
   ],
-  "ratio": 0.9786062598824298
+  "ratio": 0.9786062598824298,
+  "ci_low": 0.9114103917829613,
+  "ci_high": 1.0496181051415157
  },
  "facts": [
   {
@@ -583,19 +592,19 @@
   },
   {
    "id": "F2",
-   "text": "A blunder-risk model trained only on your opponents' moves (players of similar rating) expected 569.2 blunders in your 12292 moves given how hard the positions were; you made 557, 0.98 times the expected count."
+   "text": "A blunder-risk model trained only on your opponents' moves (players of similar rating) expected 569.2 blunders in your 12292 moves given how hard the positions were; you made 557, 0.98 times the expected count (90% interval 0.91 to 1.05)."
   },
   {
    "id": "F3",
-   "text": "With under 10% of the clock left, you made 75 blunders in 1407 moves versus 84.2 expected (0.89 times expected)."
+   "text": "With under 10% of the clock left, you made 75 blunders in 1407 moves versus 84.2 expected (0.89 times expected, 90% interval 0.73 to 1.08). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F4",
-   "text": "With 10-30% of the clock left, you made 61 blunders in 1653 moves versus 73.0 expected (0.84 times expected)."
+   "text": "With 10-30% of the clock left, you made 61 blunders in 1653 moves versus 73.0 expected (0.84 times expected, 90% interval 0.67 to 1.03). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F5",
-   "text": "With over 30% of the clock left, you made 421 blunders in 9232 moves versus 412.0 expected (1.02 times expected)."
+   "text": "With over 30% of the clock left, you made 421 blunders in 9232 moves versus 412.0 expected (1.02 times expected, 90% interval 0.94 to 1.11). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F6",
@@ -659,6 +668,6 @@
   }
  ],
  "engine": true,
- "generated_at": "2026-11-12T21:34:47+00:00",
+ "generated_at": "2026-11-12T22:05:55+00:00",
  "time_class": "blitz"
 }

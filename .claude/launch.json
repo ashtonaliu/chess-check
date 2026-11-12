@@ -4,8 +4,24 @@
     {
       "name": "weakness-finder",
       "runtimeExecutable": ".venv/bin/uvicorn",
-      "runtimeArgs": ["server:app", "--port", "8765"],
+      "runtimeArgs": [
+        "server:app",
+        "--port",
+        "8765"
+      ],
       "port": 8765
+    },
+    {
+      "name": "static-demo",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8790",
+        "--directory",
+        "site"
+      ],
+      "port": 8790
     }
   ]
 }

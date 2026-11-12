@@ -2,7 +2,7 @@
 
 Enter a Chess.com username and get an honest answer to "what am I actually bad at?"
 
-**[Live demo](https://ashtonaliu.github.io/weakness-finder/)**: a snapshot of my own analysis (300 blitz games) and the coach's verified report. The full app analyzes any username and runs locally; see [Run it](#run-it).
+**[Live demo](https://ashtonaliu.github.io/weakness-finder/)**: enter any Chess.com username and the analysis runs entirely in your browser. Games come straight from Chess.com's API, and Stockfish runs as WebAssembly across parallel workers (about 15–40 s for 150 games). There's no server and no key. The page opens on a snapshot of my own games with the coach's verified report. The blunder model and live coach are in the full app ([Run it](#run-it)).
 
 - **Openings, adjusted properly.** "You score 38% against the Sicilian" says little if those opponents were stronger or there were only 6 games. Each game's result is compared with its Elo-expected score. Per-opening averages go into a hierarchical Bayesian model that shrinks them toward the player's mean, with a 90% interval for each. Openings that look bad on their own but could be chance among ~30 tested are labeled "worth watching", not "weakness".
 - **Where it goes wrong.** For each weak opening, it finds the move sequence where your results drop off, for example *"after 1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Qxd4 you score 22% in 6 games"*.
@@ -69,6 +69,7 @@ Chess.com public API ──► PGN parsing (python-chess) ──► DuckDB: game
 | Claim verifier | `wf/verify.py` |
 | API | `server.py` |
 | Frontend (TypeScript, no framework) | `web/src/main.ts` |
+| In-browser port: game fetching, stats, Stockfish WASM worker pool | `web/src/browser/` (parity-tested against the Python: `web/test/parity.test.ts`) |
 | Eval, model benchmark, example report | `scripts/` |
 
 ### Design decisions
@@ -112,3 +113,7 @@ Open http://localhost:8765. Other commands:
 - Peer baseline: compare each opening against all Lichess players at the same rating (open database), not just the player's own average.
 - Tactical-motif tags for blunders (missed forks, pins, back-rank) and links to matching Lichess puzzles.
 - Run the warehouse in BigQuery. The SQL is standard and only the connection changes.
+
+## Licenses
+
+The in-browser demo serves [Stockfish.js](https://github.com/nmrugg/stockfish.js) (GPL-3.0) unmodified as a separate file, and the Docker image installs Debian's `stockfish` package. Both are separate programs this project talks to over UCI. Their source is available at those links.

@@ -22,7 +22,7 @@ export interface Game {
 const DRAWS = new Set(["agreed", "repetition", "stalemate", "insufficient", "50move", "timevsinsufficient"]);
 const FAMILY_ENDINGS = new Set(["Defense", "Opening", "Game", "Gambit", "Attack", "System"]);
 
-// Same table, same order as wf/fetch.py CANONICAL (specific names first).
+// Same table as wf/fetch.py CANONICAL.
 const CANONICAL: [string, string][] = [
   ["Nimzo Indian", "Nimzo-Indian Defense"], ["Bogo Indian", "Bogo-Indian Defense"],
   ["Queens Indian", "Queen's Indian Defense"], ["Kings Indian Attack", "King's Indian Attack"],
@@ -34,9 +34,9 @@ const CANONICAL: [string, string][] = [
   ["English", "English Opening"], ["Reti", "Reti Opening"],
   ["Ruy Lopez", "Ruy Lopez"], ["Italian", "Italian Game"], ["Giuoco", "Italian Game"],
   ["Two Knights", "Italian Game"], ["Scotch", "Scotch Game"], ["Vienna", "Vienna Game"],
-  ["Four Knights", "Four Knights Game"], ["Petrov", "Petrov's Defense"],
+  ["Four Knights", "Four Knights Game"], ["Petrov", "Petrov's Defense"], ["Petrovs", "Petrov's Defense"],
   ["Philidor", "Philidor Defense"], ["Pirc", "Pirc Defense"], ["Modern", "Modern Defense"],
-  ["Scandinavian", "Scandinavian Defense"], ["Alekhine", "Alekhine's Defense"],
+  ["Scandinavian", "Scandinavian Defense"], ["Alekhine", "Alekhine's Defense"], ["Alekhines", "Alekhine's Defense"],
   ["London", "London System"], ["Colle", "Colle System"], ["Catalan", "Catalan Opening"],
   ["Grunfeld", "Grunfeld Defense"], ["Dutch", "Dutch Defense"], ["Benoni", "Benoni Defense"],
   ["Benko", "Benko Gambit"], ["Nimzowitsch Larsen", "Nimzowitsch-Larsen Attack"],
@@ -53,9 +53,15 @@ export function openingNames(ecoUrl: string): [string, string] {
   }
   if (!tokens.length) return ["Unknown", "Unknown"];
   const full = tokens.join(" ");
+  // The family named first wins; on a tie, the longer (more specific) name.
+  let best: [number, number, string] | null = null;
   for (const [key, canon] of CANONICAL) {
-    if (` ${full} `.includes(` ${key} `)) return [full, canon];
+    const at = ` ${full} `.indexOf(` ${key} `);
+    if (at < 0) continue;
+    const cand: [number, number, string] = [at, -key.length, canon];
+    if (!best || cand[0] < best[0] || (cand[0] === best[0] && (cand[1] < best[1] || (cand[1] === best[1] && cand[2] < best[2])))) best = cand;
   }
+  if (best) return [full, best[2]];
   for (let i = 0; i < Math.min(tokens.length, 5); i++) {
     if (FAMILY_ENDINGS.has(tokens[i])) return [full, tokens.slice(0, i + 1).join(" ")];
   }

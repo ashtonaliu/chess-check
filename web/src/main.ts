@@ -1,3 +1,4 @@
+import { costUsd, describeError, makeClient, runCoach } from "./browser/coach";
 import { analyzeInBrowser } from "./browser/pipeline";
 
 // Weakness Finder UI. Plain TypeScript, no framework: fetches /api/analyze and
@@ -187,7 +188,7 @@ function renderMarkdown(md: string, facts: Map<string, string>): string {
   return out.join("\n");
 }
 
-function renderCoach(c: CoachResp, example = false) {
+function renderCoach(c: CoachResp, example = false, footnote = "") {
   const facts = new Map(c.facts.map(f => [f.id, f.text]));
   const shown = ($("username") as HTMLInputElement).value.trim().toLowerCase();
   const other = example && c.username && shown && shown !== c.username.toLowerCase()
@@ -207,7 +208,7 @@ function renderCoach(c: CoachResp, example = false) {
     <div class="verify ${v.ok ? "ok" : "bad"}">
       <strong>${v.ok ? "Verified" : "Not fully verified"}:</strong> ${v.checked} numbers, moves and links checked,
       ${v.unsupported.length + v.bad_citations.length} unsupported.${repairNote}${tools}
-      ${issues ? `<ul>${issues}</ul>` : ""}</div>`;
+      ${issues ? `<ul>${issues}</ul>` : ""}${footnote ? `<br><span class="ci">${esc(footnote)}</span>` : ""}</div>`;
 }
 
 async function analyze(ev: Event) {
@@ -225,11 +226,14 @@ async function analyze(ev: Event) {
                                  engineUrl: ENGINE_URL, onStatus: m => setStatus(m) })
       : await post<Payload>("/api/analyze", { username, games, time_class });
     if (STATIC?.browser) {
+      browserRun = p as Awaited<ReturnType<typeof analyzeInBrowser>>;
+      $("keyBox").hidden = false;
+      ($("coachBtn") as HTMLButtonElement).textContent = `Write ${p.username}'s coaching report`;
       $("snapshot").innerHTML = `<strong>Analyzed in your browser.</strong> Stockfish (WebAssembly, depth ${BROWSER_DEPTH}) ran on
         your computer over ${p.overall.games} games; nothing was sent to a server except the requests to Chess.com.
         It uses Stockfish's smaller "lite" network, which flags somewhat fewer blunders than the full engine in the
         snapshot, so compare players within one version, not across them.
-        The live AI coach runs in the <a href="${esc(STATIC.repo)}" target="_blank" rel="noopener">full app</a>.`;
+        For the AI coach, add your own Anthropic API key below.`;
     }
     lastReq = { username, games, time_class };
     renderSummary(p);
@@ -245,8 +249,33 @@ async function analyze(ev: Event) {
 }
 
 let coachBackend: string | null | undefined = undefined;  // undefined until /api/coach/status answers
+// The latest in-browser analysis, which the bring-your-own-key coach works from.
+let browserRun: Awaited<ReturnType<typeof analyzeInBrowser>> | null = null;
+
+async function browserCoach() {
+  const run = browserRun!;
+  const key = ($("apiKey") as HTMLInputElement).value.trim();
+  if (!key) { $("coach").innerHTML = `<p class="weak">Paste an Anthropic API key above first.</p>`; return; }
+  const btn = $("coachBtn") as HTMLButtonElement;
+  btn.disabled = true;
+  const status = (m: string) => { $("coach").innerHTML = `<p class="note">${esc(m)}</p>`; };
+  try {
+    const res = await runCoach({
+      client: await makeClient(key), username: run.username, facts: run.facts,
+      games: run.gameRows, moves: run.moveRows, engineUrl: ENGINE_URL, onStatus: status,
+    });
+    renderCoach({ ...res, username: run.username }, false,
+      `Cost: about $${costUsd(res.usage).toFixed(2)} on your key (${res.usage.input_tokens.toLocaleString()} input and ` +
+      `${res.usage.output_tokens.toLocaleString()} output tokens, Claude Opus 5.5).`);
+  } catch (e) {
+    $("coach").innerHTML = `<p class="weak">${esc(describeError(e))}</p>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 async function coach() {
+  if (STATIC?.browser && browserRun) { await browserCoach(); return; }
   if (coachBackend === null) { await showExample(); return; }
   if (!lastReq) return;
   const btn = $("coachBtn") as HTMLButtonElement;
@@ -307,7 +336,7 @@ async function initStatic(cfg: StaticConfig) {
     $("snapshot").innerHTML = `<strong>Snapshot.</strong> This is a saved analysis of <strong>${esc(p.username)}</strong>'s
       last ${p.overall.games} ${esc(p.time_class ?? "")} games${when ? `, run on ${esc(when)}` : ""}. ` + (cfg.browser
       ? `<strong>Enter any Chess.com username above</strong> to analyze it right here: Stockfish runs in your browser, no account or key needed.
-         The live AI coach runs in the <a href="${esc(cfg.repo)}" target="_blank" rel="noopener">full app</a>.`
+         Add your own Anthropic API key for a live AI coaching report.`
       : `The full app analyzes any Chess.com username, but Stockfish and the coach need a server, so it runs locally:
          <a href="${esc(cfg.repo)}" target="_blank" rel="noopener">code and setup on GitHub</a>.`);
     if (qsUser && cfg.browser && qsUser.toLowerCase() !== p.username.toLowerCase()) {
@@ -325,3 +354,9 @@ initCoach();
 if (STATIC) initStatic(STATIC);
 const qs = new URLSearchParams(location.search).get("u");
 if (qs) { ($("username") as HTMLInputElement).value = qs; }
+
+// Debug hook (only with ?debug=1): lets the real coach tools (DuckDB-WASM, Stockfish)
+// be exercised from the console with a scripted client, without an API key.
+if (new URLSearchParams(location.search).get("debug") === "1") {
+  (window as unknown as Record<string, unknown>).__wf = { runCoach, getRun: () => browserRun, engineUrl: ENGINE_URL };
+}

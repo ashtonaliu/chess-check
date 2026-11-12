@@ -2,29 +2,15 @@
  "username": "ashton-iwnl",
  "overall": {
   "games": 300,
-  "score": 0.5083333333333333,
-  "expected": 0.49363026011957856,
-  "resid": 0.01470307321375481,
-  "avg_rating": 1702,
-  "first_ts": 1793813859,
-  "last_ts": 1794518771,
-  "se": 0.026629674142202124
+  "score": 0.505,
+  "expected": 0.49344824431069034,
+  "resid": 0.011551755689309636,
+  "avg_rating": 1703,
+  "first_ts": 1793814166,
+  "last_ts": 1794522578,
+  "se": 0.026636524748258648
  },
  "openings": [
-  {
-   "color": "black",
-   "family": "Scotch Game",
-   "n": 12,
-   "score": 0.20833333333333334,
-   "expected": 0.4572374189745334,
-   "raw": -0.2489040856412,
-   "shrunk": -0.02254015543958355,
-   "ci_low": -0.14500000000000002,
-   "ci_high": 0.04899999999999993,
-   "p_below": 0.5459190505355989,
-   "verdict": "worth watching",
-   "branch": null
-  },
   {
    "color": "black",
    "family": "French Defense",
@@ -32,10 +18,10 @@
    "score": 0.0,
    "expected": 0.47448154490271477,
    "raw": -0.47448154490271477,
-   "shrunk": -0.01983925908519545,
-   "ci_low": -0.15100000000000002,
-   "ci_high": 0.05699999999999994,
-   "p_below": 0.5129810068837962,
+   "shrunk": -0.011925366819892258,
+   "ci_low": -0.11599999999999999,
+   "ci_high": 0.050999999999999934,
+   "p_below": 0.4744072739057997,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -46,52 +32,52 @@
    "score": 0.1,
    "expected": 0.48133575952656316,
    "raw": -0.3813357595265632,
-   "shrunk": -0.01326204354825131,
-   "ci_low": -0.135,
-   "ci_high": 0.06400000000000006,
-   "p_below": 0.47863398204108215,
-   "verdict": "not enough evidence",
-   "branch": null
-  },
-  {
-   "color": "white",
-   "family": "Italian Game",
-   "n": 3,
-   "score": 0.16666666666666666,
-   "expected": 0.49808062079906884,
-   "raw": -0.3314139541324022,
-   "shrunk": -0.0009367920728408228,
-   "ci_low": -0.10899999999999999,
-   "ci_high": 0.08200000000000007,
-   "p_below": 0.40656926621757333,
-   "verdict": "not enough evidence",
-   "branch": null
-  },
-  {
-   "color": "white",
-   "family": "Semi-Slav Defense",
-   "n": 4,
-   "score": 0.25,
-   "expected": 0.4964340103191406,
-   "raw": -0.24643401031914058,
-   "shrunk": -0.0005170744410701373,
-   "ci_low": -0.10699999999999998,
-   "ci_high": 0.08200000000000007,
-   "p_below": 0.405382181980785,
+   "shrunk": -0.0074260968895643155,
+   "ci_low": -0.10399999999999998,
+   "ci_high": 0.05600000000000005,
+   "p_below": 0.44562787385483654,
    "verdict": "not enough evidence",
    "branch": null
   },
   {
    "color": "black",
-   "family": "Semi-Slav Defense",
-   "n": 4,
-   "score": 0.25,
-   "expected": 0.4910291680690702,
-   "raw": -0.2410291680690702,
-   "shrunk": -0.00020205791417863815,
-   "ci_low": -0.10599999999999998,
-   "ci_high": 0.08200000000000007,
-   "p_below": 0.4035703738177741,
+   "family": "Scotch Game",
+   "n": 16,
+   "score": 0.375,
+   "expected": 0.47502187335374096,
+   "raw": -0.10002187335374095,
+   "shrunk": -0.002374343745333403,
+   "ci_low": -0.08299999999999996,
+   "ci_high": 0.05699999999999994,
+   "p_below": 0.4214569218136075,
+   "verdict": "not enough evidence",
+   "branch": null
+  },
+  {
+   "color": "black",
+   "family": "Queen's Gambit",
+   "n": 9,
+   "score": 0.3333333333333333,
+   "expected": 0.4759233893080876,
+   "raw": -0.1425900559747542,
+   "shrunk": -0.0007271355975059065,
+   "ci_low": -0.08499999999999996,
+   "ci_high": 0.06299999999999994,
+   "p_below": 0.40382655374881266,
+   "verdict": "not enough evidence",
+   "branch": null
+  },
+  {
+   "color": "white",
+   "family": "Englund Gambit",
+   "n": 8,
+   "score": 0.3125,
+   "expected": 0.46067570399311936,
+   "raw": -0.1481757039931193,
+   "shrunk": 6.533382495972352e-06,
+   "ci_low": -0.08399999999999996,
+   "ci_high": 0.06400000000000006,
+   "p_below": 0.3977702944079085,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -102,24 +88,24 @@
    "score": 0.25,
    "expected": 0.49030050111669865,
    "raw": -0.24030050111669868,
-   "shrunk": -0.00015958819499419858,
-   "ci_low": -0.10599999999999998,
-   "ci_high": 0.08200000000000007,
-   "p_below": 0.4033259647988708,
+   "shrunk": 0.0015791336356500833,
+   "ci_low": -0.08299999999999996,
+   "ci_high": 0.06899999999999995,
+   "p_below": 0.38387710682377624,
    "verdict": "not enough evidence",
    "branch": null
   },
   {
    "color": "white",
-   "family": "Englund Gambit",
-   "n": 9,
-   "score": 0.3888888888888889,
-   "expected": 0.46696312848637006,
-   "raw": -0.07807423959748118,
-   "shrunk": 0.004144556445520928,
-   "ci_low": -0.09099999999999997,
-   "ci_high": 0.08400000000000007,
-   "p_below": 0.3808937589924851,
+   "family": "Queen's Pawn Opening",
+   "n": 10,
+   "score": 0.4,
+   "expected": 0.48178609845271625,
+   "raw": -0.08178609845271623,
+   "shrunk": 0.003452622259540867,
+   "ci_low": -0.07499999999999996,
+   "ci_high": 0.06899999999999995,
+   "p_below": 0.37351486692521546,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -130,10 +116,10 @@
    "score": 0.4,
    "expected": 0.501151508508282,
    "raw": -0.10115150850828203,
-   "shrunk": 0.00652234284736034,
-   "ci_low": -0.09099999999999997,
-   "ci_high": 0.09099999999999997,
-   "p_below": 0.3648923838457593,
+   "shrunk": 0.0061077905586676695,
+   "ci_low": -0.07299999999999995,
+   "ci_high": 0.07600000000000007,
+   "p_below": 0.35295946711854215,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -144,24 +130,10 @@
    "score": 0.42857142857142855,
    "expected": 0.4969169041843008,
    "raw": -0.06834547561287221,
-   "shrunk": 0.006954463804271288,
-   "ci_low": -0.08699999999999997,
-   "ci_high": 0.09000000000000008,
-   "p_below": 0.36274585174633095,
-   "verdict": "not enough evidence",
-   "branch": null
-  },
-  {
-   "color": "black",
-   "family": "English Opening",
-   "n": 3,
-   "score": 0.3333333333333333,
-   "expected": 0.4894985934075992,
-   "raw": -0.15616526007426587,
-   "shrunk": 0.006982107461621788,
-   "ci_low": -0.09299999999999997,
-   "ci_high": 0.09400000000000008,
-   "p_below": 0.3616434769373924,
+   "shrunk": 0.006389360445092214,
+   "ci_low": -0.07099999999999995,
+   "ci_high": 0.07499999999999996,
+   "p_below": 0.3512597030869034,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -172,24 +144,10 @@
    "score": 0.45,
    "expected": 0.49375769383785484,
    "raw": -0.043757693837854814,
-   "shrunk": 0.007491212439936565,
-   "ci_low": -0.08299999999999996,
-   "ci_high": 0.08800000000000008,
-   "p_below": 0.3597605148009138,
-   "verdict": "not enough evidence",
-   "branch": null
-  },
-  {
-   "color": "white",
-   "family": "Queen's Pawn Opening",
-   "n": 11,
-   "score": 0.45454545454545453,
-   "expected": 0.48696718878039397,
-   "raw": -0.03242173423493944,
-   "shrunk": 0.00845853639477971,
-   "ci_low": -0.07999999999999996,
-   "ci_high": 0.08899999999999997,
-   "p_below": 0.35352990502930254,
+   "shrunk": 0.006752431601936277,
+   "ci_low": -0.06799999999999995,
+   "ci_high": 0.07400000000000007,
+   "p_below": 0.34885191819025146,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -200,10 +158,10 @@
    "score": 0.4,
    "expected": 0.466836726693651,
    "raw": -0.06683672669365096,
-   "shrunk": 0.008945380188090362,
-   "ci_low": -0.08599999999999997,
-   "ci_high": 0.09499999999999997,
-   "p_below": 0.35054025804301214,
+   "shrunk": 0.007765315538041162,
+   "ci_low": -0.06899999999999995,
+   "ci_high": 0.07899999999999996,
+   "p_below": 0.3413919862605182,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -214,10 +172,10 @@
    "score": 0.3333333333333333,
    "expected": 0.4431365012195488,
    "raw": -0.10980316788621548,
-   "shrunk": 0.009077054600702171,
-   "ci_low": -0.08799999999999997,
-   "ci_high": 0.09800000000000009,
-   "p_below": 0.3497218164328076,
+   "shrunk": 0.007854100549796359,
+   "ci_low": -0.06999999999999995,
+   "ci_high": 0.08000000000000007,
+   "p_below": 0.34075746399276186,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -228,10 +186,10 @@
    "score": 0.5,
    "expected": 0.4995563233093334,
    "raw": 0.0004436766906665665,
-   "shrunk": 0.011573525825572605,
-   "ci_low": -0.06599999999999995,
-   "ci_high": 0.08600000000000008,
-   "p_below": 0.32970772740655624,
+   "shrunk": 0.009756046349802094,
+   "ci_low": -0.05499999999999994,
+   "ci_high": 0.07299999999999995,
+   "p_below": 0.3236881400729092,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -242,52 +200,38 @@
    "score": 0.5,
    "expected": 0.4957123457244144,
    "raw": 0.004287654275585584,
-   "shrunk": 0.013846299338143523,
-   "ci_low": -0.07499999999999996,
-   "ci_high": 0.10299999999999998,
-   "p_below": 0.32122241444653366,
+   "shrunk": 0.011140386120173812,
+   "ci_low": -0.061999999999999944,
+   "ci_high": 0.08400000000000007,
+   "p_below": 0.317658781044357,
+   "verdict": "not enough evidence",
+   "branch": null
+  },
+  {
+   "color": "black",
+   "family": "English Opening",
+   "n": 4,
+   "score": 0.5,
+   "expected": 0.4906848929529132,
+   "raw": 0.009315107047086824,
+   "shrunk": 0.011463190862221743,
+   "ci_low": -0.061999999999999944,
+   "ci_high": 0.08600000000000008,
+   "p_below": 0.31615610573580866,
    "verdict": "not enough evidence",
    "branch": null
   },
   {
    "color": "black",
    "family": "Vienna Game",
-   "n": 7,
-   "score": 0.5,
-   "expected": 0.4878843533511105,
-   "raw": 0.012115646648889446,
-   "shrunk": 0.014461660713354372,
-   "ci_low": -0.07299999999999995,
-   "ci_high": 0.10299999999999998,
-   "p_below": 0.3170101466723294,
-   "verdict": "not enough evidence",
-   "branch": null
-  },
-  {
-   "color": "black",
-   "family": "Queen's Gambit",
    "n": 4,
    "score": 0.5,
-   "expected": 0.47999301934662947,
-   "raw": 0.020006980653370518,
-   "shrunk": 0.015012206843059156,
-   "ci_low": -0.07599999999999996,
-   "ci_high": 0.10699999999999998,
-   "p_below": 0.3155967990454135,
-   "verdict": "not enough evidence",
-   "branch": null
-  },
-  {
-   "color": "black",
-   "family": "Slav Defense",
-   "n": 4,
-   "score": 0.5,
-   "expected": 0.4568406894824905,
-   "raw": 0.043159310517509486,
-   "shrunk": 0.01636162024049038,
-   "ci_low": -0.07299999999999995,
-   "ci_high": 0.1100000000000001,
-   "p_below": 0.30794533912542843,
+   "expected": 0.490656373440187,
+   "raw": 0.009343626559813037,
+   "shrunk": 0.01146432015256514,
+   "ci_low": -0.061999999999999944,
+   "ci_high": 0.08600000000000008,
+   "p_below": 0.31614846348986986,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -298,10 +242,24 @@
    "score": 0.5357142857142857,
    "expected": 0.5042089935812685,
    "raw": 0.031505292133017164,
-   "shrunk": 0.017354714211639772,
-   "ci_low": -0.061999999999999944,
-   "ci_high": 0.10200000000000009,
-   "p_below": 0.2942451884855434,
+   "shrunk": 0.01380491525920423,
+   "ci_low": -0.051999999999999935,
+   "ci_high": 0.08499999999999996,
+   "p_below": 0.2947699945729512,
+   "verdict": "not enough evidence",
+   "branch": null
+  },
+  {
+   "color": "white",
+   "family": "Indian Game",
+   "n": 6,
+   "score": 0.5833333333333334,
+   "expected": 0.5181633081141014,
+   "raw": 0.065170025219232,
+   "shrunk": 0.014588184172075722,
+   "ci_low": -0.05499999999999994,
+   "ci_high": 0.09099999999999997,
+   "p_below": 0.293856987054244,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -312,38 +270,10 @@
    "score": 0.5555555555555556,
    "expected": 0.49696796343280436,
    "raw": 0.05858759212275119,
-   "shrunk": 0.019697348373558746,
-   "ci_low": -0.061999999999999944,
-   "ci_high": 0.1100000000000001,
-   "p_below": 0.2839872639627629,
-   "verdict": "not enough evidence",
-   "branch": null
-  },
-  {
-   "color": "black",
-   "family": "Modern Defense",
-   "n": 3,
-   "score": 0.6666666666666666,
-   "expected": 0.5215331070414922,
-   "raw": 0.14513355962517438,
-   "shrunk": 0.020596788563099922,
-   "ci_low": -0.06699999999999995,
-   "ci_high": 0.119,
-   "p_below": 0.2855858556601862,
-   "verdict": "not enough evidence",
-   "branch": null
-  },
-  {
-   "color": "black",
-   "family": "King's Gambit",
-   "n": 5,
-   "score": 0.6,
-   "expected": 0.4810684444498496,
-   "raw": 0.11893155555015042,
-   "shrunk": 0.022062860783816644,
-   "ci_low": -0.061999999999999944,
-   "ci_high": 0.1200000000000001,
-   "p_below": 0.2750019947648783,
+   "shrunk": 0.015298616556686573,
+   "ci_low": -0.051999999999999935,
+   "ci_high": 0.09000000000000008,
+   "p_below": 0.28691227246507867,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -354,24 +284,52 @@
    "score": 0.6666666666666666,
    "expected": 0.48723388356486136,
    "raw": 0.1794327831018053,
-   "shrunk": 0.02214665520422545,
-   "ci_low": -0.06399999999999995,
-   "ci_high": 0.12200000000000011,
-   "p_below": 0.2772892517443975,
+   "shrunk": 0.016667049948073276,
+   "ci_low": -0.05399999999999994,
+   "ci_high": 0.09800000000000009,
+   "p_below": 0.2824790178995058,
    "verdict": "not enough evidence",
    "branch": null
   },
   {
-   "color": "white",
-   "family": "Indian Game",
+   "color": "black",
+   "family": "King's Gambit",
    "n": 5,
-   "score": 0.7,
-   "expected": 0.5232349860787319,
-   "raw": 0.17676501392126812,
-   "shrunk": 0.026146600261857694,
-   "ci_low": -0.05599999999999994,
-   "ci_high": 0.1280000000000001,
-   "p_below": 0.25292778060847104,
+   "score": 0.6,
+   "expected": 0.4810684444498496,
+   "raw": 0.11893155555015042,
+   "shrunk": 0.01673857871825809,
+   "ci_low": -0.051999999999999935,
+   "ci_high": 0.09600000000000009,
+   "p_below": 0.28021224047242627,
+   "verdict": "not enough evidence",
+   "branch": null
+  },
+  {
+   "color": "black",
+   "family": "Slav Defense",
+   "n": 3,
+   "score": 0.6666666666666666,
+   "expected": 0.4760470012733243,
+   "raw": 0.1906196653933423,
+   "shrunk": 0.01700791154298573,
+   "ci_low": -0.052999999999999936,
+   "ci_high": 0.09800000000000009,
+   "p_below": 0.28029976199333523,
+   "verdict": "not enough evidence",
+   "branch": null
+  },
+  {
+   "color": "black",
+   "family": "Nimzowitsch-Larsen Attack",
+   "n": 4,
+   "score": 0.75,
+   "expected": 0.5222611955612846,
+   "raw": 0.22773880443871541,
+   "shrunk": 0.02011213850031038,
+   "ci_low": -0.04699999999999993,
+   "ci_high": 0.10400000000000009,
+   "p_below": 0.2595891374614224,
    "verdict": "not enough evidence",
    "branch": null
   },
@@ -382,11 +340,11 @@
    "score": 0.8333333333333334,
    "expected": 0.5195937035975858,
    "raw": 0.31373962973574754,
-   "shrunk": 0.028215530244925305,
-   "ci_low": -0.05499999999999994,
-   "ci_high": 0.135,
-   "p_below": 0.24594254844789454,
-   "verdict": "possible strength",
+   "shrunk": 0.02075934704732322,
+   "ci_low": -0.04699999999999993,
+   "ci_high": 0.10699999999999998,
+   "p_below": 0.25684997642718094,
+   "verdict": "not enough evidence",
    "branch": null
   },
   {
@@ -396,10 +354,10 @@
    "score": 0.59375,
    "expected": 0.5001796570832424,
    "raw": 0.09357034291675768,
-   "shrunk": 0.028359330513513623,
-   "ci_low": -0.04399999999999993,
-   "ci_high": 0.1200000000000001,
-   "p_below": 0.2239857967219259,
+   "shrunk": 0.021788932798406522,
+   "ci_low": -0.038000000000000034,
+   "ci_high": 0.10000000000000009,
+   "p_below": 0.23543626080882893,
    "verdict": "possible strength",
    "branch": null
   },
@@ -410,38 +368,38 @@
    "score": 0.7142857142857143,
    "expected": 0.5125079165718367,
    "raw": 0.20177779771387758,
-   "shrunk": 0.03215755003506959,
-   "ci_low": -0.04499999999999993,
-   "ci_high": 0.13800000000000012,
-   "p_below": 0.2181858957918769,
+   "shrunk": 0.02384282008126331,
+   "ci_low": -0.040000000000000036,
+   "ci_high": 0.1100000000000001,
+   "p_below": 0.2325573153836606,
+   "verdict": "possible strength",
+   "branch": null
+  },
+  {
+   "color": "black",
+   "family": "Four Knights Game",
+   "n": 10,
+   "score": 0.65,
+   "expected": 0.48565946614648176,
+   "raw": 0.16434053385351827,
+   "shrunk": 0.024809578169782708,
+   "ci_low": -0.03700000000000003,
+   "ci_high": 0.1100000000000001,
+   "p_below": 0.22255950814578954,
    "verdict": "possible strength",
    "branch": null
   },
   {
    "color": "black",
    "family": "Bishop's Opening",
-   "n": 3,
-   "score": 1.0,
-   "expected": 0.5086060613638393,
-   "raw": 0.4913939386361606,
-   "shrunk": 0.03624313142967399,
-   "ci_low": -0.04399999999999993,
-   "ci_high": 0.15300000000000002,
-   "p_below": 0.20784781635515956,
-   "verdict": "possible strength",
-   "branch": null
-  },
-  {
-   "color": "black",
-   "family": "Reti Opening",
-   "n": 7,
-   "score": 0.7857142857142857,
-   "expected": 0.5203017212165882,
-   "raw": 0.2654125644976975,
-   "shrunk": 0.03809481154822085,
-   "ci_low": -0.03700000000000003,
-   "ci_high": 0.15100000000000002,
-   "p_below": 0.1897308505663111,
+   "n": 6,
+   "score": 0.75,
+   "expected": 0.49639719396475734,
+   "raw": 0.25360280603524266,
+   "shrunk": 0.025259223498274974,
+   "ci_low": -0.038000000000000034,
+   "ci_high": 0.1140000000000001,
+   "p_below": 0.22545619502253553,
    "verdict": "possible strength",
    "branch": null
   },
@@ -452,38 +410,24 @@
    "score": 0.7,
    "expected": 0.4909997380546164,
    "raw": 0.20900026194538363,
-   "shrunk": 0.03867204154151833,
-   "ci_low": -0.03400000000000003,
-   "ci_high": 0.14800000000000013,
-   "p_below": 0.18054881234684847,
-   "verdict": "possible strength",
-   "branch": null
-  },
-  {
-   "color": "black",
-   "family": "Four Knights Game",
-   "n": 9,
-   "score": 0.7222222222222222,
-   "expected": 0.4864631105017736,
-   "raw": 0.23575911172044858,
-   "shrunk": 0.03986034300923883,
-   "ci_low": -0.03400000000000003,
-   "ci_high": 0.15200000000000014,
-   "p_below": 0.17727075959627286,
+   "shrunk": 0.028684802215568336,
+   "ci_low": -0.031000000000000028,
+   "ci_high": 0.119,
+   "p_below": 0.19936505641370025,
    "verdict": "possible strength",
    "branch": null
   },
   {
    "color": "white",
    "family": "Queen's Gambit",
-   "n": 48,
-   "score": 0.6041666666666666,
-   "expected": 0.5004584640415909,
-   "raw": 0.10370820262507575,
-   "shrunk": 0.044156036790313456,
-   "ci_low": -0.01200000000000001,
-   "ci_high": 0.129,
-   "p_below": 0.10141096739058825,
+   "n": 52,
+   "score": 0.5769230769230769,
+   "expected": 0.5001488906783254,
+   "raw": 0.07677418624475144,
+   "shrunk": 0.029002577910040014,
+   "ci_low": -0.019000000000000017,
+   "ci_high": 0.09899999999999998,
+   "p_below": 0.1530793835707845,
    "verdict": "possible strength",
    "branch": null
   }
@@ -491,18 +435,18 @@
  "phases": {
   "opening": {
    "moves": 3591,
-   "avg_loss": 3.4209133945976156,
+   "avg_loss": 3.412614870509618,
    "blunder_rate": 0.031467557783347255
   },
   "middlegame": {
    "moves": 4933,
-   "avg_loss": 5.13158321508209,
-   "blunder_rate": 0.06649097912021082
+   "avg_loss": 5.115953780660845,
+   "blunder_rate": 0.06628826272045409
   },
   "endgame": {
-   "moves": 3768,
-   "avg_loss": 2.8263800424628553,
-   "blunder_rate": 0.03078556263269639
+   "moves": 3745,
+   "avg_loss": 2.855674232309756,
+   "blunder_rate": 0.03124165554072096
   }
  },
  "blunders": [
@@ -549,125 +493,117 @@
  ],
  "risk": {
   "model": "gradient boosting",
-  "moves": 12292,
+  "moves": 12269,
   "actual": 557,
-  "expected": 569.1768209891875,
+  "expected": 566.8855071147493,
   "buckets": [
    {
     "label": "under 10% of the clock left",
     "moves": 1407,
     "actual": 75,
-    "expected": 84.15358966404378,
-    "ratio": 0.8912275792323708,
-    "ci_low": 0.7289630409032564,
-    "ci_high": 1.0799970786559667
+    "expected": 81.84841578628831,
+    "ratio": 0.9163280593705078,
+    "ci_low": 0.7494935123069666,
+    "ci_high": 1.1104140516645882
    },
    {
     "label": "10-30% of the clock left",
     "moves": 1653,
     "actual": 61,
-    "expected": 73.03038068504787,
-    "ratio": 0.8352688213836608,
-    "ci_low": 0.6674678471977168,
-    "ci_high": 1.0337472144450028
+    "expected": 73.98043098458382,
+    "ratio": 0.8245423713834716,
+    "ci_low": 0.6588962828026277,
+    "ci_high": 1.020471922078396
    },
    {
     "label": "over 30% of the clock left",
-    "moves": 9232,
+    "moves": 9209,
     "actual": 421,
-    "expected": 411.99285064009575,
-    "ratio": 1.0218623923835335,
-    "ci_low": 0.9413409112830751,
-    "ci_high": 1.1076682471664392
+    "expected": 411.05666034387724,
+    "ratio": 1.0241897057398472,
+    "ci_low": 0.9434848352517062,
+    "ci_high": 1.1101909851840133
    }
   ],
-  "ratio": 0.9786062598824298,
-  "ci_low": 0.9114103917829613,
-  "ci_high": 1.0496181051415157
+  "ratio": 0.9825617219161888,
+  "ci_low": 0.9150942525445961,
+  "ci_high": 1.053860592375689
  },
  "facts": [
   {
    "id": "F1",
-   "text": "Across 300 games (average rating 1702), you scored 51% versus 49% expected from ratings (+1 points)."
+   "text": "Across 300 games (average rating 1703), you scored 50% versus 49% expected from ratings (+1 points)."
   },
   {
    "id": "F2",
-   "text": "A blunder-risk model trained only on your opponents' moves (players of similar rating) expected 569.2 blunders in your 12292 moves given how hard the positions were; you made 557, 0.98 times the expected count (90% interval 0.91 to 1.05)."
+   "text": "A blunder-risk model trained only on your opponents' moves (players of similar rating) expected 566.9 blunders in your 12269 moves given how hard the positions were; you made 557, 0.98 times the expected count (90% interval 0.92 to 1.05)."
   },
   {
    "id": "F3",
-   "text": "With under 10% of the clock left, you made 75 blunders in 1407 moves versus 84.2 expected (0.89 times expected, 90% interval 0.73 to 1.08). Treat a band as different from expected only if its interval excludes 1."
+   "text": "With under 10% of the clock left, you made 75 blunders in 1407 moves versus 81.8 expected (0.92 times expected, 90% interval 0.75 to 1.11). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F4",
-   "text": "With 10-30% of the clock left, you made 61 blunders in 1653 moves versus 73.0 expected (0.84 times expected, 90% interval 0.67 to 1.03). Treat a band as different from expected only if its interval excludes 1."
+   "text": "With 10-30% of the clock left, you made 61 blunders in 1653 moves versus 74.0 expected (0.82 times expected, 90% interval 0.66 to 1.02). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F5",
-   "text": "With over 30% of the clock left, you made 421 blunders in 9232 moves versus 412.0 expected (1.02 times expected, 90% interval 0.94 to 1.11). Treat a band as different from expected only if its interval excludes 1."
+   "text": "With over 30% of the clock left, you made 421 blunders in 9209 moves versus 411.1 expected (1.02 times expected, 90% interval 0.94 to 1.11). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F6",
-   "text": "Queen's Gambit as White: 48 games, scored 60% versus 50% expected. Rating-adjusted gap after shrinkage: +4 points (90% interval -1 to +13). Verdict: possible strength."
+   "text": "Queen's Gambit as White: 52 games, scored 58% versus 50% expected. Rating-adjusted gap after shrinkage: +3 points (90% interval -2 to +10). Verdict: possible strength."
   },
   {
    "id": "F7",
-   "text": "Four Knights Game as Black: 9 games, scored 72% versus 49% expected. Rating-adjusted gap after shrinkage: +4 points (90% interval -3 to +15). Verdict: possible strength."
+   "text": "Benoni Defense as White: 10 games, scored 70% versus 49% expected. Rating-adjusted gap after shrinkage: +3 points (90% interval -3 to +12). Verdict: possible strength."
   },
   {
    "id": "F8",
-   "text": "Scotch Game as Black: 12 games, scored 21% versus 46% expected (-25 points unadjusted). Verdict: worth watching. On its own this is unlikely to be chance, but among the 34 openings checked one result this extreme is expected by luck alone; more games will tell."
-  },
-  {
-   "id": "F9",
    "text": "No opening family shows a weakness that is clear after adjusting for opponent rating, sample size and the number of openings checked."
   },
   {
-   "id": "F10",
+   "id": "F9",
    "text": "In the opening you lose an average of 3.4 win% per move, with a blunder (a drop of 20 win% or more) on 3.1% of moves (3591 moves analysed). Your opponents: 3.3 win% per move, blunders on 2.8% of moves."
   },
   {
-   "id": "F11",
+   "id": "F10",
    "text": "In the middlegame you lose an average of 5.1 win% per move, with a blunder (a drop of 20 win% or more) on 6.6% of moves (4933 moves analysed). Your opponents: 5.1 win% per move, blunders on 6.6% of moves."
   },
   {
+   "id": "F11",
+   "text": "In the endgame you lose an average of 2.9 win% per move, with a blunder (a drop of 20 win% or more) on 3.1% of moves (3745 moves analysed). Your opponents: 2.7 win% per move, blunders on 3.2% of moves."
+  },
+  {
    "id": "F12",
-   "text": "In the endgame you lose an average of 2.8 win% per move, with a blunder (a drop of 20 win% or more) on 3.1% of moves (3768 moves analysed). Your opponents: 2.7 win% per move, blunders on 3.2% of moves."
+   "text": "In your Queen's Gambit games as White, the engine eval after move 12 had a median of +0.9 pawns for you; in moves 13-25 you lost 5.1 win% per move, versus 5.1 across all your games."
   },
   {
    "id": "F13",
-   "text": "In your Queen's Gambit games as White, the engine eval after move 12 had a median of +1.0 pawns for you; in moves 13-25 you lost 5.2 win% per move, versus 5.1 across all your games."
+   "text": "In your Benoni Defense games as White, the engine eval after move 12 had a median of +0.5 pawns for you; in moves 13-25 you lost 4.7 win% per move, versus 5.1 across all your games."
   },
   {
    "id": "F14",
-   "text": "In your Four Knights Game games as Black, the engine eval after move 12 had a median of -0.3 pawns for you; in moves 13-25 you lost 4.7 win% per move, versus 5.1 across all your games."
-  },
-  {
-   "id": "F15",
-   "text": "In your Scotch Game games as Black, the engine eval after move 12 had a median of -0.3 pawns for you; in moves 13-25 you lost 6.2 win% per move, versus 5.1 across all your games."
-  },
-  {
-   "id": "F16",
    "text": "Your move 43...Kh7 (endgame) lost 93 win%; the engine preferred Qxf4+. Game: https://www.chess.com/game/live/186801649660"
   },
   {
-   "id": "F17",
+   "id": "F15",
    "text": "Your move 7...h5 (opening) lost 89 win%; the engine preferred Nxg4. Game: https://www.chess.com/game/live/186801191354"
   },
   {
-   "id": "F18",
+   "id": "F16",
    "text": "Your move 38...Qh2+ (middlegame) lost 88 win%; the engine preferred Bf6. Game: https://www.chess.com/game/live/186706648876"
   },
   {
-   "id": "F19",
+   "id": "F17",
    "text": "Lichess puzzle theme 'middlegame': https://lichess.org/training/middlegame"
   },
   {
-   "id": "F20",
+   "id": "F18",
    "text": "Lichess puzzle theme 'hanging piece': https://lichess.org/training/hangingPiece"
   }
  ],
  "engine": true,
- "generated_at": "2026-11-12T22:05:55+00:00",
+ "generated_at": "2026-11-12T22:30:35+00:00",
  "time_class": "blitz"
 }

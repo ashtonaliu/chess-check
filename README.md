@@ -58,11 +58,12 @@ Chess.com public API ──► PGN parsing (python-chess) ──► DuckDB: game
 | Stockfish analysis + feature engineering | `wf/engine.py` |
 | Blunder model: logistic regression, gradient boosting, PyTorch MLP | `wf/model.py` |
 | Facts given to the coach | `wf/facts.py` |
-| Agent loop with tools + repair | `wf/coach.py` |
+| Agent loop with tools + repair (Claude API) | `wf/coach.py` |
+| Same agent through Claude Code, tools served over MCP | `wf/coach_cli.py`, `wf/mcp_server.py` |
 | Claim verifier | `wf/verify.py` |
 | API | `server.py` |
 | Frontend (TypeScript, no framework) | `web/src/main.ts` |
-| Eval + model benchmark | `scripts/` |
+| Eval, model benchmark, example report | `scripts/` |
 
 ### Design decisions
 
@@ -74,7 +75,8 @@ Chess.com public API ──► PGN parsing (python-chess) ──► DuckDB: game
 - **Win probability, not centipawns.** Going from +9 to +6 doesn't matter; going from +1 to −2 does. Losses use Lichess's logistic mapping from centipawns to win%.
 - **Grouped splits.** Moves within a game are correlated, so both the train/test split and the cross-validation for out-of-fold risk predictions are grouped by game.
 - **The model never sees raw PGN.** LLMs are unreliable at reading chess positions. The coach gets computed facts and tools, and must cite one for every number, so its claims can be checked mechanically.
-- **The verifier is strict.** A number that isn't in a cited fact counts as unsupported, even if it's "roughly right". That makes the eval metric unambiguous.
+- **The verifier is strict, and it was tested against real output.** A number must appear in the specific fact its sentence cites, even if it's "roughly right" or shows up in some other fact. Reading real reports turned up three verifier bugs, each now covered by a regression test. It ignored `[T#]` tool-result citations. It accepted "15 minutes a day" because an unrelated interval ended at +15. And it rejected real game links because the tool result put a colon after each URL, which made the coach delete correct links to satisfy the checker. A checker can fail in both directions, so you have to read what it flags.
+- **Two coach backends, one agent.** With `ANTHROPIC_API_KEY` set, the coach uses the Claude API with tool use. Without one, it runs through the local Claude Code CLI (`claude -p`) on the user's Claude subscription: the same three tools are served by a small MCP server, built-in tools are disabled, and the repair turn resumes the same session. A hosted deployment with neither shows a saved example report.
 
 ## Run it
 
@@ -83,7 +85,8 @@ Requires Python 3.11+, Node 18+, and Stockfish (`brew install stockfish` or `apt
 ```bash
 python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 (cd web && npm install && npm run build)
-export ANTHROPIC_API_KEY=...   # only needed for the coach
+# Coach: either install Claude Code and log in (uses your Claude subscription),
+# or put ANTHROPIC_API_KEY=... in .env (copy .env.example).
 .venv/bin/uvicorn server:app --port 8765
 ```
 
@@ -92,10 +95,11 @@ Open http://localhost:8765. Other commands:
 ```bash
 .venv/bin/python -m pytest -q                                # tests (no API calls)
 .venv/bin/python scripts/benchmark_model.py USER --games 200  # model table
-.venv/bin/python scripts/eval_coach.py USER1 USER2 USER3     # hallucination eval (uses the API)
+.venv/bin/python scripts/eval_coach.py USER1 USER2 USER3     # hallucination eval
+.venv/bin/python scripts/make_example.py USER                # saved report for hosted demos
 ```
 
-**Deploy:** `docker build -t weakness-finder . && docker run -p 8080:8080 -e ANTHROPIC_API_KEY=... weakness-finder` works on Render, Fly.io or Cloud Run.
+**Deploy:** `docker build -t weakness-finder . && docker run -p 8080:8080 weakness-finder` works on Render, Fly.io or Cloud Run. Without a key, the hosted coach shows the saved example report. Add `-e ANTHROPIC_API_KEY=...` to turn live coaching on.
 
 ## Next steps
 

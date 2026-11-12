@@ -4,6 +4,7 @@ Run locally:  uvicorn server:app --reload
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import time
@@ -15,7 +16,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from wf.coach import run_coach
+from wf.coach_cli import available as claude_code_available, run_coach_auto
 from wf.env import load_env
 from wf.pipeline import Analysis, analyze, to_payload
 
@@ -58,16 +59,43 @@ async def api_analyze(r: AnalyzeReq):
     return to_payload(a)
 
 
+EXAMPLE = WEB / "example_report.json"
+
+
+def _backend() -> str | None:
+    if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"):
+        return "api"
+    if claude_code_available() and os.environ.get("WF_DISABLE_CLAUDE_CODE") != "1":
+        return "claude-code"
+    return None
+
+
+@app.get("/api/coach/status")
+def coach_status():
+    return {"backend": _backend(), "example": EXAMPLE.exists()}
+
+
 @app.post("/api/coach")
 async def api_coach(r: AnalyzeReq):
-    if not (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN")):
-        raise HTTPException(503, "The coach needs ANTHROPIC_API_KEY set on the server.")
+    if _backend() is None:
+        raise HTTPException(503, "Live coaching isn't enabled on this server. It runs "
+                                 "locally with Claude Code or with an API key.")
     a = await run_in_threadpool(_get, r)
-    res = await run_in_threadpool(run_coach, a.username, a.facts, a.games, a.moves)
+    try:
+        res = await run_in_threadpool(run_coach_auto, a.username, a.facts, a.games, a.moves)
+    except RuntimeError as e:
+        raise HTTPException(502, str(e))
     return {"report": res.report, "verification": res.verification,
             "first_verification": res.first_verification, "repaired": res.repaired,
-            "tool_calls": res.tool_calls, "usage": res.usage,
+            "tool_calls": res.tool_calls, "usage": res.usage, "backend": _backend(),
             "facts": [{"id": f["id"], "text": f["text"]} for f in res.facts]}
+
+
+@app.get("/api/coach/example")
+def coach_example():
+    if not EXAMPLE.exists():
+        raise HTTPException(404, "No example report saved.")
+    return json.loads(EXAMPLE.read_text())
 
 
 @app.get("/api/health")

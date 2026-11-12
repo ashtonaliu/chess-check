@@ -92,6 +92,7 @@ class CoachResult:
     tool_calls: list[dict] = field(default_factory=list)
     repaired: bool = False
     usage: dict = field(default_factory=dict)
+    first_report: str = ""
 
 
 class ToolBox:
@@ -207,7 +208,7 @@ def run_coach(username: str, facts: list[dict], games: pd.DataFrame,
                  f"Player: {username}\n\nFacts:\n{facts_text(facts)}\n\n"
                  "Write the report. Use the tools if a weakness needs more detail."}]
     resp = _agent_turns(client, messages, box, usage)
-    report = _text(resp)
+    report = first_report = _text(resp)
     first = verify(report, box.facts)
     final, repaired = first, False
     if repair and not first["ok"]:
@@ -221,7 +222,7 @@ def run_coach(username: str, facts: list[dict], games: pd.DataFrame,
         final, repaired = verify(report, box.facts), True
     return CoachResult(report=report, verification=final, first_verification=first,
                        facts=box.facts, tool_calls=box.calls, repaired=repaired,
-                       usage=usage)
+                       usage=usage, first_report=first_report)
 
 
 def to_json(r: CoachResult) -> str:

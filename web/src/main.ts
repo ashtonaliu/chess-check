@@ -25,7 +25,7 @@ interface Verification { checked: number; unsupported: Unsupported[]; bad_citati
 interface CoachResp {
   report: string; verification: Verification; first_verification: Verification;
   repaired: boolean; tool_calls: { name: string; input: Record<string, unknown> }[];
-  facts: Fact[];
+  facts: Fact[]; username?: string; backend?: string;
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -150,6 +150,7 @@ function renderEngine(p: Payload) {
 function renderMarkdown(md: string, facts: Map<string, string>): string {
   const inline = (s: string) => esc(s)
     .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[^*\w])\*([^*\s][^*]*?)\*(?!\w)/g, "$1<em>$2</em>")
     .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
     .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>')
     .replace(/\[([FT]\d+)\]/g, (_m, id: string) =>
@@ -172,8 +173,11 @@ function renderMarkdown(md: string, facts: Map<string, string>): string {
   return out.join("\n");
 }
 
-function renderCoach(c: CoachResp) {
+function renderCoach(c: CoachResp, example = false) {
   const facts = new Map(c.facts.map(f => [f.id, f.text]));
+  const banner = example
+    ? `<p class="verify ok">This is a saved example report for <strong>${esc(c.username ?? "")}</strong>. Live coaching runs locally with Claude Code or with an API key; see the README.</p>`
+    : "";
   const v = c.verification;
   const issues = v.unsupported.map(u => `<li>${esc(u.type)} <code>${esc(String(u.claim))}</code></li>`).join("");
   const first = c.first_verification;
@@ -182,7 +186,7 @@ function renderCoach(c: CoachResp) {
     : "";
   const tools = c.tool_calls.length
     ? ` Tools used: ${c.tool_calls.map(t => esc(t.name)).join(", ")}.` : "";
-  $("coach").innerHTML = `<div class="report">${renderMarkdown(c.report, facts)}</div>
+  $("coach").innerHTML = `${banner}<div class="report">${renderMarkdown(c.report, facts)}</div>
     <div class="verify ${v.ok ? "ok" : "bad"}">
       <strong>${v.ok ? "Verified" : "Not fully verified"}:</strong> ${v.checked} numbers, moves and links checked,
       ${v.unsupported.length + v.bad_citations.length} unsupported.${repairNote}${tools}
@@ -213,7 +217,10 @@ async function analyze(ev: Event) {
   }
 }
 
+let coachBackend: string | null | undefined = undefined;  // undefined until /api/coach/status answers
+
 async function coach() {
+  if (coachBackend === null) { await showExample(); return; }
   if (!lastReq) return;
   const btn = $("coachBtn") as HTMLButtonElement;
   btn.disabled = true;
@@ -227,7 +234,29 @@ async function coach() {
   }
 }
 
+async function showExample() {
+  try {
+    const r = await fetch("/api/coach/example");
+    if (!r.ok) throw new Error("Live coaching isn't enabled on this server.");
+    renderCoach(await r.json() as CoachResp, true);
+  } catch (e) {
+    $("coach").innerHTML = `<p class="weak">${esc((e as Error).message)}</p>`;
+  }
+}
+
+async function initCoach() {
+  try {
+    const s = await (await fetch("/api/coach/status")).json() as { backend: string | null; example: boolean };
+    coachBackend = s.backend;
+    if (s.backend === null) {
+      ($("coachBtn") as HTMLButtonElement).textContent = s.example ? "Show an example report" : "Coaching unavailable";
+      ($("coachBtn") as HTMLButtonElement).disabled = !s.example;
+    }
+  } catch { /* leave defaults */ }
+}
+
 $("form").addEventListener("submit", analyze);
 $("coachBtn").addEventListener("click", coach);
+initCoach();
 const qs = new URLSearchParams(location.search).get("u");
 if (qs) { ($("username") as HTMLInputElement).value = qs; }

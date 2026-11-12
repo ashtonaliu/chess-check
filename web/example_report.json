@@ -1,0 +1,122 @@
+{
+ "username": "ashton-iwnl",
+ "report": "Your results match your rating: you scored 50% against an expected 49% [F1], and you blunder slightly less than similar-rated players would in your positions (0.97 times the expected count [F2]).\n\n## Biggest weaknesses\nNo opening shows a clear weakness once rating, sample size and the number of openings checked are taken into account [F9]. The model also found no excess blunders overall [F2]. What follows is one thing to keep an eye on, not a confirmed problem.\n\n1. **Scotch Game as Black (worth watching, small sample).** You scored 21% against 46% expected over 12 games [F8]. Across 34 openings, one result this extreme is expected by luck alone [F8]. In moves 13-25 you lost 6.2 win% per move here, against 5.1 across all your games [F15]. Your worst games include the Goring Gambit Declined (4.c3 d5 5.Bb5) and the Scotch Gambit (4.Bc4 d6) [T1]. One of those also had your 43...Kh7, which lost 93 win% when Qxf4+ was available [F16][T1]. *What to do:* choose one reliable answer to 4.c3 and one to 4.Bc4, and replay these three games [T1] to find where the middlegame went wrong.\n\n## What's working\n- **Clock management under pressure.** With under 10% of your clock left, you made 0.85 times the expected blunders [F3]. With 10-30% left, it was 0.83 times [F4]. Your mistakes happen with plenty of time left (1.02 times expected [F5]), which points to calculation errors rather than time trouble.\n- **Queen's Gambit as White.** You scored 60% against 50% expected (possible strength) [F6], with a median eval of +1.0 after move 12 [F13]. The Four Knights as Black also looks promising: 72% against 49% expected [F7].\n\n## Training plan\n- Do short sessions of middlegame puzzles: https://lichess.org/training/middlegame [F19]. The middlegame is where you blunder most often, on 6.7% of moves [F11].\n- Before each move when you have time, check which pieces are hanging. Practise with https://lichess.org/training/hangingPiece [F20]. For an example, see 7...h5, which missed Nxg4 [F17].\n- Look at your biggest single swings, such as 38...Qh2+ where Bf6 was better [F18]. Ask yourself whether you slowed down enough before playing a check.\n- Fix your Scotch repertoire as described above, then check again after more games [F8].\n- Keep playing the Queen's Gambit, and in moves 13-25 aim to turn your opening advantage into a win [F13].",
+ "verification": {
+  "checked": 42,
+  "unsupported": [],
+  "uncited": [],
+  "bad_citations": [],
+  "unsupported_rate": 0.0,
+  "ok": true
+ },
+ "first_verification": {
+  "checked": 42,
+  "unsupported": [],
+  "uncited": [],
+  "bad_citations": [],
+  "unsupported_rate": 0.0,
+  "ok": true
+ },
+ "repaired": false,
+ "tool_calls": [
+  {
+   "name": "example_games",
+   "input": {
+    "family": "Scotch Game",
+    "color": "black",
+    "k": 3
+   },
+   "error": false
+  }
+ ],
+ "usage": {
+  "backend": "claude-code",
+  "turns": 2
+ },
+ "facts": [
+  {
+   "id": "F1",
+   "text": "Across 300 games (average rating 1702), you scored 50% versus 49% expected from ratings (+1 points)."
+  },
+  {
+   "id": "F2",
+   "text": "A blunder-risk model trained only on your opponents' moves (players of similar rating) expected 577.3 blunders in your 12206 moves given how hard the positions were; you made 559, 0.97 times the expected count."
+  },
+  {
+   "id": "F3",
+   "text": "With under 10% of the clock left, you made 75 blunders in 1374 moves versus 88.7 expected (0.85 times expected)."
+  },
+  {
+   "id": "F4",
+   "text": "With 10-30% of the clock left, you made 61 blunders in 1635 moves versus 73.7 expected (0.83 times expected)."
+  },
+  {
+   "id": "F5",
+   "text": "With over 30% of the clock left, you made 423 blunders in 9197 moves versus 414.8 expected (1.02 times expected)."
+  },
+  {
+   "id": "F6",
+   "text": "Queen's Gambit as White: 47 games, scored 60% versus 50% expected. Rating-adjusted gap after shrinkage: +4 points (90% interval -2 to +12). Verdict: possible strength."
+  },
+  {
+   "id": "F7",
+   "text": "Four Knights Game as Black: 9 games, scored 72% versus 49% expected. Rating-adjusted gap after shrinkage: +4 points (90% interval -4 to +15). Verdict: possible strength."
+  },
+  {
+   "id": "F8",
+   "text": "Scotch Game as Black: 12 games, scored 21% versus 46% expected (-25 points unadjusted). Verdict: worth watching. On its own this is unlikely to be chance, but among the 34 openings checked one result this extreme is expected by luck alone; more games will tell."
+  },
+  {
+   "id": "F9",
+   "text": "No opening family shows a weakness that is clear after adjusting for opponent rating, sample size and the number of openings checked."
+  },
+  {
+   "id": "F10",
+   "text": "In the opening you lose an average of 3.4 win% per move, with a blunder (a drop of 20 win% or more) on 3.2% of moves (3590 moves analysed). Your opponents: 3.4 win% per move, blunders on 2.8% of moves."
+  },
+  {
+   "id": "F11",
+   "text": "In the middlegame you lose an average of 5.2 win% per move, with a blunder (a drop of 20 win% or more) on 6.7% of moves (4904 moves analysed). Your opponents: 5.1 win% per move, blunders on 6.6% of moves."
+  },
+  {
+   "id": "F12",
+   "text": "In the endgame you lose an average of 2.8 win% per move, with a blunder (a drop of 20 win% or more) on 3.1% of moves (3712 moves analysed). Your opponents: 2.8 win% per move, blunders on 3.2% of moves."
+  },
+  {
+   "id": "F13",
+   "text": "In your Queen's Gambit games as White, the engine eval after move 12 had a median of +1.0 pawns for you; in moves 13-25 you lost 5.3 win% per move, versus 5.1 across all your games."
+  },
+  {
+   "id": "F14",
+   "text": "In your Four Knights Game games as Black, the engine eval after move 12 had a median of -0.3 pawns for you; in moves 13-25 you lost 4.7 win% per move, versus 5.1 across all your games."
+  },
+  {
+   "id": "F15",
+   "text": "In your Scotch Game games as Black, the engine eval after move 12 had a median of -0.3 pawns for you; in moves 13-25 you lost 6.2 win% per move, versus 5.1 across all your games."
+  },
+  {
+   "id": "F16",
+   "text": "Your move 43...Kh7 (endgame) lost 93 win%; the engine preferred Qxf4+. Game: https://www.chess.com/game/live/186801649660"
+  },
+  {
+   "id": "F17",
+   "text": "Your move 7...h5 (opening) lost 89 win%; the engine preferred Nxg4. Game: https://www.chess.com/game/live/186801191354"
+  },
+  {
+   "id": "F18",
+   "text": "Your move 38...Qh2+ (middlegame) lost 88 win%; the engine preferred Bf6. Game: https://www.chess.com/game/live/186706648876"
+  },
+  {
+   "id": "F19",
+   "text": "Lichess puzzle theme 'middlegame': https://lichess.org/training/middlegame"
+  },
+  {
+   "id": "F20",
+   "text": "Lichess puzzle theme 'hanging piece': https://lichess.org/training/hangingPiece"
+  },
+  {
+   "id": "T1",
+   "text": "Worst Scotch Game games as black:\n- https://www.chess.com/game/live/186648285368: you lost (1735 vs 1731), Scotch Game Goring Gambit Declined; 1.e4 e5 2.d4 Nc6 3.Nf3 exd4 4.c3 d5 5.Bb5 dxe4 6.Nxd4 Bd7\n- https://www.chess.com/game/live/186651715854: you lost (1720 vs 1724), Scotch Game; 1.e4 e5 2.Nf3 Nc6 3.d4 exd4 4.Nxd4 d6 5.Be3 Nf6 6.Nc3 Bg4\n- https://www.chess.com/game/live/186801649660: you lost (1688 vs 1694), Scotch Game Scotch Gambit; 1.e4 e5 2.Nf3 Nc6 3.d4 exd4 4.Bc4 d6 5.Nxd4 g6 6.Nc3 Bg7"
+  }
+ ]
+}

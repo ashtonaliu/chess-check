@@ -77,6 +77,18 @@ def test_verify_catches_invented_number_and_move():
     assert not r["ok"]
 
 
+def test_verify_rejects_number_borrowed_from_another_fact():
+    # 12 is in F1, but this sentence cites F2
+    r = verify("Do 12 puzzles a day [F2].", FACTS)
+    assert not r["ok"]
+    assert r["unsupported"][0]["type"] == "miscited number"
+
+
+def test_verify_ignores_numbered_list_markers():
+    r = verify("**1. Sicilian Defense.** You score 31% [F1].", FACTS)
+    assert r["ok"], r
+
+
 def test_verify_catches_bad_citation_and_url():
     r = verify("See https://example.com/x for more [F9].", FACTS)
     assert r["bad_citations"] == ["F9"]
@@ -169,3 +181,9 @@ def test_player_risk_buckets():
     r = model.player_risk(_synthetic_moves())
     assert r and r["buckets"]
     assert 0.5 < r["ratio"] < 1.5
+
+
+def test_verify_url_punctuation_on_both_sides():
+    facts = [{"id": "T1", "text": "- https://www.chess.com/game/live/42: you lost"}]
+    r = verify("Replay https://www.chess.com/game/live/42, then review it [T1].", facts)
+    assert r["ok"], r

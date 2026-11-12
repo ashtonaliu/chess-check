@@ -3,6 +3,7 @@
 // renders either one.
 import { analyseGames, BLUNDER_DROP, moveLabel, phaseSummary, worstBlunders } from "./engine";
 import { fetchGames } from "./games";
+import { buildFacts } from "./facts";
 import { playerRisk, rowsOf } from "./model";
 import { formatMoves, openingTable, overall, withExpected, worstBranch } from "./stats";
 
@@ -42,7 +43,8 @@ export async function analyzeInBrowser(o: BrowserOptions) {
   return {
     username: o.username, time_class: o.timeClass, generated_at: new Date().toISOString(),
     overall: overall(rows), openings, phases: phaseSummary(analyses), blunders,
-    risk, facts: [], engine: true, analyses,
+    risk, facts: buildFacts(rows, analyses, risk), engine: true, analyses,
+    gameRows: rows, moveRows: rowsOf(analyses),
     seconds: Math.round((performance.now() - t0) / 1000),
   };
 }

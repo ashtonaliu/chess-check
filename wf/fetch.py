@@ -18,8 +18,8 @@ DRAW_RESULTS = {"agreed", "repetition", "stalemate", "insufficient",
 # e.g. Sicilian-Defense-Najdorf-Variation -> "Sicilian Defense".
 FAMILY_ENDINGS = {"Defense", "Opening", "Game", "Gambit", "Attack", "System"}
 
-# Canonical families, checked in order (more specific names first), so that
-# "Closed Sicilian" and "Alapin Sicilian Defense" both count as the Sicilian.
+# Canonical families, so that "Closed Sicilian" and "Alapin Sicilian Defense"
+# both count as the Sicilian.
 CANONICAL = [
     ("Nimzo Indian", "Nimzo-Indian Defense"), ("Bogo Indian", "Bogo-Indian Defense"),
     ("Queens Indian", "Queen's Indian Defense"), ("Kings Indian Attack", "King's Indian Attack"),
@@ -31,9 +31,9 @@ CANONICAL = [
     ("English", "English Opening"), ("Reti", "Reti Opening"),
     ("Ruy Lopez", "Ruy Lopez"), ("Italian", "Italian Game"), ("Giuoco", "Italian Game"),
     ("Two Knights", "Italian Game"), ("Scotch", "Scotch Game"), ("Vienna", "Vienna Game"),
-    ("Four Knights", "Four Knights Game"), ("Petrov", "Petrov's Defense"),
+    ("Four Knights", "Four Knights Game"), ("Petrov", "Petrov's Defense"), ("Petrovs", "Petrov's Defense"),
     ("Philidor", "Philidor Defense"), ("Pirc", "Pirc Defense"), ("Modern", "Modern Defense"),
-    ("Scandinavian", "Scandinavian Defense"), ("Alekhine", "Alekhine's Defense"),
+    ("Scandinavian", "Scandinavian Defense"), ("Alekhine", "Alekhine's Defense"), ("Alekhines", "Alekhine's Defense"),
     ("London", "London System"), ("Colle", "Colle System"), ("Catalan", "Catalan Opening"),
     ("Grunfeld", "Grunfeld Defense"), ("Dutch", "Dutch Defense"), ("Benoni", "Benoni Defense"),
     ("Benko", "Benko Gambit"), ("Nimzowitsch Larsen", "Nimzowitsch-Larsen Attack"),
@@ -70,9 +70,13 @@ def opening_names(eco_url: str) -> tuple[str, str]:
     if not tokens:
         return "Unknown", "Unknown"
     full = " ".join(tokens)
-    for key, canon in CANONICAL:
-        if f" {key} " in f" {full} ":
-            return full, canon
+    # The family named first wins ("Four Knights Game Scotch Variation" is a
+    # Four Knights game; "Nimzowitsch Larsen Attack Modern Variation" is not a
+    # Modern Defense); on a tie, the longer (more specific) name.
+    hits = [(f" {full} ".find(f" {key} "), -len(key), canon) for key, canon in CANONICAL
+            if f" {key} " in f" {full} "]
+    if hits:
+        return full, min(hits)[2]
     for i, tok in enumerate(tokens[:5]):
         if tok in FAMILY_ENDINGS:
             return full, " ".join(tokens[: i + 1])

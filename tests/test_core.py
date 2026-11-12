@@ -30,6 +30,10 @@ def test_opening_names_canonical():
     assert opening_names("x/Caro-Kann")[1] == "Caro-Kann Defense"
     assert opening_names("x/Nimzo-Indian-Defense-4.e3")[1] == "Nimzo-Indian Defense"
     assert opening_names("")[1] == "Unknown"
+    # the family named first wins, not the first entry in the table
+    assert opening_names("x/Nimzowitsch-Larsen-Attack-Modern-Variation")[1] == "Nimzowitsch-Larsen Attack"
+    assert opening_names("x/Four-Knights-Game-Scotch-Variation")[1] == "Four Knights Game"
+    assert opening_names("x/Kings-Indian-Attack")[1] == "King's Indian Attack"
 
 
 def _games(n_sic=12, sic_score=0.0):

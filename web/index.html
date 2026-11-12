@@ -46,6 +46,10 @@
     <section>
       <h2>Coach</h2>
       <p class="note">An agent with SQL, retrieval and Stockfish tools writes the report. A checker then verifies every number, move and link against the facts and tool results it was given.</p>
+      <div id="keyBox" hidden>
+        <input id="apiKey" type="password" placeholder="Your Anthropic API key (sk-ant-...)" autocomplete="off" spellcheck="false" aria-label="Anthropic API key">
+        <p class="note">Your key goes only from this page to api.anthropic.com. This site has no server. The key stays in this tab's memory and is gone when you close it. A report usually costs about $0.10–0.40 on your key. Get one at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
+      </div>
       <button id="coachBtn">Write my coaching report</button>
       <div id="coach"></div>
     </section>

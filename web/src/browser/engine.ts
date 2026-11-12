@@ -43,7 +43,7 @@ function clocks(pgn: string): number[] {
 
 // ---------- one engine ----------
 
-class Engine {
+export class Engine {
   private w: Worker;
   private listeners: ((line: string) => void)[] = [];
   constructor(url: string) {

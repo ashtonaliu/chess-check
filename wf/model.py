@@ -92,9 +92,11 @@ def _hgb_raw():
 
 
 def _logreg_raw():
-    # tol=1e-8: lbfgs' default (1e-4) stops up to 0.7% short in probability;
-    # the in-browser Newton solver converges fully, and parity is tested
-    return make_pipeline(StandardScaler(), LogisticRegression(max_iter=10000, tol=1e-8))
+    # Newton's method, like the in-browser solver: lbfgs' default tolerance
+    # (1e-4) stopped up to 0.7% short in probability, and even tol=1e-8 left
+    # 1e-6 gaps. Parity with the TypeScript port is tested.
+    return make_pipeline(StandardScaler(),
+                         LogisticRegression(solver="newton-cholesky", tol=1e-10, max_iter=100))
 
 
 class TorchMLP:

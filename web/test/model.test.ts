@@ -25,7 +25,7 @@ test("logistic regression reaches scikit-learn's optimum", () => {
   const m = fitLogReg(opp.map(i => X[i]), opp.map(i => y[i]));
   let worst = 0;
   X.forEach((x, i) => { worst = Math.max(worst, Math.abs(predict(m, x) - fx.full_fit_proba[i])); });
-  assert.ok(worst < 1e-6, `max probability difference ${worst}`);
+  assert.ok(worst < 1e-8, `max probability difference ${worst}`);
 });
 
 test("player risk matches scikit-learn (overall and per clock band)", () => {

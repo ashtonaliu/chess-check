@@ -1,162 +1,106 @@
 # Weakness Finder
 
-Enter a Chess.com username and get an honest answer to "what am I actually bad at?"
+Type in a Chess.com username and find out what that player is actually bad at.
 
-**[Live demo](https://ashtonaliu.github.io/weakness-finder/)**: enter any Chess.com username and the analysis runs entirely in your browser. Games come straight from Chess.com's API, and Stockfish runs as WebAssembly across parallel workers (about 15–40 s for 150 games). The blunder-risk model trains in the browser too (logistic regression, fitted by Newton's method). There's no server. Paste your own Anthropic API key for a live AI coaching report: the agent's SQL tool runs on DuckDB-WASM, Stockfish runs in a worker, and the key goes only from the page to Anthropic. The page opens on a snapshot of my own games with the coach's verified report.
+**[Try the live demo](https://ashtonaliu.github.io/weakness-finder/)**. It runs entirely in your browser, so there is nothing to install and no account needed.
 
-- **Openings, adjusted properly.** "You score 38% against the Sicilian" says little if those opponents were stronger or there were only 6 games. Each game's result is compared with its Elo-expected score. Per-opening averages go into a hierarchical Bayesian model that shrinks them toward the player's mean, with a 90% interval for each. Openings that look bad on their own but could be chance among ~30 tested are labeled "worth watching", not "weakness".
-- **Where it goes wrong.** For each weak opening, it finds the move sequence where your results drop off, for example *"after 1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Qxd4 you score 22% in 6 games"*.
-- **Engine analysis of every move.** Stockfish runs on every position. Losses are measured in win probability, not centipawns, and split by game phase.
-- **A blunder-risk model.** It predicts whether a move will lose 20 or more win% from position and clock features. It learns from your opponents' moves (players of similar rating) and then scores yours, so it can say *"you made 1.6× the blunders the model expects in positions this hard, mostly with under 10% of your clock left."*
-- **A grounded LLM coach, with evals.** An agent with SQL, semantic game search and Stockfish tools writes the report. A verifier checks every number, move and link in it against the facts and tool results the agent was given. If anything is unsupported, the checker's findings go back to the agent for one repair turn.
+## What it does
 
-## Skills demonstrated
+1. Downloads your recent games from Chess.com.
+2. Runs the Stockfish chess engine on every move to find your mistakes.
+3. Checks each opening against what your rating predicts, so a bad result against stronger players does not count against you.
+4. Estimates whether you blunder more than similar players would in the same positions, and whether time pressure is the cause.
+5. Has an AI coach write a short report, then checks every number and move in it against the real data before showing it.
 
-| Area | In this project |
-|---|---|
-| Data preprocessing and feature engineering pipelines | PGN and clock parsing, per-move engine and position features, canonical opening families. Parallel, cached Stockfish runs 300 games in about 30 s on the server and 150 in about 17 s in the browser |
-| Developing, training and deploying ML models into a product | Hierarchical Bayesian opening model and a blunder-risk classifier, benchmarked in scikit-learn and PyTorch. The classifier was reimplemented in TypeScript and ships to every visitor's browser |
-| Math and traditional ML | Elo expectation, a normal-normal hierarchical model with the variance integrated out, multiple comparisons, Poisson intervals, grouped cross-validation, and calibration vs. discrimination |
-| LLM applications: context engineering, RAG, evals, agentic patterns | Tool-using agent (SQL, semantic search over your games, Stockfish) with computed facts instead of raw games, served over the API or MCP. Retrieval combines sentence embeddings (all-MiniLM-L6-v2, in Python and in the browser) with BM25 and is measured by its own eval. Verifier and repair loop, plus a five-player hallucination eval with a manual audit |
-| SQL | DuckDB for in-process analytics (standard SQL, portable to BigQuery). MySQL 8 as the persistent store and the coach's query layer, with one schema per analysis, a SELECT-only database user, read-only transactions and a statement timeout. The two engines are parity-tested to give the same answers |
-| Python and TypeScript | Python is the reference implementation. The TypeScript port runs the whole product in the browser and is parity-tested against it in CI: statistics match to 1e-9, model probabilities to 1e-8, and the coach's facts character for character |
-| Ownership | Real data exposed mistakes in my own method, and the fixes are documented below: collapsed shrinkage, a self-referential baseline, verifier bugs and a solver stopping early |
+A typical result, from my own games: *"In the middlegame you blunder on 6.6% of moves, almost the same as your opponents' 6.5%. Your Queen's Gambit as White scores 57% against an expected 50%."*
 
-## Results
+## Try it
 
-**Blunder-risk model.** Tested on 150 blitz games / 14,217 moves (a public account), with a held-out split grouped by game so no game appears in both train and test. Blunder base rate: 1.3%.
-
-| Model | ROC AUC | Log loss | Brier |
-|---|---:|---:|---:|
-| Base rate | 0.500 | 0.073 | 0.014 |
-| Logistic regression (scikit-learn, with clock and eval band features) | 0.824 | 0.064 | 0.014 |
-| Gradient boosting (scikit-learn) | 0.835 | 0.064 | 0.013 |
-| MLP (PyTorch) | 0.848 | 0.062 | 0.014 |
-
-The top features by permutation importance are fraction of clock left, then the engine eval before the move. Time pressure predicts blunders better than position type does.
-
-**Calibration matters more than AUC here.** The page reports *actual ÷ expected* blunders per clock band, so what matters is whether predicted totals are right within each band, not just the ranking. A plain logistic model ranks well (AUC 0.840) but can't bend at low clock: across five players it disagreed with gradient boosting by up to 0.75 in the low-clock ratio. Adding indicator features for the reported bands makes a logistic model match observed and predicted totals within each band on its training data. On held-out opponent moves, pooled across five players (actual ÷ predicted, by band <10% / 10–30% / >30% of clock):
-
-| Model | <10% | 10–30% | >30% |
-|---|---:|---:|---:|
-| Logistic regression with band features | 0.96 | 0.99 | 0.99 |
-| Gradient boosting | 1.12 | 0.95 | 0.99 |
-
-The band features cost a little AUC (0.840 → 0.824) and buy calibration where the page needs it. So the browser uses logistic regression, and every ratio now carries a 90% Poisson interval. Opponents make only about 15–30 low-clock blunders per player, so those intervals are wide, and the page highlights a band only when its interval excludes 1.
-
-**Coach hallucination eval** (`scripts/eval_coach.py`). 5 players (me plus four similar-rated recent opponents), 120 blitz games each, run through Claude Opus 5.5. The same verifier scores three conditions:
-
-| Condition | Unsupported claims (lenient) | Clean reports | Unsupported claims (strict) | Clean reports |
-|---|---:|---:|---:|---:|
-| Raw PGNs, no context engineering | 46 / 323 (14.2%) | 0 / 5 | n/a | n/a |
-| Computed facts + tools, first draft | 4 / 214 (1.9%) | 2 / 5 | 19 / 214 (8.9%) | 0 / 5 |
-| Facts + tools + verifier repair | 0 / 202 (0.0%) | 5 / 5 | 0 / 202 (0.0%) | 5 / 5 |
-
-*Lenient:* a number, move or link counts as supported if it appears anywhere in the computed analysis or in the games the model was shown. That's fair to the raw baseline, which was never asked to cite. *Strict:* it must appear in the specific fact its sentence cites.
-
-**Game search (RAG) eval** (`scripts/eval_search.py`). The coach's `search_games` tool turns each game into a plain-English summary and retrieves games for questions like "threw away a winning position". 13 test queries, scored over 5 players × 150 games. The right answers come from the structured data, never from the summary text, and the queries avoid the summaries' wording ("got flagged" vs "lost on time").
-
-| Retriever | Precision@5 | Recall@10 |
-|---|---:|---:|
-| Random | 0.17 | n/a |
-| BM25 (keywords) | 0.41 | 0.19 |
-| Sentence embeddings | 0.35 | 0.16 |
-| **Hybrid (rank fusion)** | **0.45** | **0.23** |
-
-Embeddings win on paraphrase: "got flagged" scores 0.48 against BM25's 0.00, and "saved a lost game" 0.56 against 0.04. They fail where meaning hinges on who did what, or on negation: "my king got mated" scores 0.04, because the model confuses "got checkmated" with "won by checkmate", and "games *without* big errors" scores 0.00. Keywords handle exactly those. The hybrid is the default, and the tool's description steers exact filters ("lost on time", a specific opening) to SQL, where they belong. In the browser, transformers.js runs an 8-bit ONNX copy of the same model. Its embeddings match Python's with cosine similarity 0.99, and 19 of 20 top-5 results agree.
-
-**What "unsupported" means.** I checked one raw report by hand against the games. All 7 move sequences it cited were real, and its Black record (6–9–1) was right. Its White record ("10–4") was wrong: the truth was 9–5. Most of its other flagged numbers were training advice ("20 minutes a day"). So the raw model isn't 14% wrong. Its claims can't be checked automatically, and when one is wrong, nothing catches it. The grounded coach makes every claim checkable. Its first drafts mostly fail strict checking by citing the wrong fact for a correct number, and one repair turn fixed all 5.
+1. Open the [demo](https://ashtonaliu.github.io/weakness-finder/). It starts with an analysis of my own 300 blitz games.
+2. Enter any Chess.com username and press Analyze. 150 games take about 15 to 40 seconds.
+3. For the AI coaching report, paste your own [Anthropic API key](https://console.anthropic.com/settings/keys). The key only goes from your browser to Anthropic, and a report costs about $0.10 to $0.40.
 
 ## How it works
 
-```
-Chess.com public API ──► PGN parsing (python-chess) ──► DuckDB: games, moves
-                                                          │
-             Stockfish (parallel, cached) ──► per-move features: clock, time spent,
-                                              mobility, material, eval, phase
-                                                          │
-     SQL aggregation ──► Elo residuals ──► empirical-Bayes shrinkage ──► opening verdicts
-     moves table ──► scikit-learn / PyTorch blunder model ──► actual vs expected blunders
-                                                          │
-                              numbered facts [F1..Fn] ◄───┘
-                                       │
-     Claude agent ── tools: run_sql (read-only DuckDB), example_games (retrieval),
-                     engine_eval (Stockfish); each result becomes a citable fact [T#]
-                                       │
-     verifier: citations, moves, numbers, links ──► one repair turn if needed
-                                       │
-     FastAPI ──► TypeScript UI (forest plot, phase cards, verified report)
-```
+1. **Games:** pulled from the Chess.com public API.
+2. **Engine:** Stockfish scores every position. I measure mistakes as lost winning chances, so dropping from +9 to +6 barely counts but +1 to -2 does.
+3. **Openings:** each game's result is compared with the result your rating predicted. A statistical model then pulls small samples toward your average, so 4 unlucky games do not get called a weakness.
+4. **Blunder model:** a machine learning model learns from your opponents' moves how often a player at your level blunders in a given position and clock situation. Comparing your real blunders with that prediction shows whether you blunder more than expected.
+5. **AI coach:** Claude gets the computed facts plus tools to query your games, search them, and run Stockfish. A checker verifies every number, move and link in its report. If something is not supported, the coach gets one chance to fix it.
 
-| Part | File |
+## Results
+
+**Blunder model.** Predicting which moves will be blunders, tested on 14,217 moves the models never saw (AUC: 0.5 is guessing, 1.0 is perfect).
+
+| Model | AUC |
+|---|---:|
+| Guessing | 0.50 |
+| Logistic regression | 0.82 |
+| Gradient boosting | 0.84 |
+| Neural network (PyTorch) | 0.85 |
+
+The biggest predictor of a blunder is how little time is left on the clock. The site uses logistic regression because its predictions were the most accurate in the time-pressure range, even though its overall AUC is a little lower.
+
+**AI coach accuracy.** The share of numbers and moves in the coach's reports that could not be backed up by the data, across 5 players.
+
+| Setup | Unsupported claims |
+|---|---:|
+| Claude reading raw game files | 14% |
+| Claude with computed facts and tools | 2% |
+| Same, plus the checker and one fix | 0% |
+
+When I checked a raw report by hand, most of its claims were true but impossible to verify, and one win-loss record was simply wrong. Giving the coach computed facts makes every claim checkable.
+
+**Game search.** The coach can search your games by meaning, for example "games where I threw away a winning position". I tested 13 questions with known right answers (precision@5: the share of the top 5 results that are correct).
+
+| Search method | Precision@5 |
+|---|---:|
+| Random | 0.17 |
+| Keyword matching | 0.41 |
+| AI embeddings | 0.35 |
+| Both combined | 0.45 |
+
+Embeddings understand rewording ("got flagged" finds games lost on time) but confuse who did what ("my king got mated" also finds games where I mated someone). Keywords handle that case, so the coach uses both.
+
+## What I learned
+
+- **Small samples lie.** My Scotch Game as Black looked terrible at 21% over 12 games. The model only marked it "worth watching" because with 34 openings, one bad result is expected by luck. Sixteen games later it was 38%, which is normal.
+- **Test against real data early.** Running on my own games exposed a statistics bug that squashed real effects to almost zero, and a blunder baseline that compared me with myself.
+- **Check the checker.** My claim checker had three bugs of its own. One rejected correct game links, so the coach deleted good information to make it happy.
+- **Measure before trusting the hype.** AI embeddings alone did worse than plain keyword search. Combining them did best.
+- **Two versions keep each other honest.** I wrote the analysis in Python and again in TypeScript for the browser. Testing that both give the same answers caught a rounding difference and a solver that stopped too early.
+
+## Tech used
+
+| Area | Tools |
 |---|---|
-| Fetch + parse games, canonical opening families | `wf/fetch.py` |
-| DuckDB tables, SQL aggregation, sandboxed SQL tool | `wf/db.py` |
-| MySQL store and read-only SQL tool; Compose stack and database users | `wf/mysql_store.py`, `docker-compose.yml`, `deploy/mysql/init.sh` |
-| Elo residuals, shrinkage, intervals, worst branch | `wf/stats.py` |
-| Game summaries, embeddings + BM25 hybrid search | `wf/search.py`, `web/src/browser/search.ts`; eval: `scripts/eval_search.py` |
-| Stockfish analysis + feature engineering | `wf/engine.py` |
-| Blunder model: logistic regression, gradient boosting, PyTorch MLP | `wf/model.py` |
-| Facts given to the coach | `wf/facts.py` |
-| Agent loop with tools + repair (Claude API) | `wf/coach.py` |
-| Same agent through Claude Code, tools served over MCP | `wf/coach_cli.py`, `wf/mcp_server.py` |
-| Claim verifier | `wf/verify.py` |
-| API | `server.py` |
-| Frontend (TypeScript, no framework) | `web/src/main.ts` |
-| In-browser port: game fetching, stats, Stockfish WASM worker pool, blunder model, facts, verifier, and the bring-your-own-key coach with DuckDB-WASM | `web/src/browser/` (parity-tested against the Python in `web/test/`) |
-| Eval, model benchmark, example report | `scripts/` |
+| Languages | Python, TypeScript |
+| Machine learning | scikit-learn, PyTorch, a hierarchical Bayesian model, sentence embeddings |
+| AI | Claude API, tool use, MCP, retrieval (embeddings plus BM25), evals |
+| Data | DuckDB (also in the browser), MySQL, pandas |
+| Chess | Stockfish (native and WebAssembly), python-chess, chess.js |
+| App | FastAPI, Docker, GitHub Pages, GitHub Actions |
 
-### Design decisions
+## Run it locally
 
-- **Shrinkage, not thresholds.** A "minimum 10 games" rule throws away information and still flags noise at 10 games. A normal-normal hierarchical model gives every opening an estimate and an interval.
-- **Integrate over the between-opening variance; don't plug in an estimate.** The first version used empirical Bayes. On real data (300 games, 34 openings) both method of moments and maximum likelihood put the between-opening SD near 0. Yet values anywhere from 0 to 10 points fit within one log-likelihood unit. Plugging in ~0 shrank a 12-game, −25-point result to −2 with a falsely narrow interval. The current model puts a half-normal prior on that SD and averages over a grid of values.
-- **Multiple comparisons.** With 34 openings checked, one at z ≈ −2 is expected by chance. Those results are flagged "worth watching" rather than called weaknesses.
-- **Solvers should converge.** scikit-learn's default lbfgs solver stopped up to 0.7% short in probability, and even at tol=1e-8 it left gaps of 1e-6. Parity testing against the browser's Newton solver surfaced both. Python now uses scikit-learn's Newton solver (`newton-cholesky`), the same algorithm as the browser, and the two agree to 1e-8.
-- **DuckDB and MySQL do different jobs.** DuckDB is embedded and columnar. It runs the statistics in-process and is the only SQL engine that also runs in the browser (WebAssembly), so the static demo uses it. MySQL is a server, the right home for persistent, multi-user data. With `WF_SQL_BACKEND=mysql`, each analysis is written to its own schema (`wf_<hash>`) and the coach queries it as `wf_reader`, which MySQL itself limits to `SELECT`. Tests show `INSERT`, `DROP`, `CREATE DATABASE` and `SELECT … INTO OUTFILE` all fail even when the tool's own check is bypassed, and a runaway cross join is killed at 5 s. The tool tells the model which dialect it's writing, and on MySQL it wrote MySQL-specific SQL (`SUM(wp_loss >= 20)`, `FIELD()`) correctly. One limit: schemas are isolated by unguessable names, not by permissions. A multi-tenant production setup would give each tenant its own database user.
-- **Measure retrieval; don't assume embeddings win.** On short, templated summaries, plain embeddings lost to BM25 (0.35 vs 0.41 precision@5). Fusing the two ranked lists beat both (0.45), and the eval shows which kinds of question each one handles.
-- **The family named first wins.** Opening families were matched against a fixed list in order, so "Nimzowitsch-Larsen Attack, Modern Variation" was filed under Modern Defense, and "Four Knights Game, Scotch Variation" under the Scotch. The bug surfaced while testing the coach's example-game tool in the browser. Families now match by where they appear in the name, and both languages share the test cases.
-- **"Worth watching" was the right call.** My Scotch as Black was flagged at 21% over 12 games, below rating expectation but not significant across 34 openings. Sixteen games later it's 38%, well within normal range: regression to the mean, which is what the multiple-comparisons caution predicted.
-- **Medians for "eval after move 12".** One −7 blowout shouldn't define an opening.
-- **The blunder model learns only from opponents.** Training on the user's own moves pulls their actual/expected ratio toward 1 by construction.
-- **Win probability, not centipawns.** Going from +9 to +6 doesn't matter; going from +1 to −2 does. Losses use Lichess's logistic mapping from centipawns to win%.
-- **Grouped splits.** Moves within a game are correlated, so both the train/test split and the cross-validation for out-of-fold risk predictions are grouped by game.
-- **The model never sees raw PGN.** LLMs are unreliable at reading chess positions. The coach gets computed facts and tools, and must cite one for every number, so its claims can be checked mechanically.
-- **The verifier is strict, and it was tested against real output.** A number must appear in the specific fact its sentence cites, even if it's "roughly right" or shows up in some other fact. Reading real reports turned up three verifier bugs, each now covered by a regression test. It ignored `[T#]` tool-result citations. It accepted "15 minutes a day" because an unrelated interval ended at +15. And it rejected real game links because the tool result put a colon after each URL, which made the coach delete correct links to satisfy the checker. A checker can fail in both directions, so you have to read what it flags.
-- **Three coach backends, one agent.** In the browser, the visitor's own key calls the Claude API directly. The page has no server, so the key never touches one, and it lives only in the tab's memory. The SQL tool runs on DuckDB-WASM, with writes refused and external file and network access disabled. The SDK and DuckDB load only when the coach runs.
-- **Server and CLI backends.** With `ANTHROPIC_API_KEY` set, the coach uses the Claude API with tool use. Without one, it runs through the local Claude Code CLI (`claude -p`) on the user's Claude subscription: the same three tools are served by a small MCP server, built-in tools are disabled, and the repair turn resumes the same session. A hosted deployment with neither shows a saved example report.
-
-## Run it
-
-Requires Python 3.11+, Node 18+, and Stockfish (`brew install stockfish` or `apt install stockfish`).
+You need Python 3.11+, Node 18+, and Stockfish (`brew install stockfish`).
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 (cd web && npm install && npm run build)
-# Coach: either install Claude Code and log in (uses your Claude subscription),
-# or put ANTHROPIC_API_KEY=... in .env (copy .env.example).
 .venv/bin/uvicorn server:app --port 8765
 ```
 
-Open http://localhost:8765. Other commands:
+Then open http://localhost:8765. For the AI coach, either log in to [Claude Code](https://claude.com/claude-code) or put `ANTHROPIC_API_KEY=...` in a `.env` file (see `.env.example`).
 
-```bash
-.venv/bin/python -m pytest -q                                # tests (no API calls)
-WF_TEST_MYSQL=1 .venv/bin/python -m pytest -q tests/test_mysql.py   # against a running MySQL
-.venv/bin/python scripts/benchmark_model.py USER --games 200  # model table
-.venv/bin/python scripts/eval_coach.py USER1 USER2 USER3     # hallucination eval
-.venv/bin/python scripts/make_snapshot.py USER               # snapshot + report for the static demo
-```
+To run everything with MySQL instead, set the passwords in `.env` and run `docker compose up --build`.
 
-**With MySQL:** copy `.env.example` to `.env`, set the three MySQL passwords, then run `docker compose up --build`. That starts MySQL 8.4 (with its users created by `deploy/mysql/init.sh`) and the app on http://localhost:8080, with the coach's SQL on MySQL. For development, `docker compose up -d mysql` starts just the database, and the commented settings in `.env.example` point a local app at it.
+Tests: `.venv/bin/python -m pytest -q` (Python) and `cd web && npm test` (TypeScript).
 
-**Deploy:** the public demo is a static snapshot on GitHub Pages (`scripts/make_snapshot.py`, then the `pages.yml` workflow builds and deploys `web/` on push). Free hosts that can run Stockfish for live requests are either paid or too slow (0.1 vCPU). The Docker image runs the full app on any container host, for example Hugging Face Spaces (free tier, 2 vCPU): run `hf auth login` once, then `scripts/deploy_hf.sh <hf-user>/weakness-finder`. That pushes the committed HEAD with the Space's required README header. Hosting defaults in the Dockerfile cap a request at 150 games, Stockfish depth 8 and 2 engine workers. A cold analysis takes about a minute. PyTorch is left out of the image because only the offline benchmark uses it. With no API key on the host, the coach shows the saved example report. Set `ANTHROPIC_API_KEY` as a Space secret to turn live coaching on.
+## More detail
 
-## Next steps
+[docs/methods.md](docs/methods.md) has the full write-up: the statistical model, the evals and how they were scored, the MySQL setup, the three ways the coach runs, deployment, and every design decision with its reasoning.
 
-- Peer baseline: compare each opening against all Lichess players at the same rating (open database), not just the player's own average.
-- Tactical-motif tags for blunders (missed forks, pins, back-rank) and links to matching Lichess puzzles.
-- Run the warehouse in BigQuery. The SQL is standard and only the connection changes.
+## License note
 
-## Licenses
-
-The in-browser demo serves [Stockfish.js](https://github.com/nmrugg/stockfish.js) (GPL-3.0) unmodified as a separate file, and the Docker image installs Debian's `stockfish` package. Both are separate programs this project talks to over UCI. Their source is available at those links.
+The browser demo serves [Stockfish.js](https://github.com/nmrugg/stockfish.js) (GPL-3.0) unmodified as a separate file.

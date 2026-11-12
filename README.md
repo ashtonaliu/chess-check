@@ -2,10 +2,10 @@
 
 Enter a Chess.com username and get an honest answer to "what am I actually bad at?"
 
-- **Openings, adjusted properly.** "You score 38% against the Sicilian" says little if those opponents were stronger or there were only 6 games. Each game's result is compared with its Elo-expected score. Per-opening averages are then shrunk toward the player's mean with empirical Bayes, and each comes with a 90% interval. Only openings whose interval clears zero are called weaknesses.
+- **Openings, adjusted properly.** "You score 38% against the Sicilian" says little if those opponents were stronger or there were only 6 games. Each game's result is compared with its Elo-expected score. Per-opening averages go into a hierarchical Bayesian model that shrinks them toward the player's mean, with a 90% interval for each. Openings that look bad on their own but could be chance among ~30 tested are labeled "worth watching", not "weakness".
 - **Where it goes wrong.** For each weak opening, it finds the move sequence where your results drop off, for example *"after 1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Qxd4 you score 22% in 6 games"*.
 - **Engine analysis of every move.** Stockfish runs on every position. Losses are measured in win probability, not centipawns, and split by game phase.
-- **A blunder-risk model.** It predicts whether a move will lose 20 or more win% from position and clock features. It's trained on every move of every game, including your opponents' (players of similar rating), so it can say *"you made 1.6× the blunders the model expects in positions this hard, mostly with under 10% of your clock left."*
+- **A blunder-risk model.** It predicts whether a move will lose 20 or more win% from position and clock features. It learns from your opponents' moves (players of similar rating) and then scores yours, so it can say *"you made 1.6× the blunders the model expects in positions this hard, mostly with under 10% of your clock left."*
 - **A grounded LLM coach, with evals.** An agent with SQL, retrieval and Stockfish tools writes the report. A verifier checks every number, move and link in it against the facts and tool results the agent was given. If anything is unsupported, the checker's findings go back to the agent for one repair turn.
 
 ## Results
@@ -66,7 +66,11 @@ Chess.com public API ──► PGN parsing (python-chess) ──► DuckDB: game
 
 ### Design decisions
 
-- **Shrinkage, not thresholds.** A "minimum 10 games" rule throws away information and still flags noise at 10 games. A normal-normal model with method-of-moments variance gives every opening an estimate and an honest interval.
+- **Shrinkage, not thresholds.** A "minimum 10 games" rule throws away information and still flags noise at 10 games. A normal-normal hierarchical model gives every opening an estimate and an interval.
+- **Integrate over the between-opening variance; don't plug in an estimate.** The first version used empirical Bayes. On real data (300 games, 34 openings) both method of moments and maximum likelihood put the between-opening SD near 0. Yet values anywhere from 0 to 10 points fit within one log-likelihood unit. Plugging in ~0 shrank a 12-game, −25-point result to −2 with a falsely narrow interval. The current model puts a half-normal prior on that SD and averages over a grid of values.
+- **Multiple comparisons.** With 34 openings checked, one at z ≈ −2 is expected by chance. Those results are flagged "worth watching" rather than called weaknesses.
+- **Medians for "eval after move 12".** One −7 blowout shouldn't define an opening.
+- **The blunder model learns only from opponents.** Training on the user's own moves pulls their actual/expected ratio toward 1 by construction.
 - **Win probability, not centipawns.** Going from +9 to +6 doesn't matter; going from +1 to −2 does. Losses use Lichess's logistic mapping from centipawns to win%.
 - **Grouped splits.** Moves within a game are correlated, so both the train/test split and the cross-validation for out-of-fold risk predictions are grouped by game.
 - **The model never sees raw PGN.** LLMs are unreliable at reading chess positions. The coach gets computed facts and tools, and must cite one for every number, so its claims can be checked mechanically.

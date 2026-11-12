@@ -58,7 +58,7 @@ def to_payload(a: Analysis) -> dict:
     if not t.empty:
         for r in t.itertuples():
             b = worst_branch(a.games, r.color, r.family) \
-                if r.verdict.endswith("weakness") else None
+                if (r.verdict.endswith("weakness") or r.verdict == "worth watching") else None
             openings.append({
                 "color": r.color, "family": r.family, "n": int(r.n),
                 "score": r.score, "expected": r.expected,

@@ -201,11 +201,14 @@ def my_moves(analyses: list[dict]):
                 yield a, m
 
 
-def phase_summary(analyses: list[dict]) -> dict:
-    """Average win% lost per move, and blunder rate, by phase (user's moves)."""
+def phase_summary(analyses: list[dict], mine: bool = True) -> dict:
+    """Average win% lost per move, and blunder rate, by phase.
+
+    mine=True: the user's moves; mine=False: their opponents' moves."""
     rows = {p: {"moves": 0, "loss": 0.0, "blunders": 0}
             for p in ("opening", "middlegame", "endgame")}
-    for _, m in my_moves(analyses):
+    sel = ((a, m) for a in analyses for m in a["moves"] if m["is_me"] == mine)
+    for _, m in sel:
         r = rows[m["phase"]]
         r["moves"] += 1
         r["loss"] += m["wp_loss"]
@@ -230,8 +233,12 @@ def opening_exit(analyses: list[dict], urls: set[str]) -> dict | None:
                 mid_moves += 1
     if not evals:
         return None
+    evals.sort()
+    mid = len(evals) // 2
+    median = evals[mid] if len(evals) % 2 else (evals[mid - 1] + evals[mid]) / 2
     return {"games": len(evals),
-            "avg_eval_after_12": sum(evals) / len(evals),
+            # median: one -7 blowout shouldn't define a whole opening
+            "avg_eval_after_12": median,
             "avg_loss_13_25": mid_losses / mid_moves if mid_moves else 0.0}
 
 

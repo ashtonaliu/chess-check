@@ -1,8 +1,8 @@
-"""Rating-adjusted opening performance with empirical-Bayes shrinkage.
+"""Rating-adjusted opening performance with hierarchical Bayesian shrinkage.
 
 For each game, expected score comes from the Elo formula. The residual
 (actual - expected) removes opponent strength. Per-opening mean residuals
-are shrunk toward 0 (the player's average) in proportion to how little data
+are shrunk toward the player's average in proportion to how little data
 backs them, so 4 unlucky games don't become "a weakness".
 """
 from __future__ import annotations
@@ -38,23 +38,54 @@ def games_frame(games: list[Game]) -> pd.DataFrame:
     return df
 
 
-def shrink(groups: pd.DataFrame, sigma2: float) -> pd.DataFrame:
-    """Normal-normal empirical Bayes. groups needs columns n, mean_resid.
+TAU_PRIOR_SCALE = 0.10   # half-normal prior on the between-opening SD (10 points)
+TAU_GRID = np.linspace(0.005, 0.40, 80)
+THETA_GRID = np.linspace(-1.0, 1.0, 2001)
 
-    sigma2: per-game residual variance. tau2 (between-opening variance) is
-    estimated by method of moments and floored so it is never zero.
+
+def shrink(groups: pd.DataFrame, sigma2: float, mu: float = 0.0) -> pd.DataFrame:
+    """Hierarchical normal model, with the between-opening SD integrated out.
+
+        mean_resid_i ~ N(theta_i, sigma2 / n_i)
+        theta_i      ~ N(mu, tau^2)        mu = the player's overall residual
+        tau          ~ HalfNormal(0.10)
+
+    Plugging in a single estimate of tau (empirical Bayes) is overconfident:
+    with ~30 small groups the likelihood for tau is nearly flat, and point
+    estimates often collapse to ~0, which shrinks every opening to the mean.
+    Instead the posterior for each theta_i is a mixture over a grid of tau,
+    weighted by marginal likelihood x prior.
     """
     g = groups.copy()
-    noise = sigma2 / g.n
-    tau2 = max(float(np.average(g.mean_resid ** 2, weights=g.n)
-                     - np.average(noise, weights=g.n)), 0.002)
-    post_var = 1.0 / (1.0 / tau2 + 1.0 / noise)
-    g["shrunk"] = post_var * (g.mean_resid / noise)
-    g["post_sd"] = np.sqrt(post_var)
-    g["ci_low"] = g.shrunk - Z90 * g.post_sd
-    g["ci_high"] = g.shrunk + Z90 * g.post_sd
-    g["p_below"] = norm.cdf(0, loc=g.shrunk, scale=g.post_sd)
-    g["tau2"] = tau2
+    n = g.n.to_numpy(float)
+    y = g.mean_resid.to_numpy(float)
+    noise = sigma2 / n                                   # (G,)
+    t2 = TAU_GRID[:, None] ** 2                          # (T,1)
+    marg_var = t2 + noise[None, :]                       # (T,G)
+    loglik = -0.5 * np.sum(np.log(marg_var) + (y - mu) ** 2 / marg_var, axis=1)
+    logprior = -0.5 * (TAU_GRID / TAU_PRIOR_SCALE) ** 2
+    lw = loglik + logprior
+    w = np.exp(lw - lw.max())
+    w /= w.sum()                                         # (T,)
+
+    k = t2 / marg_var                                    # shrink factor (T,G)
+    m = mu + k * (y - mu)                                # conditional means
+    v = 1.0 / (1.0 / t2 + 1.0 / noise[None, :])          # conditional variances
+    post_mean = (w[:, None] * m).sum(0)
+    post_var = (w[:, None] * (v + m ** 2)).sum(0) - post_mean ** 2
+
+    # mixture CDF on a grid -> interval and P(theta < 0)
+    sd = np.sqrt(v)
+    cdf = np.einsum("t,tgx->gx", w,
+                    norm.cdf((THETA_GRID[None, None, :] - m[:, :, None]) / sd[:, :, None]))
+    lo = THETA_GRID[np.argmax(cdf >= 0.05, axis=1)]
+    hi = THETA_GRID[np.argmax(cdf >= 0.95, axis=1)]
+    p0 = (w[:, None] * norm.cdf((0 - m) / sd)).sum(0)
+
+    g["shrunk"] = post_mean
+    g["post_sd"] = np.sqrt(np.maximum(post_var, 0))
+    g["ci_low"], g["ci_high"], g["p_below"] = lo, hi, p0
+    g["tau_post_mean"] = float((w * TAU_GRID).sum())
     return g
 
 
@@ -68,7 +99,9 @@ def opening_table(df: pd.DataFrame, min_games: int = 3) -> pd.DataFrame:
     grp = opening_groups(df, min_games)
     if grp.empty:
         return grp
-    out = shrink(grp, sigma2)
+    out = shrink(grp, sigma2, mu=float(df.residual.mean()))
+    out["raw_z"] = out.mean_resid / np.sqrt(sigma2 / out.n)   # unadjusted z-score
+    out["n_openings"] = len(out)
     return out.sort_values("shrunk").reset_index(drop=True)
 
 
@@ -81,6 +114,10 @@ def verdict(row) -> str:
         return "strength"
     if row.p_below <= 0.25:
         return "possible strength"
+    # Clearly bad on its own, but not after accounting for how many openings
+    # were tested (one of ~30 openings at z = -2 is expected by chance).
+    if row.n >= 8 and row.raw_z <= -1.645:
+        return "worth watching"
     return "not enough evidence"
 
 

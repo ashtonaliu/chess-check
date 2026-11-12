@@ -66,9 +66,11 @@ function renderSummary(p: Payload) {
       `${pts(o.resid)} points against rating expectation`, o.resid < 0 ? "weak" : "strong"),
   ];
   const weak = p.openings.filter(x => x.verdict.endsWith("weakness"));
-  html.push(card("Opening weaknesses found", `${weak.length}`,
-    weak.length ? weak.slice(0, 2).map(w => `${w.family} ${side(w.color)}`).join("; ")
-      : "none clear after adjusting for rating and sample size", weak.length ? "weak" : ""));
+  const watch = p.openings.filter(x => x.verdict === "worth watching");
+  const flagged = weak.length ? weak : watch;
+  html.push(card(weak.length ? "Opening weaknesses" : "Openings worth watching", `${flagged.length}`,
+    flagged.length ? flagged.slice(0, 2).map(w => `${w.family} ${side(w.color)}: ${pct(w.score)} vs ${pct(w.expected)} expected`).join("; ")
+      : "none clear after adjusting for rating, sample size and number of openings", flagged.length ? "weak" : ""));
   if (p.risk) {
     html.push(card("Blunders vs model expectation", `${p.risk.ratio.toFixed(2)}×`,
       `${p.risk.actual} actual vs ${p.risk.expected.toFixed(1)} expected`,
@@ -86,6 +88,7 @@ function renderForest(rows: Opening[]) {
   const lim = Math.max(0.15, ...shown.map(r => Math.max(Math.abs(r.ci_low), Math.abs(r.ci_high), Math.abs(r.raw)))) * 1.05;
   const x = (v: number) => left + ((v + lim) / (2 * lim)) * (W - left - right);
   const color = (r: Opening) => r.verdict.endsWith("weakness") ? "var(--weak)"
+    : r.verdict === "worth watching" ? "var(--watch)"
     : r.verdict.endsWith("strength") ? "var(--strong)" : "var(--neutral)";
   const ticks = [-lim, -lim / 2, 0, lim / 2, lim].map(t => Math.round(t * 100) / 100);
   let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Rating-adjusted score by opening">`;
@@ -111,7 +114,8 @@ function renderForest(rows: Opening[]) {
 
   $("branches").innerHTML = rows.filter(r => r.branch).map(r => {
     const b = r.branch!;
-    return `<div class="branch"><strong>${esc(r.family)} ${side(r.color)}</strong>: you score
+    const tag = r.verdict === "worth watching" ? ` <span class="chip">worth watching</span>` : "";
+    return `<div class="branch"><strong>${esc(r.family)} ${side(r.color)}</strong>${tag}: you score
       <strong class="weak">${pct(b.score)}</strong> (expected ${pct(b.expected)}, ${b.n} games) after
       <span class="moves">${esc(b.moves)}</span></div>`;
   }).join("");
@@ -134,7 +138,7 @@ function renderEngine(p: Payload) {
       p.risk.buckets.map(b => `<tr><td>${esc(b.label)}</td><td class="num">${b.moves}</td>
         <td class="num">${b.actual}</td><td class="num">${b.expected.toFixed(1)}</td>
         <td class="num ${b.ratio > 1.15 ? "weak" : b.ratio < 0.85 ? "strong" : ""}">${b.ratio.toFixed(2)}×</td></tr>`).join("") +
-      `</tbody></table><p class="note">"Expected" comes from a gradient-boosting model trained on every move in these games (yours and your opponents'), using cross-validation grouped by game.</p>`;
+      `</tbody></table><p class="note">"Expected" comes from a gradient-boosting model trained only on your opponents' moves (similar-rated players), scored on held-out games.</p>`;
   }
   $("blunders").innerHTML = p.blunders.slice(0, 3).map(b =>
     `<div class="blunder"><span class="moves">${esc(b.move)}</span> <span class="chip">${esc(b.phase)}</span>

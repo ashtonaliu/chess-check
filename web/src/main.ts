@@ -15,7 +15,7 @@ interface Risk {
 }
 interface Fact { id: string; text: string; }
 interface Payload {
-  username: string;
+  username: string; generated_at?: string; time_class?: string | null;
   overall: { games: number; score: number; expected: number; resid: number; avg_rating: number; se: number | null };
   openings: Opening[]; phases: Record<string, Phase> | null; blunders: Blunder[];
   risk: Risk | null; facts: Fact[]; engine: boolean;
@@ -34,6 +34,9 @@ const pts = (x: number) => { const v = Math.round(100 * x); return v > 0 ? `+${v
 const esc = (s: string) => s.replace(/[&<>"']/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
 const side = (c: string) => (c === "white" ? "as White" : "as Black");
+
+interface StaticConfig { analysis: string; report: string; repo: string; }
+const STATIC = (window as unknown as { WF_STATIC?: StaticConfig }).WF_STATIC ?? null;
 
 let lastReq: { username: string; games: number; time_class: string | null } | null = null;
 
@@ -236,7 +239,7 @@ async function coach() {
 
 async function showExample() {
   try {
-    const r = await fetch("/api/coach/example");
+    const r = await fetch(STATIC ? STATIC.report : "/api/coach/example");
     if (!r.ok) throw new Error("Live coaching isn't enabled on this server.");
     renderCoach(await r.json() as CoachResp, true);
   } catch (e) {
@@ -245,6 +248,11 @@ async function showExample() {
 }
 
 async function initCoach() {
+  if (STATIC) {
+    coachBackend = null;
+    ($("coachBtn") as HTMLButtonElement).textContent = "Show the coach's report";
+    return;
+  }
   try {
     const s = await (await fetch("/api/coach/status")).json() as { backend: string | null; example: boolean };
     coachBackend = s.backend;
@@ -255,8 +263,33 @@ async function initCoach() {
   } catch { /* leave defaults */ }
 }
 
+// Snapshot mode (GitHub Pages): no backend, so the page renders a saved
+// analysis and the saved, verified coach report instead of calling the API.
+async function initStatic(cfg: StaticConfig) {
+  const form = $("form") as HTMLFormElement;
+  for (const el of Array.from(form.elements)) (el as HTMLInputElement).disabled = true;
+  try {
+    const p = await (await fetch(cfg.analysis)).json() as Payload;
+    ($("username") as HTMLInputElement).value = p.username;
+    if (p.time_class) ($("time_class") as HTMLSelectElement).value = p.time_class;
+    renderSummary(p);
+    renderForest(p.openings);
+    renderEngine(p);
+    $("results").hidden = false;
+    const when = p.generated_at ? new Date(p.generated_at).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }) : "";
+    $("snapshot").innerHTML = `<strong>Snapshot.</strong> This is a saved analysis of <strong>${esc(p.username)}</strong>'s
+      last ${p.overall.games} ${esc(p.time_class ?? "")} games${when ? `, run on ${esc(when)}` : ""}. The full app analyzes any
+      Chess.com username, but Stockfish and the coach need a server, so it runs locally:
+      <a href="${esc(cfg.repo)}" target="_blank" rel="noopener">code and setup on GitHub</a>.`;
+    $("snapshot").hidden = false;
+  } catch (e) {
+    setStatus(`Couldn't load the snapshot: ${(e as Error).message}`, true);
+  }
+}
+
 $("form").addEventListener("submit", analyze);
 $("coachBtn").addEventListener("click", coach);
 initCoach();
+if (STATIC) initStatic(STATIC);
 const qs = new URLSearchParams(location.search).get("u");
 if (qs) { ($("username") as HTMLInputElement).value = qs; }

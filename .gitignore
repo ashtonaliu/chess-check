@@ -7,3 +7,4 @@ web/dist/
 eval_results/
 *.duckdb
 .env
+site/

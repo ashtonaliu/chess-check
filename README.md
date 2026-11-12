@@ -2,7 +2,7 @@
 
 Enter a Chess.com username and get an honest answer to "what am I actually bad at?"
 
-**[Live demo](https://ashtonaliu.github.io/weakness-finder/)**: enter any Chess.com username and the analysis runs entirely in your browser. Games come straight from Chess.com's API, and Stockfish runs as WebAssembly across parallel workers (about 15–40 s for 150 games). The blunder-risk model trains in the browser too (logistic regression, fitted by Newton's method). There's no server and no key. The page opens on a snapshot of my own games with the coach's verified report. The live AI coach is in the full app ([Run it](#run-it)).
+**[Live demo](https://ashtonaliu.github.io/weakness-finder/)**: enter any Chess.com username and the analysis runs entirely in your browser. Games come straight from Chess.com's API, and Stockfish runs as WebAssembly across parallel workers (about 15–40 s for 150 games). The blunder-risk model trains in the browser too (logistic regression, fitted by Newton's method). There's no server. Paste your own Anthropic API key for a live AI coaching report: the agent's SQL tool runs on DuckDB-WASM, Stockfish runs in a worker, and the key goes only from the page to Anthropic. The page opens on a snapshot of my own games with the coach's verified report.
 
 - **Openings, adjusted properly.** "You score 38% against the Sicilian" says little if those opponents were stronger or there were only 6 games. Each game's result is compared with its Elo-expected score. Per-opening averages go into a hierarchical Bayesian model that shrinks them toward the player's mean, with a 90% interval for each. Openings that look bad on their own but could be chance among ~30 tested are labeled "worth watching", not "weakness".
 - **Where it goes wrong.** For each weak opening, it finds the move sequence where your results drop off, for example *"after 1.e4 c5 2.Nf3 d6 3.d4 cxd4 4.Qxd4 you score 22% in 6 games"*.
@@ -19,7 +19,7 @@ Enter a Chess.com username and get an honest answer to "what am I actually bad a
 | Math and traditional ML | Elo expectation, a normal-normal hierarchical model with the variance integrated out, multiple comparisons, Poisson intervals, grouped cross-validation, and calibration vs. discrimination |
 | LLM applications: context engineering, RAG, evals, agentic patterns | Tool-using agent (SQL, retrieval over your games, Stockfish) with computed facts instead of raw games, served over the API or MCP. Verifier and repair loop, plus a five-player hallucination eval with a manual audit |
 | SQL | DuckDB tables and aggregations (standard SQL, portable to BigQuery), and a sandboxed read-only SQL tool for the agent |
-| Python and TypeScript | Python is the reference implementation. The TypeScript port is parity-tested against it in CI: statistics match to 1e-9 and model probabilities to 1e-6 |
+| Python and TypeScript | Python is the reference implementation. The TypeScript port runs the whole product in the browser and is parity-tested against it in CI: statistics match to 1e-9, model probabilities to 1e-8, and the coach's facts character for character |
 | Ownership | Real data exposed mistakes in my own method, and the fixes are documented below: collapsed shrinkage, a self-referential baseline, verifier bugs and a solver stopping early |
 
 ## Results
@@ -90,7 +90,7 @@ Chess.com public API ──► PGN parsing (python-chess) ──► DuckDB: game
 | Claim verifier | `wf/verify.py` |
 | API | `server.py` |
 | Frontend (TypeScript, no framework) | `web/src/main.ts` |
-| In-browser port: game fetching, stats, Stockfish WASM worker pool | `web/src/browser/` (parity-tested against the Python: `web/test/parity.test.ts`) |
+| In-browser port: game fetching, stats, Stockfish WASM worker pool, blunder model, facts, verifier, and the bring-your-own-key coach with DuckDB-WASM | `web/src/browser/` (parity-tested against the Python in `web/test/`) |
 | Eval, model benchmark, example report | `scripts/` |
 
 ### Design decisions
@@ -98,14 +98,17 @@ Chess.com public API ──► PGN parsing (python-chess) ──► DuckDB: game
 - **Shrinkage, not thresholds.** A "minimum 10 games" rule throws away information and still flags noise at 10 games. A normal-normal hierarchical model gives every opening an estimate and an interval.
 - **Integrate over the between-opening variance; don't plug in an estimate.** The first version used empirical Bayes. On real data (300 games, 34 openings) both method of moments and maximum likelihood put the between-opening SD near 0. Yet values anywhere from 0 to 10 points fit within one log-likelihood unit. Plugging in ~0 shrank a 12-game, −25-point result to −2 with a falsely narrow interval. The current model puts a half-normal prior on that SD and averages over a grid of values.
 - **Multiple comparisons.** With 34 openings checked, one at z ≈ −2 is expected by chance. Those results are flagged "worth watching" rather than called weaknesses.
-- **Solvers should converge.** scikit-learn's default logistic-regression tolerance (1e-4) stopped up to 0.7% short in probability. Parity testing against the browser's Newton solver surfaced it, and Python now uses tol=1e-8.
+- **Solvers should converge.** scikit-learn's default lbfgs solver stopped up to 0.7% short in probability, and even at tol=1e-8 it left gaps of 1e-6. Parity testing against the browser's Newton solver surfaced both. Python now uses scikit-learn's Newton solver (`newton-cholesky`), the same algorithm as the browser, and the two agree to 1e-8.
+- **The family named first wins.** Opening families were matched against a fixed list in order, so "Nimzowitsch-Larsen Attack, Modern Variation" was filed under Modern Defense, and "Four Knights Game, Scotch Variation" under the Scotch. The bug surfaced while testing the coach's example-game tool in the browser. Families now match by where they appear in the name, and both languages share the test cases.
+- **"Worth watching" was the right call.** My Scotch as Black was flagged at 21% over 12 games, below rating expectation but not significant across 34 openings. Sixteen games later it's 38%, well within normal range: regression to the mean, which is what the multiple-comparisons caution predicted.
 - **Medians for "eval after move 12".** One −7 blowout shouldn't define an opening.
 - **The blunder model learns only from opponents.** Training on the user's own moves pulls their actual/expected ratio toward 1 by construction.
 - **Win probability, not centipawns.** Going from +9 to +6 doesn't matter; going from +1 to −2 does. Losses use Lichess's logistic mapping from centipawns to win%.
 - **Grouped splits.** Moves within a game are correlated, so both the train/test split and the cross-validation for out-of-fold risk predictions are grouped by game.
 - **The model never sees raw PGN.** LLMs are unreliable at reading chess positions. The coach gets computed facts and tools, and must cite one for every number, so its claims can be checked mechanically.
 - **The verifier is strict, and it was tested against real output.** A number must appear in the specific fact its sentence cites, even if it's "roughly right" or shows up in some other fact. Reading real reports turned up three verifier bugs, each now covered by a regression test. It ignored `[T#]` tool-result citations. It accepted "15 minutes a day" because an unrelated interval ended at +15. And it rejected real game links because the tool result put a colon after each URL, which made the coach delete correct links to satisfy the checker. A checker can fail in both directions, so you have to read what it flags.
-- **Two coach backends, one agent.** With `ANTHROPIC_API_KEY` set, the coach uses the Claude API with tool use. Without one, it runs through the local Claude Code CLI (`claude -p`) on the user's Claude subscription: the same three tools are served by a small MCP server, built-in tools are disabled, and the repair turn resumes the same session. A hosted deployment with neither shows a saved example report.
+- **Three coach backends, one agent.** In the browser, the visitor's own key calls the Claude API directly. The page has no server, so the key never touches one, and it lives only in the tab's memory. The SQL tool runs on DuckDB-WASM, with writes refused and external file and network access disabled. The SDK and DuckDB load only when the coach runs.
+- **Server and CLI backends.** With `ANTHROPIC_API_KEY` set, the coach uses the Claude API with tool use. Without one, it runs through the local Claude Code CLI (`claude -p`) on the user's Claude subscription: the same three tools are served by a small MCP server, built-in tools are disabled, and the repair turn resumes the same session. A hosted deployment with neither shows a saved example report.
 
 ## Run it
 
@@ -135,7 +138,6 @@ Open http://localhost:8765. Other commands:
 - Peer baseline: compare each opening against all Lichess players at the same rating (open database), not just the player's own average.
 - Tactical-motif tags for blunders (missed forks, pins, back-rank) and links to matching Lichess puzzles.
 - Run the warehouse in BigQuery. The SQL is standard and only the connection changes.
-- Bring-your-own-key coach in the browser: the visitor's Anthropic key calls the API directly from the page, with DuckDB-WASM for the SQL tool and the verifier ported to TypeScript.
 
 ## Licenses
 

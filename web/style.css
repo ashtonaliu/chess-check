@@ -20,6 +20,7 @@ form { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 input, select, button { font: inherit; padding: 9px 12px; border-radius: 8px;
   border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
 input { flex: 1 1 200px; }
+#apiKey { width: 100%; margin-bottom: 6px; }
 button { background: var(--accent); color: #fff; border: none; cursor: pointer; font-weight: 600; }
 button:disabled { opacity: .55; cursor: progress; }
 #status { color: var(--muted); min-height: 1.5em; }

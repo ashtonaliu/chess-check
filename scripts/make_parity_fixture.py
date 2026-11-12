@@ -13,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from wf.facts import build_facts  # noqa: E402
 from wf.fetch import fetch_games, opening_names  # noqa: E402
 from wf.stats import games_frame, opening_table, overall, verdict, worst_branch  # noqa: E402
 
@@ -33,7 +34,10 @@ def main():
         branches.append({"color": r.color, "family": r.family, "branch": b})
     slugs = ["https://www.chess.com/openings/Closed-Sicilian-Defense-3.g3",
              "https://www.chess.com/openings/Caro-Kann", "x/Kings-Indian-Attack",
-             "x/Van-t-Kruijs-Opening", "x/Magnus-Sicilian", "", "x/Indian-Game-2.c4"]
+             "x/Van-t-Kruijs-Opening", "x/Magnus-Sicilian", "", "x/Indian-Game-2.c4",
+             "x/Nimzowitsch-Larsen-Attack-Modern-Variation", "x/Four-Knights-Game-Scotch-Variation-Accepted",
+             "x/Kings-Indian-Defense-Fianchetto", "x/Petrovs-Defense", "x/Alekhines-Defense-Modern",
+             "x/Nimzo-Indian-Defense-4.e3", "x/Queens-Gambit-Declined-Semi-Slav"]
     fixture = {
         "games": [{"url": g.url, "color": g.color, "myRating": g.my_rating, "oppRating": g.opp_rating,
                    "score": g.score, "timeClass": g.time_class, "timeControl": g.time_control,
@@ -43,6 +47,7 @@ def main():
         "branches": branches,
         "overall": overall(df),
         "opening_names": [[s, list(opening_names(s))] for s in slugs],
+        "facts": [{"id": f["id"], "text": f["text"]} for f in build_facts(df)[0]],
     }
     out = ROOT / "web" / "test" / "fixtures" / "parity.json"
     out.write_text(json.dumps(fixture, default=float))

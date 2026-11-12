@@ -1,0 +1,12 @@
+anthropic>=2.8.0
+chess==1.11.2
+duckdb>=1.2
+fastapi>=0.115
+numpy
+pandas
+requests
+scikit-learn>=1.5
+scipy
+tabulate
+torch>=2.4
+uvicorn[standard]

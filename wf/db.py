@@ -68,6 +68,7 @@ class ReadOnlySQL:
     """SQL tool for the agent: in-memory copy, no file or network access."""
 
     MAX_ROWS = 50
+    dialect = "DuckDB"
 
     def __init__(self, games: pd.DataFrame, moves: pd.DataFrame | None):
         self.con = connect(games, moves)
@@ -86,3 +87,6 @@ class ReadOnlySQL:
         out = df.head(self.MAX_ROWS).round(3).to_csv(index=False)
         return out + (f"... ({len(df)} rows total, first {self.MAX_ROWS} shown)\n"
                       if more else "")
+
+    def close(self):
+        self.con.close()

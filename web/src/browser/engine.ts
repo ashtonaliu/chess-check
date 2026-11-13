@@ -220,6 +220,58 @@ export async function analyseGames(games: Game[], opts: PoolOptions): Promise<Ga
   });
 }
 
+// ---------- deep re-check of flagged blunders (wf/engine.py recheck_blunders) ----------
+
+export const DEEP_DEPTH_BROWSER = 14;
+
+/** Screen cheap, confirm expensive: re-search only the positions flagged as blunders, deeper.
+ * Adds deep_* fields to those move rows (in place). Cached in IndexedDB per game and depth. */
+export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: number; engineUrl: string;
+  workers?: number; onProgress?: (done: number, total: number) => void }): Promise<void> {
+  const depth = opts.depth ?? DEEP_DEPTH_BROWSER;
+  const db = await openDb();
+  const key = (a: GameAnalysis) => `deep_v1_${a.url.split("/").pop()}_d${depth}`;
+  type Deep = Record<string, { deep_best: string | null; deep_refutation: string | null; deep_cp_before: number; deep_cp_after: number; deep_loss: number }>;
+  const cached = await Promise.all(analyses.map(a => idb<Deep>(db, "readonly", s => s.get(key(a)))));
+  const todo = analyses.map((a, i) => i).filter(i => !cached[i] && analyses[i].moves.some(m => m.wp_loss >= BLUNDER_DROP));
+  const total = todo.reduce((n, i) => n + analyses[i].moves.filter(m => m.wp_loss >= BLUNDER_DROP).length, 0);
+  let done = 0;
+  const n = Math.max(1, Math.min(opts.workers ?? Math.max(1, (navigator.hardwareConcurrency || 2) - 1), 8, todo.length));
+  const engines: Engine[] = [];
+  try {
+    if (todo.length) { for (let i = 0; i < n; i++) engines.push(new Engine(opts.engineUrl)); await Promise.all(engines.map(e => e.init())); }
+    let next = 0;
+    await Promise.all(engines.map(async eng => {
+      while (next < todo.length) {
+        const i = todo[next++], a = analyses[i], out: Deep = {};
+        for (const m of a.moves) {
+          if (m.wp_loss < BLUNDER_DROP) continue;
+          const c = new Chess(m.fen);
+          const r1 = await eng.analyse(m.fen, depth);
+          const before = r1.cp;   // the mover is the side to move
+          const best = uciToSan(new Chess(m.fen), r1.best);
+          c.move(m.san);
+          let after: number, refutation: string | null;
+          if (c.isGameOver()) { after = c.isCheckmate() ? MATE : 0; refutation = null; }
+          else {
+            const r2 = await eng.analyse(c.fen(), depth);
+            after = -r2.cp;   // side to move is now the opponent
+            refutation = uciToSan(new Chess(c.fen()), r2.best);
+          }
+          out[String(m.ply)] = { deep_best: best, deep_refutation: refutation, deep_cp_before: before,
+            deep_cp_after: after, deep_loss: Math.round(Math.max(winPct(before) - winPct(after), 0) * 10) / 10 };
+          opts.onProgress?.(++done, total);
+        }
+        cached[i] = out;
+        idb(db, "readwrite", s => s.put(out, key(a)));
+      }
+    }));
+  } finally {
+    engines.forEach(e => e.terminate());
+  }
+  analyses.forEach((a, i) => { const d = cached[i]; if (d) for (const m of a.moves) Object.assign(m, d[String(m.ply)] ?? {}); });
+}
+
 // ---------- summaries (wf/engine.py) ----------
 
 export function phaseSummary(analyses: GameAnalysis[], mine = true) {
@@ -237,8 +289,12 @@ export function phaseSummary(analyses: GameAnalysis[], mine = true) {
   }]));
 }
 
+/** The user's biggest mistakes, by the confirmed (deep) loss when available (wf/engine.py worst_blunders). */
 export function worstBlunders(analyses: GameAnalysis[], k = 5) {
-  const all = analyses.flatMap(a => a.moves.filter(m => m.is_me).map(m => ({ ...m, url: a.url })));
+  const all = analyses.flatMap(a => a.moves.filter(m => m.is_me).map(m => {
+    const d = m as MoveRow & { deep_loss?: number; deep_best?: string | null };
+    return d.deep_loss !== undefined ? { ...m, url: a.url, wp_loss: d.deep_loss, best: d.deep_best ?? null } : { ...m, url: a.url };
+  }));
   return all.sort((a, b) => b.wp_loss - a.wp_loss).slice(0, k);
 }
 

@@ -47,6 +47,41 @@ Stockfish evaluates every position at depth 8 to 10. Mistakes are measured as lo
 
 In the browser, the lite build of Stockfish 19 runs as WebAssembly in one worker per CPU core (up to 8). Its smaller network finds somewhat fewer blunders than full Stockfish (5.1% vs 6.5% of middlegame moves on the same 150 games), so numbers should be compared within one version.
 
+## Tactics and pieces
+
+**Deep re-check.** The fast pass (depth 8 to 10) flags blunders. Every flagged position is then searched again at depth 16 (depth 14 in the browser, where the engine is slower): once before the move, for the best move, and once after it, for the opponent's best reply. A blunder only counts if the deeper search still shows a loss of 20 percentage points or more. On my 300 games, 974 of 1,118 flagged moves were confirmed (87%), and the re-check took 54 seconds for both players. This is about 4% of all positions, so it adds little compute.
+
+**Tactic detection** (`wf/tactics.py`, ported to `web/src/browser/tactics.ts`). For each confirmed blunder, two moves are classified from the board geometry:
+
+- **Allowed:** the opponent's best reply after your blunder.
+- **Missed:** the engine's best move before your blunder.
+
+| Tactic | Rule |
+|---|---|
+| Fork | The moved piece (not the king) attacks two or more non-pawn targets that are the king, worth more than it, or undefended, and it cannot simply be taken |
+| Skewer | A slider attacks a king or queen with a less valuable piece behind it that is worth winning |
+| Discovered attack | Moving a piece opens a line from another of your pieces onto a worthwhile target |
+| Free piece | Capturing an undefended knight, bishop, rook or queen |
+| Forced mate | From the engine score: the position after the move is a forced mate |
+| Promotion | The move promotes a pawn |
+
+**Validation** (`scripts/eval_tactics.py`). Each Lichess puzzle has a position, the solution and theme tags from Lichess's own tagger. The app tags a single move, so the main score runs the detector on the first solution move only. Lichess tags are not exhaustive, so precision is a lower bound.
+
+| Tactic | Puzzles with the theme | Precision | Recall |
+|---|---:|---:|---:|
+| Fork | 2525 | 0.83 | 0.70 |
+| Skewer | 417 | 0.68 | 0.51 |
+| Discovered attack | 999 | 0.63 | 0.55 |
+| Free piece | 768 | 0.58 | 1.00 |
+| Pin (left out) | 1177 | 0.49 | 0.15 |
+| Back-rank mate (left out) | 682 | 0.27 | 0.19 |
+
+The first version had high recall but poor precision (fork 0.42, free piece 0.08), mostly because it was missing standard conditions: a forking piece that can simply be captured is not a fork, and capturing a defended piece is a trade. Pins in Lichess puzzles are mostly existing pins being exploited, which a check of one move cannot see, so the app leaves pins out.
+
+**Pieces.** Blunders are also counted by the piece moved (the share of your moves with each piece that were blunders), the piece lost to the reply, and the piece that delivered a fork.
+
+**Verdicts.** Each count is compared with your opponents' count in the same games, adjusted for the number of moves, using a Wilson interval on your share of the events. With 12 tactic comparisons and 6 piece comparisons, one borderline result is expected by chance, so a result is a "pattern" only if it passes after a Bonferroni correction for all of them (z = 2.77 for 18 comparisons) and "worth watching" if it only passes the plain 90% interval. On my games, missed discovered attacks (17 against 4) are a pattern; missed free pieces (28 against 16) are worth watching.
+
 ## Blunder-risk model
 
 The model predicts whether a move will be a blunder from 19 features: move number, legal moves, check, captures available, material balance and total, engine eval, clock fraction and seconds left, time spent, game phase, and indicator features for clock bands (under 10%, 10 to 30%) and lopsided positions (eval over 3 and over 7 pawns).
@@ -145,6 +180,7 @@ The TypeScript port is tested against Python output on real games (`web/test/`, 
 - scikit-learn's GroupKFold assignment is reproduced exactly, and logistic-regression probabilities match to 1e-8.
 - The coach's facts and the game summaries match character for character. This caught a rounding difference: Python rounds halves to even (36.5 becomes 36) while JavaScript rounds them up.
 - BM25 matches rank_bm25 to 1e-9, and given the same embedding vectors the hybrid ranking is identical.
+- The tactic detector gives the same labels as the Python one on 3,000 Lichess puzzle positions, and the tactic summary, verdicts and coach facts match on real games. This caught a second rounding problem: multiplying 2.675 by 100 gives exactly 267.5 in floating point, so a check for exact halves has to read the number's real decimal digits.
 
 ## Deployment
 

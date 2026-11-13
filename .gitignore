@@ -8,3 +8,4 @@ eval_results/
 *.duckdb
 .env
 site/
+data/

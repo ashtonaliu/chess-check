@@ -63,20 +63,38 @@ export async function embed(texts: string[]): Promise<number[][]> {
   return out;
 }
 
+// Keep the most recent corpus for follow-up coach requests in this page.
+let recentCorpus: { key: string; vectors: Promise<number[][]> } | undefined;
+
+function embedCorpus(texts: string[]): Promise<number[][]> {
+  const key = JSON.stringify(texts);
+  if (recentCorpus?.key === key) return recentCorpus.vectors;
+  const vectors = embed(texts).catch(error => {
+    if (recentCorpus?.vectors === vectors) recentCorpus = undefined;
+    throw error;
+  });
+  recentCorpus = { key, vectors };
+  return vectors;
+}
+
 /** Positions sorted by descending score, ties in original order (numpy's stable argsort of -score). */
 const order = (s: number[]) => s.map((_, i) => i).sort((a, b) => s[b] - s[a] || a - b);
 
 export class GameIndex {
   private bm25: BM25;
-  private vectors: number[][] | null = null;
+  private vectors?: Promise<number[][]>;
   constructor(public urls: string[], public texts: string[], private embedFn = embed) {
     this.bm25 = new BM25(texts.map(tokens));
   }
   bm25Scores(query: string) { return this.bm25.scores(tokens(query)); }
   async embedScores(query: string): Promise<number[]> {
-    this.vectors ??= await this.embedFn(this.texts);
+    const pending = this.vectors ??= this.embedFn === embed ? embedCorpus(this.texts) : this.embedFn(this.texts);
+    const vectors = await pending.catch(error => {
+      if (this.vectors === pending) this.vectors = undefined;
+      throw error;
+    });
     const [q] = await this.embedFn([query]);
-    return this.vectors.map(v => v.reduce((a, x, i) => a + x * q[i], 0));
+    return vectors.map(v => v.reduce((a, x, i) => a + x * q[i], 0));
   }
   /** Reciprocal-rank fusion of BM25 and embeddings, as in wf/search.py. */
   async search(query: string, k = 5): Promise<{ i: number; score: number }[]> {

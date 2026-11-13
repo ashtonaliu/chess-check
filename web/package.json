@@ -7,7 +7,7 @@
     "typecheck": "tsc --noEmit",
     "copy-engine": "mkdir -p dist/engine && cp node_modules/stockfish/bin/stockfish-19-lite-single.js node_modules/stockfish/bin/stockfish-19-lite-single.wasm dist/engine/",
     "test": "node --import tsx --test test/*.test.ts",
-    "build:ext": "tsc --noEmit && rm -rf ../extension/dist && esbuild src/extension/sidepanel.ts src/extension/background.ts --bundle --format=esm --target=es2022 --splitting --outdir=../extension/dist --chunk-names=chunks/[name]-[hash] && mkdir -p ../extension/engine && cp node_modules/stockfish/bin/stockfish-19-lite-single.js node_modules/stockfish/bin/stockfish-19-lite-single.wasm ../extension/engine/ && cp style.css ../extension/style.css"
+    "build:ext": "tsc --noEmit && rm -rf ../extension/dist && esbuild src/extension/offscreen.ts src/extension/background.ts --bundle --format=esm --target=es2022 --splitting --outdir=../extension/dist --chunk-names=chunks/[name]-[hash] && esbuild src/extension/content.ts --bundle --format=iife --target=es2022 --loader:.css=text --outfile=../extension/dist/content.js && mkdir -p ../extension/engine && cp node_modules/stockfish/bin/stockfish-19-lite-single.js node_modules/stockfish/bin/stockfish-19-lite-single.wasm ../extension/engine/ && cp style.css ../extension/style.css"
   },
   "devDependencies": {
     "esbuild": "0.25.10",

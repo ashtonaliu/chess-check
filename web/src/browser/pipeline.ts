@@ -42,7 +42,8 @@ export async function analyzeInBrowser(o: BrowserOptions) {
     report(2, done / total, `Double-checking blunders at depth ${DEEP_DEPTH_BROWSER}: ${done} of ${total}${eta(t1, done, total)}`) });
   report(3, null, "Finding patterns: tactics, pieces, openings and time pressure…");
   await new Promise(r => setTimeout(r, 0));   // let the status paint
-  const risk = playerRisk(rowsOf(analyses));
+  const moveRows = rowsOf(analyses);
+  const risk = playerRisk(moveRows);
   const tactics = summarizeTactics(analyses, new Map(games.map(g => [g.url, g.pgn])), DEEP_DEPTH_BROWSER);
   const openings = openingTable(rows).map(r => {
     const flagged = r.verdict.endsWith("weakness") || r.verdict === "worth watching";
@@ -54,13 +55,16 @@ export async function analyzeInBrowser(o: BrowserOptions) {
   });
   const blunders = worstBlunders(analyses, 5).filter(m => m.wp_loss >= BLUNDER_DROP)
     .map(m => ({ move: moveLabel(m), best: m.best, loss: m.wp_loss, phase: m.phase, url: m.url, fen: m.fen }));
+  let summaries: [string, string][] | undefined;
   report(4, 1, "Done");
   return {
     username: o.username, time_class: o.timeClass, generated_at: new Date().toISOString(),
     overall: overall(rows), openings, phases: phaseSummary(analyses), blunders,
     risk, facts: buildFacts(rows, analyses, risk, tactics), engine: true, analyses, tactics,
-    gameRows: rows, moveRows: rowsOf(analyses),
-    summaries: games.map((g, i) => [g.url, summarize(g, analyses[i])] as [string, string]),
+    gameRows: rows, moveRows,
+    get summaries() {
+      return summaries ??= games.map((game, i) => [game.url, summarize(game, analyses[i])]);
+    },
     seconds: Math.round((performance.now() - t0) / 1000),
   };
 }

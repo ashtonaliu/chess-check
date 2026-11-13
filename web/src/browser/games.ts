@@ -113,8 +113,9 @@ export async function fetchGames(user: string, maxGames: number, timeClass: stri
     const raw: RawGame[] = (await m.json()).games ?? [];
     raw.sort((a, b) => (b.end_time ?? 0) - (a.end_time ?? 0));
     for (const rg of raw) {
+      if (timeClass && rg.time_class !== timeClass) continue;
       const g = parseGame(rg, user);
-      if (g && (!timeClass || g.timeClass === timeClass)) {
+      if (g) {
         games.push(g);
         if (games.length >= maxGames) return games;
       }

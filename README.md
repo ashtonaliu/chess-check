@@ -4,15 +4,18 @@ Type in a Chess.com username and find out what that player is actually bad at.
 
 **[Try the live demo](https://ashtonaliu.github.io/weakness-finder/)**. It runs entirely in your browser, so there is nothing to install and no account needed.
 
+![Weakness Finder showing key findings, tactic comparisons and annotated example positions](docs/img/screenshot.png)
+
 ## What it does
 
 1. Downloads your recent games from Chess.com.
-2. Runs the Stockfish chess engine on every move to find your mistakes.
-3. Checks each opening against what your rating predicts, so a bad result against stronger players does not count against you.
-4. Estimates whether you blunder more than similar players would in the same positions, and whether time pressure is the cause.
-5. Has an AI coach write a short report, then checks every number and move in it against the real data before showing it.
+2. Runs the Stockfish chess engine on every move to find your mistakes, then double-checks each mistake with a deeper search.
+3. Recognizes the tactic behind each blunder (a fork you walked into, a discovered attack you missed, a free piece you left) and which piece you moved.
+4. Checks each opening against what your rating predicts, so a bad result against stronger players does not count against you.
+5. Estimates whether you blunder more than similar players would in the same positions, and whether time pressure is the cause.
+6. Has an AI coach write a short report, then checks every number and move in it against the real data before showing it.
 
-A typical result, from my own games: *"In the middlegame you blunder on 6.6% of moves, almost the same as your opponents' 6.5%. Your Queen's Gambit as White scores 57% against an expected 50%."*
+Everything is compared with your opponents in the same games. A typical result, from my own games: *"You miss discovered attacks: 17 times in positions where you blundered, against 4 for your opponents."*
 
 ## Try it
 
@@ -23,10 +26,11 @@ A typical result, from my own games: *"In the middlegame you blunder on 6.6% of 
 ## How it works
 
 1. **Games:** pulled from the Chess.com public API.
-2. **Engine:** Stockfish scores every position. I measure mistakes as lost winning chances, so dropping from +9 to +6 barely counts but +1 to -2 does.
-3. **Openings:** each game's result is compared with the result your rating predicted. A statistical model then pulls small samples toward your average, so 4 unlucky games do not get called a weakness.
-4. **Blunder model:** a machine learning model learns from your opponents' moves how often a player at your level blunders in a given position and clock situation. Comparing your real blunders with that prediction shows whether you blunder more than expected.
-5. **AI coach:** Claude gets the computed facts plus tools to query your games, search them, and run Stockfish. A checker verifies every number, move and link in its report. If something is not supported, the coach gets one chance to fix it.
+2. **Engine:** Stockfish scores every position. I measure mistakes as lost winning chances, so dropping from +9 to +6 barely counts but +1 to -2 does. Every move flagged as a blunder is checked again with a deeper search, which throws out about 13% of them.
+3. **Tactics:** for each confirmed blunder, the code looks at the board to name the tactic in the opponent's best reply and in the move you should have played, then compares your counts with your opponents'.
+4. **Openings:** each game's result is compared with the result your rating predicted. A statistical model then pulls small samples toward your average, so 4 unlucky games do not get called a weakness.
+5. **Blunder model:** a machine learning model learns from your opponents' moves how often a player at your level blunders in a given position and clock situation. Comparing your real blunders with that prediction shows whether you blunder more than expected.
+6. **AI coach:** Claude gets the computed facts plus tools to query your games, search them, and run Stockfish. A checker verifies every number, move and link in its report. If something is not supported, the coach gets one chance to fix it.
 
 ## Results
 
@@ -40,6 +44,17 @@ A typical result, from my own games: *"In the middlegame you blunder on 6.6% of 
 | Neural network (PyTorch) | 0.85 |
 
 The biggest predictor of a blunder is how little time is left on the clock. The site uses logistic regression because its predictions were the most accurate in the time-pressure range, even though its overall AUC is a little lower.
+
+**Tactic detector.** I tested the detector on 20,000 Lichess puzzles, using Lichess's own theme tags as the answers. The app only names a tactic when this test showed it was usually right.
+
+| Tactic | Precision | Recall |
+|---|---:|---:|
+| Fork | 0.83 | 0.70 |
+| Skewer | 0.68 | 0.51 |
+| Discovered attack | 0.63 | 0.55 |
+| Free piece | 0.58 | 1.00 |
+
+Pins and back-rank mates scored too low (precision 0.49 and 0.27), so the app leaves them out. Forced mates come from the engine score instead of the board.
 
 **AI coach accuracy.** The share of numbers and moves in the coach's reports that could not be backed up by the data, across 5 players.
 
@@ -66,6 +81,7 @@ Embeddings understand rewording ("got flagged" finds games lost on time) but con
 
 - **Small samples lie.** My Scotch Game as Black looked terrible at 21% over 12 games. The model only marked it "worth watching" because with 34 openings, one bad result is expected by luck. Sixteen games later it was 38%, which is normal.
 - **Test against real data early.** Running on my own games exposed a statistics bug that squashed real effects to almost zero, and a blunder baseline that compared me with myself.
+- **A detector that finds everything is useless.** My first tactic detector caught almost every fork but also flagged many moves that were not forks (precision 0.42). Adding the rule that the forking piece must not simply be capturable raised it to 0.83.
 - **Check the checker.** My claim checker had three bugs of its own. One rejected correct game links, so the coach deleted good information to make it happy.
 - **Measure before trusting the hype.** AI embeddings alone did worse than plain keyword search. Combining them did best.
 - **Two versions keep each other honest.** I wrote the analysis in Python and again in TypeScript for the browser. Testing that both give the same answers caught a rounding difference and a solver that stopped too early.

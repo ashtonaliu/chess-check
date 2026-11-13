@@ -40,11 +40,13 @@ def move_label(m: dict) -> str:
 
 
 def build_facts(df: pd.DataFrame, analyses: list[dict] | None = None,
-                risk: dict | None = None) -> tuple[list[dict], dict]:
+                risk: dict | None = None, tactics: dict | None = None) -> tuple[list[dict], dict]:
     facts: list[dict] = []
     extras: dict = {}
 
     def add(kind: str, text: str, **data):
+        if kind == "puzzles" and any(f["text"] == text for f in facts):
+            return None   # one link per puzzle theme
         fid = f"F{len(facts) + 1}"
         facts.append({"id": fid, "kind": kind, "text": text, **data})
         return fid
@@ -158,6 +160,9 @@ def build_facts(df: pd.DataFrame, analyses: list[dict] | None = None,
                 f"Your move {move_label(m)} ({m['phase']}) lost {m['wp_loss']:.0f} "
                 f"win%{best}. Game: {m['url']}", fen=m["fen"])
 
+        if tactics:
+            _tactic_facts(add, tactics)
+
         themes = []
         if worst_phase:
             themes.append(worst_phase)
@@ -168,6 +173,50 @@ def build_facts(df: pd.DataFrame, analyses: list[dict] | None = None,
             add("puzzles", f"Lichess puzzle theme '{name}': {url}")
 
     return facts, extras
+
+
+def _tactic_facts(add, t: dict) -> None:
+    from .tactics import MOTIF_LABEL, PUZZLE_URL
+    if t.get("deep"):
+        add("tactics", f"Of {t['flagged']} moves flagged as blunders by the fast engine pass (both players), "
+                       f"{t['confirmed']} were confirmed by a deeper search at depth {t.get('deep_depth', 16)}.")
+    shown = 0
+    for m in sorted(t["motifs"], key=lambda m: (m["verdict"] == "no difference", -m["me"])):
+        if m["verdict"] == "no difference" and shown >= 3:
+            continue
+        what = "missed" if m["kind"] == "missed" else "allowed"
+        label = MOTIF_LABEL[m["motif"]]
+        ratio = "" if m["ratio"] == float("inf") else (
+            f" ({m['ratio']:.2f} times your opponents' rate per move, 90% interval "
+            f"{m['ci_low']:.2f} to {m['ci_high']:.2f})")
+        verdict = {"pattern": "a pattern, which holds after correcting for all "
+                              f"{t['n_tests']} tactic and piece comparisons",
+                   "worth watching": "worth watching: it passes on its own but not after correcting for "
+                                     f"{t['n_tests']} comparisons",
+                   "no difference": "no clear difference from your opponents"}[m["verdict"]]
+        if what == "missed":
+            text = f"In positions where you blundered, the better move was a {label} {m['me']} times"
+        else:
+            text = f"Your blunders allowed a {label} {m['me']} times"
+        add("tactics", f"{text}, versus {m['opp']} for your opponents in the same games{ratio}. Verdict: {verdict}.")
+        shown += 1
+        ex = t["examples"].get(f"{m['kind']}:{m['motif']}")
+        if ex and m["verdict"] != "no difference" and m["higher"]:   # examples only for problems
+            move = f"{ex['move_no']}.{ex['san']}" if ex["ply"] % 2 == 0 else f"{ex['move_no']}...{ex['san']}"
+            better = f"; the engine preferred {ex['best']}" if ex.get("best") else ""
+            reply = f"; the opponent's best reply was {ex['refutation']}" if ex.get("refutation") else ""
+            add("tactics", f"Example ({label}, {what}): your move {move} lost {ex['wp_loss']:.0f} win%"
+                           f"{better}{reply}. Game: {ex['url']}")
+            add("puzzles", f"Lichess puzzle theme '{label}': {PUZZLE_URL[m['motif']]}")
+    if t.get("forks_allowed_by"):
+        parts = ", ".join(f"{k} {v}" for k, v in sorted(t["forks_allowed_by"].items(), key=lambda kv: -kv[1]))
+        add("tactics", f"The forks your blunders allowed were made by: {parts}.")
+    rates = "; ".join(f"{p['piece']} moves {100 * p['rate']:.1f}% (opponents {100 * p['opp_rate']:.1f}%)"
+                      for p in t["pieces"] if p["opp_moves"])
+    flagged = [p for p in t["pieces"] if p["verdict"] != "no difference"]
+    add("tactics", f"Blunder rate by the piece you moved: {rates}. " + (
+        "Pieces that stand out: " + ", ".join(f"{p['piece']} ({p['verdict']})" for p in flagged) + "."
+        if flagged else "No piece stands out from your opponents' rates."))
 
 
 def facts_text(facts: list[dict]) -> str:

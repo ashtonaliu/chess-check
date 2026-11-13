@@ -5,7 +5,7 @@ import { analyseGames, BLUNDER_DROP, DEEP_DEPTH_BROWSER, moveLabel, phaseSummary
 import { fetchGames } from "./games";
 import { buildFacts } from "./facts";
 import { summarize } from "./summary";
-import { summarize as summarizeTactics } from "./tactics";
+import { summarizeInBackground } from "./tacticsBackground";
 import { playerRisk, rowsOf } from "./model";
 import { formatMoves, openingTable, overall, withExpected, worstBranch } from "./stats";
 
@@ -43,8 +43,10 @@ export async function analyzeInBrowser(o: BrowserOptions) {
   report(3, null, "Finding patterns: tactics, pieces, openings and time pressure…");
   await new Promise(r => setTimeout(r, 0));   // let the status paint
   const moveRows = rowsOf(analyses);
+  const pendingTactics = summarizeInBackground({
+    analyses, pgns: new Map(games.map(g => [g.url, g.pgn])), depth: DEEP_DEPTH_BROWSER,
+  }, o.engineUrl, o.signal);
   const risk = playerRisk(moveRows);
-  const tactics = summarizeTactics(analyses, new Map(games.map(g => [g.url, g.pgn])), DEEP_DEPTH_BROWSER);
   const openings = openingTable(rows).map(r => {
     const flagged = r.verdict.endsWith("weakness") || r.verdict === "worth watching";
     const b = flagged ? worstBranch(rows, r.color, r.family) : null;
@@ -55,6 +57,7 @@ export async function analyzeInBrowser(o: BrowserOptions) {
   });
   const blunders = worstBlunders(analyses, 5).filter(m => m.wp_loss >= BLUNDER_DROP)
     .map(m => ({ move: moveLabel(m), best: m.best, loss: m.wp_loss, phase: m.phase, url: m.url, fen: m.fen }));
+  const tactics = await pendingTactics;
   let summaries: [string, string][] | undefined;
   report(4, 1, "Done");
   return {

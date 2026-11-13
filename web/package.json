@@ -5,9 +5,10 @@
   "scripts": {
     "build": "tsc --noEmit && rm -f dist/*.js && esbuild src/main.ts --bundle --format=esm --target=es2020 --splitting --outdir=dist --chunk-names=chunks/[name]-[hash] && npm run copy-engine",
     "typecheck": "tsc --noEmit",
-    "copy-engine": "mkdir -p dist/engine && cp node_modules/stockfish/bin/stockfish-19-lite-single.js node_modules/stockfish/bin/stockfish-19-lite-single.wasm dist/engine/",
+    "copy-engine": "mkdir -p dist/engine && cp node_modules/stockfish/bin/stockfish-19-lite-single.js node_modules/stockfish/bin/stockfish-19-lite-single.wasm dist/engine/ && npm run build:tactics-worker -- --outfile=dist/engine/tacticsWorker.js",
+    "build:tactics-worker": "esbuild src/browser/tacticsWorker.ts --bundle --format=esm --target=es2020",
     "test": "node --import tsx --test test/*.test.ts",
-    "build:ext": "tsc --noEmit && rm -rf ../extension/dist && esbuild src/extension/offscreen.ts src/extension/background.ts --bundle --format=esm --target=es2022 --splitting --outdir=../extension/dist --chunk-names=chunks/[name]-[hash] && esbuild src/extension/content.ts --bundle --format=iife --target=es2022 --loader:.css=text --outfile=../extension/dist/content.js && mkdir -p ../extension/engine && cp node_modules/stockfish/bin/stockfish-19-lite-single.js node_modules/stockfish/bin/stockfish-19-lite-single.wasm ../extension/engine/ && cp style.css ../extension/style.css"
+    "build:ext": "tsc --noEmit && rm -rf ../extension/dist && esbuild src/extension/offscreen.ts src/extension/background.ts --bundle --format=esm --target=es2022 --splitting --outdir=../extension/dist --chunk-names=chunks/[name]-[hash] && esbuild src/extension/content.ts --bundle --format=iife --target=es2022 --loader:.css=text --outfile=../extension/dist/content.js && mkdir -p ../extension/engine && cp node_modules/stockfish/bin/stockfish-19-lite-single.js node_modules/stockfish/bin/stockfish-19-lite-single.wasm ../extension/engine/ && cp style.css ../extension/style.css && npm run build:tactics-worker -- --outfile=../extension/engine/tacticsWorker.js"
   },
   "devDependencies": {
     "esbuild": "0.25.10",

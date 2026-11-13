@@ -1,6 +1,8 @@
 import { Chess } from "chess.js";
 import { costUsd, describeError, makeClient, runCoach } from "./browser/coach";
+import { Follower, POLL_MS } from "./browser/follow";
 import { analyzeInBrowser, STAGES } from "./browser/pipeline";
+import { motifName, type Recap } from "./browser/recap";
 import { embed } from "./browser/search";
 
 // Weakness Finder UI. Plain TypeScript, no framework. In the static demo the
@@ -394,6 +396,10 @@ document.querySelectorAll<HTMLButtonElement>(".tabs button").forEach(b =>
 
 function render(p: Payload) {
   current = p;
+  if (STATIC?.browser) {
+    $("followCta").hidden = false;
+    if (!follower) ($("followBtn") as HTMLButtonElement).textContent = `Follow ${p.username}'s games`;
+  }
   renderOverview(p);
   renderTactics(p);
   renderForest(p.openings);
@@ -408,6 +414,12 @@ async function analyze(ev: Event) {
   const username = ($("username") as HTMLInputElement).value.trim();
   const time_class = ($("time_class") as HTMLSelectElement).value || null;
   const games = Number(($("games") as HTMLSelectElement).value);
+  stopFollow(true);
+  await runAnalysis(username, games, time_class);
+  if (current && new URLSearchParams(location.search).get("follow") === "1") void startFollow();
+}
+
+async function runAnalysis(username: string, games: number, time_class: string | null): Promise<boolean> {
   const btn = $("go") as HTMLButtonElement;
   btn.disabled = true;
   $("coach").innerHTML = "";
@@ -433,13 +445,136 @@ async function analyze(ev: Event) {
     render(p);
     selectTab("tactics");
     $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+    return true;
   } catch (e) {
     setStatus((e as Error).message, true);
+    return false;
   } finally {
     showProgress(null, null, "");
     btn.disabled = false;
   }
 }
+
+// ---------- follow mode: a recap after every finished game ----------
+
+let follower: Follower | null = null;
+let followTick: ReturnType<typeof setInterval> | null = null;
+let unseen = 0;
+
+const ago = (t: number) => {
+  const s = Math.max(0, Math.round(Date.now() / 1000 - t));
+  return s < 90 ? "just now" : s < 3600 ? `${Math.round(s / 60)} min ago` : s < 86400 ? `${Math.round(s / 3600)} h ago` : new Date(t * 1000).toLocaleDateString();
+};
+const VERDICT_CLASS = (r: Recap) => r.surprise >= 0.4 ? "good" : r.surprise <= -0.4 ? "weak" : r.score === 1 ? "good" : r.score === 0 ? "" : "";
+
+function renderRecap(r: Recap, isNew: boolean) {
+  const col = r.color === "white" ? "White" : "Black";
+  const resultPos = r.score * 100, expPos = r.expected * 100;
+  const resultColor = r.score === 1 ? "var(--good)" : r.score === 0 ? "var(--weak)" : "var(--neutral)";
+  const t = r.turning;
+  const board = t ? (() => {
+    const flip = t.ply % 2 === 1;
+    const played = moveSquares(t.fen, t.san), best = t.best && t.best !== t.san ? moveSquares(t.fen, t.best) : null;
+    return boardSvg(t.fen, flip, [...(played ? [{ ...played, color: "#d0452f" }] : []), ...(best ? [{ ...best, color: "#2f9a5a" }] : [])]);
+  })() : "";
+  const clock = t?.clockFrac !== null && t?.clockFrac !== undefined
+    ? (t.clockFrac <= 0.1 ? ", in time trouble" : t.clockFrac <= 0.3 ? ", low on time" : "") : "";
+  const tags = t?.tactics.length ? ` You ${t.tactics.map(x => motifName(x.kind, x.motif)).join(" and ")}.` : "";
+  const turning = !t ? `<p>Clean game: no mistakes worth noting.</p>`
+    : t.loss >= 20
+      ? `<p><span class="lbl">Turning point</span><span class="moves">${esc(t.label)}</span> lost <strong class="weak">${Math.round(t.loss)}%</strong>
+         winning chances (${esc(t.phase)}${clock}).${t.best ? ` Better was <span class="moves">${esc(t.best)}</span>.` : ""}${esc(tags)}</p>`
+      : `<p><span class="lbl">Turning point</span>No blunders. Your biggest slip, <span class="moves">${esc(t.label)}</span>, cost ${Math.round(t.loss)}%.</p>`;
+  const h = r.opening.history;
+  const variation = r.opening.name.toLowerCase().replace(/[^a-z]/g, "") !== r.opening.family.toLowerCase().replace(/[^a-z]/g, "")
+    ? ` <span class="ci">(${esc(r.opening.name)})</span>` : "";
+  const opening = `<p><span class="lbl">Opening</span>${esc(r.opening.family)} as ${col}${variation}. ` + (h
+    ? `Your record before this game: ${Math.round(100 * h.score)}% in ${h.n} game${h.n === 1 ? "" : "s"} (${Math.round(100 * h.expected)}% expected).`
+    : "First time in this opening in your recent games.") +
+    (r.opening.flag ? ` <span class="chip ${r.opening.flag.includes("weakness") || r.opening.flag === "worth watching" ? "watch" : "good"}">${esc(r.opening.flag)}</span>` : "") + `</p>`;
+  const pat = r.pattern
+    ? `<p class="patternbox"><strong>Matches your pattern:</strong> you ${r.pattern.kind === "missed" ? "miss" : "walk into"}
+       ${esc(PLURAL[r.pattern.motif] ?? r.pattern.motif)}. That makes ${r.pattern.count} in your analyzed games.
+       <a href="https://lichess.org/training/${esc(PUZZLE[r.pattern.motif] ?? r.pattern.motif)}" target="_blank" rel="noopener">Practice →</a></p>` : "";
+  const opp = r.opponentNote ? `<p><span class="lbl">Your opponent</span>${esc(r.opponentNote)}</p>` : "";
+  const card = document.createElement("article");
+  card.className = "recap" + (isNew ? " new" : "");
+  card.innerHTML = `<div class="recap-head"><span class="chip ${VERDICT_CLASS(r)}">${esc(r.verdict)}</span>
+      <strong>You ${esc(r.how)}</strong> vs ${esc(r.opponent)} (${r.oppRating}) as ${col}
+      <span class="when">${esc(r.timeClass)} · ${ago(r.endTime)} · <a href="${esc(r.url)}" target="_blank" rel="noopener">open game</a></span></div>
+    <div class="meter" title="Pre-game expected score from both ratings, shown only after the game">
+      <div class="track"><span class="mark" style="left:${expPos.toFixed(1)}%"></span>
+        <span class="result" style="left:${resultPos}%;background:${resultColor}"></span></div>
+      <div class="labels"><span>loss</span><span>Before the game you had a ${Math.round(expPos)}% expected score</span><span>win</span></div></div>
+    <div class="recap-grid${t ? "" : " noboard"}">${board ? `<div>${board}</div>` : ""}
+      <div class="recap-lines">${turning}${pat}${opening}${opp}</div></div>`;
+  if (!t) (card.querySelector(".recap-grid") as HTMLElement).style.gridTemplateColumns = "1fr";
+  $("recaps").prepend(card);
+  if (isNew) {
+    unseen++;
+    if (document.hidden) document.title = `(${unseen}) Weakness Finder`;
+    if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
+      new Notification(`${r.verdict} vs ${r.opponent}`, { body: r.pattern
+        ? `Matches your pattern: you ${r.pattern.kind === "missed" ? "missed" : "walked into"} a ${(MOTIF_SINGULAR[r.pattern.motif] ?? r.pattern.motif)}.`
+        : t && t.loss >= 20 ? `Turning point: ${t.label} lost ${Math.round(t.loss)}%.` : "Recap ready." });
+    }
+  }
+}
+const MOTIF_SINGULAR: Record<string, string> = { mate: "forced mate", fork: "fork", skewer: "skewer",
+  discoveredAttack: "discovered attack", hangingPiece: "free piece", promotion: "promotion" };
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { unseen = 0; document.title = "Weakness Finder"; } });
+
+function followStatus(msg: string) {
+  const el = $("followStatus");
+  if (msg === "watching" && follower?.lastChecked) {
+    const secs = Math.round((Date.now() - follower.lastChecked.getTime()) / 1000);
+    el.textContent = `· checked ${secs < 5 ? "just now" : `${secs}s ago`} · checks every ${POLL_MS / 1000}s`;
+  } else if (msg === "stopped") {
+    el.textContent = "· stopped";
+  } else {
+    el.textContent = `· ${msg}`;
+  }
+}
+
+async function startFollow() {
+  if (!current) return;
+  const user = current.username, tc = current.time_class ?? "blitz";
+  if (!browserRun || browserRun.username.toLowerCase() !== user.toLowerCase()) {
+    if (!(await runAnalysis(user, 150, tc))) return;   // the recap needs this player's history
+  }
+  const run = browserRun!;
+  stopFollow(true);
+  $("follow").hidden = false;
+  $("recaps").innerHTML = "";
+  $("followTitle").textContent = `Following ${run.username}`;
+  followStatus("Loading your most recent game…");
+  follower = new Follower({ username: run.username, timeClass: run.time_class ?? null, rows: run.gameRows,
+    openings: run.openings, tactics: run.tactics }, ENGINE_URL, renderRecap, followStatus);
+  ($("followBtn") as HTMLButtonElement).textContent = "Following…";
+  ($("followBtn") as HTMLButtonElement).disabled = true;
+  try { await follower.start(); } catch (e) { followStatus(`could not start: ${(e as Error).message}`); }
+  followTick = setInterval(() => { if (follower?.running) followStatus("watching"); }, 5000);
+  $("follow").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function stopFollow(silent = false) {
+  follower?.stop();
+  follower = null;
+  if (followTick) clearInterval(followTick);
+  followTick = null;
+  ($("followBtn") as HTMLButtonElement).disabled = false;
+  if (current) ($("followBtn") as HTMLButtonElement).textContent = `Follow ${current.username}'s games`;
+  if (!silent) followStatus("stopped");
+}
+
+$("followBtn").addEventListener("click", () => { void startFollow(); });
+$("stopBtn").addEventListener("click", () => stopFollow());
+$("notifyBtn").addEventListener("click", async () => {
+  if (!("Notification" in window)) { followStatus("this browser does not support notifications"); return; }
+  const p = await Notification.requestPermission();
+  ($("notifyBtn") as HTMLButtonElement).textContent = p === "granted" ? "Notifications on" : "Notifications blocked";
+  ($("notifyBtn") as HTMLButtonElement).disabled = p === "granted";
+});
 
 let coachBackend: string | null | undefined = undefined;  // undefined until /api/coach/status answers
 // The latest in-browser analysis, which the bring-your-own-key coach works from.
@@ -530,5 +665,6 @@ else { const qs = new URLSearchParams(location.search).get("u"); if (qs) ($("use
 // Debug hook (only with ?debug=1): lets the real coach tools (DuckDB-WASM, Stockfish)
 // be exercised from the console with a scripted client, without an API key.
 if (new URLSearchParams(location.search).get("debug") === "1") {
-  (window as unknown as Record<string, unknown>).__wf = { runCoach, getRun: () => browserRun, engineUrl: ENGINE_URL, embed, current: () => current };
+  (window as unknown as Record<string, unknown>).__wf = { runCoach, getRun: () => browserRun, engineUrl: ENGINE_URL, embed, current: () => current,
+    follower: () => follower };
 }

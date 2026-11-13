@@ -14,6 +14,7 @@ Type in a Chess.com username and find out what that player is actually bad at.
 4. Checks each opening against what your rating predicts, so a bad result against stronger players does not count against you.
 5. Estimates whether you blunder more than similar players would in the same positions, and whether time pressure is the cause.
 6. Has an AI coach write a short report, then checks every number and move in it against the real data before showing it.
+7. Follows your games: keep the tab open and a short recap appears after each game you finish.
 
 Everything is compared with your opponents in the same games. A typical result, from my own games: *"You miss discovered attacks: 17 times in positions where you blundered, against 4 for your opponents."*
 
@@ -21,7 +22,8 @@ Everything is compared with your opponents in the same games. A typical result, 
 
 1. Open the [demo](https://ashtonaliu.github.io/weakness-finder/). It starts with an analysis of my own 300 blitz games.
 2. Enter any Chess.com username and press Analyze. 150 games take about 15 to 40 seconds.
-3. For the AI coaching report, paste your own [Anthropic API key](https://console.anthropic.com/settings/keys). The key only goes from your browser to Anthropic, and a report costs under one cent.
+3. Press **Follow my games** to get a recap after every game you finish: the result and how surprising it was, the turning point on a board, your record in that opening, whether the mistake fits one of your patterns, and a note on your opponent.
+4. For the AI coaching report, paste your own [Anthropic API key](https://console.anthropic.com/settings/keys). The key only goes from your browser to Anthropic, and a report costs under one cent.
 
 ## How it works
 
@@ -31,6 +33,10 @@ Everything is compared with your opponents in the same games. A typical result, 
 4. **Openings:** each game's result is compared with the result your rating predicted. A statistical model then pulls small samples toward your average, so 4 unlucky games do not get called a weakness.
 5. **Blunder model:** a machine learning model learns from your opponents' moves how often a player at your level blunders in a given position and clock situation. Comparing your real blunders with that prediction shows whether you blunder more than expected.
 6. **AI coach:** Claude gets the computed facts plus tools to query your games, search them, and run Stockfish. A checker verifies every number, move and link in its report. If something is not supported, the coach gets one chance to fix it.
+
+## Post-game recaps
+
+Recaps only cover finished games. Chess.com's fair-play rules forbid outside help during a game, and in live chess the clock starts the moment you are paired, so anything shown "before" a game is really shown during it. That is why the app shows nothing about your opponent until the game is over, and why the win probability appears afterwards as an upset meter ("Before the game you had a 46% expected score") rather than as a prediction. Finished games reach the Chess.com public API within about a minute, and the page checks every 45 seconds.
 
 ## Results
 

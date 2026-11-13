@@ -53,6 +53,19 @@
   <main id="results" hidden>
     <section id="player" class="player"></section>
 
+    <div id="followCta" class="follow-cta" hidden>
+      <button id="followBtn" class="secondary">Follow my games</button>
+      <span class="note">Keep this tab open and get a short recap after every game you finish. Nothing is shown before or during a game.</span>
+    </div>
+
+    <section id="follow" class="follow" hidden aria-live="polite">
+      <div class="follow-head">
+        <div><strong id="followTitle"></strong> <span id="followStatus" class="note"></span></div>
+        <div class="follow-actions"><button id="notifyBtn" class="secondary">Notify me</button><button id="stopBtn" class="secondary">Stop</button></div>
+      </div>
+      <div id="recaps" class="recaps"></div>
+    </section>
+
     <section aria-labelledby="findingsTitle">
       <h2 id="findingsTitle" class="section-title">Key findings</h2>
       <div id="findings" class="findings"></div>

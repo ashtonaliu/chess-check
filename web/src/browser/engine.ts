@@ -113,6 +113,23 @@ function idb<T>(db: IDBDatabase | null, mode: IDBTransactionMode, fn: (s: IDBObj
   });
 }
 
+// Issue all reads before the transaction can become inactive.
+async function readCached<T>(db: IDBDatabase | null, keys: string[]): Promise<(T | undefined)[]> {
+  if (db && keys.length) {
+    try {
+      const store = db.transaction(STORE, "readonly").objectStore(STORE);
+      return await Promise.all(keys.map(key => new Promise<T | undefined>(resolve => {
+        const request = store.get(key);
+        request.onsuccess = () => resolve(request.result as T | undefined);
+        request.onerror = () => resolve(undefined);
+      })));
+    } catch {
+      // Treat an unavailable cache as a miss.
+    }
+  }
+  return keys.map(() => undefined);
+}
+
 // ---------- per-game analysis (wf/engine.py _analyse) ----------
 
 type Stored = Omit<GameAnalysis, "color" | "opening_eval"> & { opening_eval_white: number | null };
@@ -181,7 +198,7 @@ export interface PoolOptions { depth: number; workers?: number; engineUrl: strin
 export async function analyseGames(games: Game[], opts: PoolOptions): Promise<GameAnalysis[]> {
   const db = await openDb();
   const key = (g: Game) => `v${CACHE_VERSION}_${g.url.split("/").pop()}_d${opts.depth}`;
-  const out: (Stored | undefined)[] = await Promise.all(games.map(g => idb<Stored>(db, "readonly", s => s.get(key(g)))));
+  const out: (Stored | undefined)[] = await readCached<Stored>(db, games.map(key));
   const todo = games.map((g, i) => i).filter(i => !out[i]);
   const cached = games.length - todo.length;
   let done = cached;
@@ -232,7 +249,7 @@ export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: 
   const db = await openDb();
   const key = (a: GameAnalysis) => `deep_v1_${a.url.split("/").pop()}_d${depth}`;
   type Deep = Record<string, { deep_best: string | null; deep_refutation: string | null; deep_cp_before: number; deep_cp_after: number; deep_loss: number }>;
-  const cached = await Promise.all(analyses.map(a => idb<Deep>(db, "readonly", s => s.get(key(a)))));
+  const cached = await readCached<Deep>(db, analyses.map(key));
   const todo = analyses.map((a, i) => i).filter(i => !cached[i] && analyses[i].moves.some(m => m.wp_loss >= BLUNDER_DROP));
   const total = todo.reduce((n, i) => n + analyses[i].moves.filter(m => m.wp_loss >= BLUNDER_DROP).length, 0);
   let done = 0;

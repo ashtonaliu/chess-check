@@ -100,17 +100,57 @@ export function parseGame(raw: RawGame, user: string): Game | null {
 
 const API = "https://api.chess.com/pub/player";
 
+type ArchiveResponse = { status: number; ok: boolean; data?: { archives?: string[]; games?: RawGame[] } };
+interface ArchiveRequest {
+  controller: AbortController;
+  pending: Promise<ArchiveResponse>;
+  readers: number;
+}
+const inFlight = new Map<string, ArchiveRequest>();
+
+async function fetchArchive(url: string, signal?: AbortSignal): Promise<ArchiveResponse> {
+  signal?.throwIfAborted();
+  let request = inFlight.get(url);
+  if (!request) {
+    const controller = new AbortController();
+    const pending: Promise<ArchiveResponse> = fetch(url, { signal: controller.signal }).then(async response => ({
+      status: response.status, ok: response.ok, data: response.ok ? await response.json() : undefined,
+    })).finally(() => {
+      if (inFlight.get(url)?.controller === controller) inFlight.delete(url);
+    });
+    request = { controller, pending, readers: 0 };
+    inFlight.set(url, request);
+  }
+  const shared = request;
+  shared.readers++;
+  let abort: (() => void) | undefined;
+  try {
+    if (!signal) return await shared.pending;
+    return await new Promise<ArchiveResponse>((resolve, reject) => {
+      abort = () => reject(signal.reason);
+      signal.addEventListener("abort", abort, { once: true });
+      shared.pending.then(resolve, reject);
+    });
+  } finally {
+    if (abort) signal?.removeEventListener("abort", abort);
+    if (--shared.readers === 0 && inFlight.get(url) === shared) {
+      inFlight.delete(url);
+      shared.controller.abort();
+    }
+  }
+}
+
 export async function fetchGames(user: string, maxGames: number, timeClass: string | null,
                                  signal?: AbortSignal): Promise<Game[]> {
-  const r = await fetch(`${API}/${encodeURIComponent(user.toLowerCase())}/games/archives`, { signal });
+  const r = await fetchArchive(`${API}/${encodeURIComponent(user.toLowerCase())}/games/archives`, signal);
   if (r.status === 404) throw new Error(`No Chess.com player named "${user}".`);
   if (!r.ok) throw new Error(`Chess.com API error ${r.status}.`);
-  const archives: string[] = (await r.json()).archives ?? [];
+  const archives: string[] = r.data?.archives ?? [];
   const games: Game[] = [];
   for (const month of archives.slice().reverse()) {
-    const m = await fetch(month, { signal });
+    const m = await fetchArchive(month, signal);
     if (!m.ok) throw new Error(`Chess.com API error ${m.status}.`);
-    const raw: RawGame[] = (await m.json()).games ?? [];
+    const raw: RawGame[] = [...(m.data?.games ?? [])];
     raw.sort((a, b) => (b.end_time ?? 0) - (a.end_time ?? 0));
     for (const rg of raw) {
       if (timeClass && rg.time_class !== timeClass) continue;

@@ -2,13 +2,45 @@
   "manifest_version": 3,
   "name": "Chess Check: post-game recaps",
   "short_name": "Chess Check",
-  "version": "0.1.0",
-  "description": "A short recap after each Chess.com game you finish: the upset meter, the turning point, your patterns and your opponent's openings. Never during a game.",
-  "permissions": ["sidePanel", "storage"],
-  "host_permissions": ["https://www.chess.com/*", "https://api.chess.com/*"],
-  "background": { "service_worker": "dist/background.js", "type": "module" },
-  "side_panel": { "default_path": "sidepanel.html" },
-  "action": { "default_title": "Open Chess Check recaps", "default_icon": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" } },
-  "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" },
-  "content_security_policy": { "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'" }
+  "version": "0.2.0",
+  "description": "A small cube on Chess.com that opens a recap of each game you finish: the upset meter, the turning point, your patterns and your opponent's openings. Never during a game.",
+  "permissions": [
+    "storage",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "https://api.chess.com/*"
+  ],
+  "background": {
+    "service_worker": "dist/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Show or hide the Chess Check cube",
+    "default_icon": {
+      "16": "icons/16.png",
+      "48": "icons/48.png",
+      "128": "icons/128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/16.png",
+    "48": "icons/48.png",
+    "128": "icons/128.png"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.chess.com/*",
+        "https://chess.com/*"
+      ],
+      "js": [
+        "dist/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
 }

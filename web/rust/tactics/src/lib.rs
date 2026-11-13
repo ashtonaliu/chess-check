@@ -49,6 +49,9 @@ pub fn attacks(board: &[u8; 64], square: usize) -> u64 {
     attacked
 }
 
+mod motifs;
+pub use motifs::motifs;
+
 #[cfg(test)]
 mod tests {
     use super::attacks;

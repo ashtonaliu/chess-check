@@ -71,15 +71,15 @@ export class Follower {
 
 /** Analyze one finished game and read it against a player's profile. */
 export async function recapGame(g: Game, profile: Profile, engineUrl: string): Promise<Recap> {
+  const opponent = g.opponent;
+  const note = opponent
+    ? fetchGames(opponent, 100, g.timeClass || profile.timeClass)
+      .then(games => opponentNote(opponent, games.filter(game => game.url !== g.url),
+        g.family, g.color === "white" ? "black" : "white"))
+      .catch(() => null)
+    : Promise.resolve(null);
   const [analysis] = await analyseGames([g], { depth: 8, engineUrl, workers: 1 });
   await recheckBlunders([analysis], { engineUrl, workers: 1 });
   const blunders = classifyGame(g.pgn, analysis);
-  let note: string | null = null;
-  if (g.opponent) {
-    try {
-      const opp = await fetchGames(g.opponent, 100, g.timeClass || profile.timeClass);
-      note = opponentNote(g.opponent, opp.filter(x => x.url !== g.url), g.family, g.color === "white" ? "black" : "white");
-    } catch { note = null; }
-  }
-  return buildRecap(g, analysis, blunders, profile.rows, profile.openings, profile.tactics, note);
+  return buildRecap(g, analysis, blunders, profile.rows, profile.openings, profile.tactics, await note);
 }

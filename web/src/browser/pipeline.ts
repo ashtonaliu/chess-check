@@ -4,7 +4,7 @@
 import { analyseGames, BLUNDER_DROP, DEEP_DEPTH_BROWSER, moveLabel, phaseSummary, recheckBlunders, worstBlunders } from "./engine";
 import { fetchGames } from "./games";
 import { buildFacts } from "./facts";
-import { summarize } from "./search";
+import { summarize } from "./summary";
 import { summarize as summarizeTactics } from "./tactics";
 import { playerRisk, rowsOf } from "./model";
 import { formatMoves, openingTable, overall, withExpected, worstBranch } from "./stats";

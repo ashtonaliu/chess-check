@@ -14,7 +14,7 @@ Type in a Chess.com username and find out what that player is actually bad at.
 4. Checks each opening against what your rating predicts, so a bad result against stronger players does not count against you.
 5. Estimates whether you blunder more than similar players would in the same positions, and whether time pressure is the cause.
 6. Has an AI coach write a short report, then checks every number and move in it against the real data before showing it.
-7. Follows your games: keep the tab open and a short recap appears after each game you finish.
+7. Gives you a short recap after each game you finish, in a Chrome extension next to Chess.com or on the website.
 
 Everything is compared with your opponents in the same games. A typical result, from my own games: *"You miss discovered attacks: 17 times in positions where you blundered, against 4 for your opponents."*
 
@@ -35,6 +35,16 @@ Everything is compared with your opponents in the same games. A typical result, 
 6. **AI coach:** Claude gets the computed facts plus tools to query your games, search them, and run Stockfish. A checker verifies every number, move and link in its report. If something is not supported, the coach gets one chance to fix it.
 
 ## Post-game recaps
+
+**Chrome extension.** The extension opens in Chrome's side panel next to Chess.com. Open one of your finished games and its recap appears in the panel; while you are playing, the panel only says the recap will appear when the game ends. To install it before it is in the Chrome Web Store:
+
+1. Run `scripts/build_extension.sh` (or download the zip from the releases page and unzip it).
+2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and choose the `extension` folder.
+3. Click the Weakness Finder icon on a Chess.com tab and enter your username.
+
+The extension never reads or changes Chess.com's pages. It only looks at the address of your Chess.com tab to know which game you are viewing, and it talks only to Chess.com's public API. Everything else, including Stockfish, runs inside the extension.
+
+**On the website,** press **Follow my games** and keep the tab open; a recap appears after each game you finish.
 
 Recaps only cover finished games. Chess.com's fair-play rules forbid outside help during a game, and in live chess the clock starts the moment you are paired, so anything shown "before" a game is really shown during it. That is why the app shows nothing about your opponent until the game is over, and why the win probability appears afterwards as an upset meter ("Before the game you had a 46% expected score") rather than as a prediction. Finished games reach the Chess.com public API within about a minute, and the page checks every 45 seconds.
 

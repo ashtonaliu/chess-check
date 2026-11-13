@@ -197,6 +197,23 @@ MySQL is the persistent store for the full app when `WF_SQL_BACKEND=mysql` is se
 - The `run_sql` description names the dialect. On MySQL, the coach wrote MySQL-specific SQL such as `SUM(wp_loss >= 20)` and `FIELD()` correctly.
 - Limit: schemas are isolated by unguessable names rather than permissions. A multi-tenant production setup would give each tenant its own database user.
 
+## Post-game recaps (follow mode)
+
+`web/src/browser/follow.ts` and `recap.ts`. After a player's history is analyzed, the page checks the Chess.com public API every 45 seconds for new finished games. The monthly archive has a 5-second cache, and a game I had just played showed up within a minute. Each new game is analyzed on its own (depth 8, blunders re-checked deeper, tactics classified) and read against the player's history:
+
+| Part | Source |
+|---|---|
+| Result and how it ended | The game record |
+| Upset meter | Pre-game Elo expected score from both ratings, shown only afterwards |
+| Turning point | The player's largest confirmed loss, on a board, with its tactic tags and clock |
+| Pattern match | If the turning point's tactic is one the player shows more often than their opponents, with the running count |
+| Opening | The player's earlier record in that opening family and color (this game excluded) |
+| Opponent note | The opponent's record in the opening as their color, from their last 100 games |
+
+**Fair play.** Chess.com forbids outside assistance during a game, and in live chess the clock starts at pairing, so there is no safe "before the game" moment. Recaps use only finished games, which is all the public API returns, and the opponent note and win probability appear only after the game.
+
+Browser notifications are optional (the "Notify me" button asks for permission), and the tab title shows a count of unread recaps.
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

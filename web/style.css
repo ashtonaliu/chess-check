@@ -129,6 +129,30 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .ci { color: var(--muted); font-size: 12px; }
 
 #coach { margin-top: 14px; }
+
+.follow-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 6px 0 4px; }
+.follow-cta .note { margin: 0; }
+.follow { background: var(--panel); border-radius: var(--radius); box-shadow: var(--shadow); padding: 14px 16px; margin: 14px 0 6px; border: 1px solid var(--line); }
+.follow-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+.follow-head .note { margin: 0; }
+.follow-actions { display: flex; gap: 8px; }
+.follow-actions button { padding: 7px 14px; font-size: 14px; }
+.recaps { display: grid; gap: 12px; margin-top: 12px; }
+.recap { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; }
+.recap.new { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.recap-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 15px; }
+.recap-head .when { color: var(--muted); font-size: 13px; }
+.meter { margin: 10px 0 4px; }
+.meter .track { position: relative; height: 10px; border-radius: 99px; background: linear-gradient(90deg, var(--weak-soft), var(--chip), var(--good-soft)); }
+.meter .mark { position: absolute; top: -4px; width: 4px; height: 18px; border-radius: 2px; background: var(--ink); transform: translateX(-2px); }
+.meter .result { position: absolute; top: -5px; width: 20px; height: 20px; border-radius: 50%; transform: translateX(-10px); border: 3px solid var(--panel); }
+.meter .labels { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-top: 6px; }
+.recap-grid { display: grid; grid-template-columns: 200px 1fr; gap: 14px; margin-top: 10px; align-items: start; }
+.recap-grid svg.board { width: 100%; height: auto; border-radius: 6px; }
+.recap-lines p { margin: 0 0 8px; font-size: 14px; }
+.recap-lines .lbl { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; display: block; }
+.patternbox { background: var(--weak-soft); border-radius: 8px; padding: 8px 10px; }
+@media (max-width: 600px) { .recap-grid { grid-template-columns: 1fr; } .recap-grid svg.board { max-width: 260px; } }
 .report { background: var(--panel); border-radius: var(--radius); padding: 4px 20px 14px; box-shadow: var(--shadow); }
 .report h2 { font-size: 17px; margin-top: 18px; }
 .cite { font-size: 11px; vertical-align: super; color: var(--accent); cursor: help; border-bottom: 1px dotted var(--accent); margin-left: 1px; }

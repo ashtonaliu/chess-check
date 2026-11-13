@@ -15,6 +15,7 @@ export interface Game {
   opening: string;
   family: string;
   endTime: number;
+  opponent?: string;      // the opponent's username
   result: string;         // Chess.com result code for the user, e.g. "timeout"
   oppResult: string;      // ...and for the opponent
   moves: string[];        // SAN
@@ -92,7 +93,7 @@ export function parseGame(raw: RawGame, user: string): Game | null {
   return {
     url: raw.url, color, myRating: me.rating, oppRating: opp.rating, score: scoreOf(me.result),
     timeClass: raw.time_class ?? "", timeControl: raw.time_control ?? "", eco: headers["ECO"] ?? "?",
-    opening, family, endTime: raw.end_time ?? 0, result: me.result ?? "", oppResult: opp.result ?? "",
+    opening, family, endTime: raw.end_time ?? 0, result: me.result ?? "", oppResult: opp.result ?? "", opponent: opp.username,
     moves: chess.history(), pgn: raw.pgn,
   };
 }

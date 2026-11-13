@@ -4,14 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Weakness Finder</title>
+  <meta name="description" content="Find out what you are actually bad at in chess. Free analysis of your Chess.com games, running in your browser.">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <header>
-    <h1>Weakness Finder</h1>
-    <p class="sub">Finds where you actually lose points in your Chess.com games. Results are adjusted for opponent rating and sample size, checked with Stockfish, and explained by a coach whose every claim is verified.</p>
-    <form id="form">
-      <input id="username" name="username" placeholder="Chess.com username" autocomplete="off" required>
+  <header class="topbar">
+    <a class="brand" href="./"><span class="logo" aria-hidden="true">♞</span> Weakness Finder</a>
+    <nav>
+      <a href="#how">How it works</a>
+      <a href="https://github.com/ashtonaliu/weakness-finder" target="_blank" rel="noopener">GitHub</a>
+    </nav>
+  </header>
+
+  <section class="hero">
+    <h1>What are you actually bad at in chess?</h1>
+    <p class="lede">Enter a Chess.com username. Stockfish checks every move, the results are adjusted for your opponents' ratings, and you get the patterns that cost you games.</p>
+    <form id="form" class="search" autocomplete="off">
+      <label class="sr-only" for="username">Chess.com username</label>
+      <input id="username" name="username" placeholder="Chess.com username" required spellcheck="false">
+      <label class="sr-only" for="time_class">Time control</label>
       <select id="time_class" name="time_class">
         <option value="">All time controls</option>
         <option value="bullet">Bullet</option>
@@ -19,6 +30,7 @@
         <option value="rapid">Rapid</option>
         <option value="daily">Daily</option>
       </select>
+      <label class="sr-only" for="games">Number of games</label>
       <select id="games" name="games">
         <option value="80">80 games</option>
         <option value="150" selected>150 games</option>
@@ -26,35 +38,75 @@
       </select>
       <button type="submit" id="go">Analyze</button>
     </form>
-    <p id="status" role="status"></p>
-    <p id="snapshot" class="verify ok" hidden></p>
-  </header>
+    <p class="hint">Free · runs in your browser · nothing to install</p>
+  </section>
+
+  <section id="progress" class="progress" hidden aria-live="polite">
+    <ol id="steps" class="steps"></ol>
+    <div class="bar"><div id="barFill" class="bar-fill"></div></div>
+    <p id="progressText" class="progress-text"></p>
+  </section>
+
+  <p id="status" role="status" class="status"></p>
+  <p id="snapshot" class="notice" hidden></p>
+
   <main id="results" hidden>
-    <section id="summary" class="cards"></section>
-    <section>
-      <h2>Openings, adjusted for rating</h2>
-      <p class="note">Dot: your score minus the Elo-expected score, shrunk toward your average when the sample is small. Bar: 90% interval. Hollow dot: the raw, unshrunk number.</p>
+    <section id="player" class="player"></section>
+
+    <section aria-labelledby="findingsTitle">
+      <h2 id="findingsTitle" class="section-title">Key findings</h2>
+      <div id="findings" class="findings"></div>
+    </section>
+
+    <div class="tabs" role="tablist" aria-label="Details">
+      <button role="tab" id="t-tactics" aria-controls="tab-tactics" aria-selected="true">Tactics</button>
+      <button role="tab" id="t-openings" aria-controls="tab-openings" aria-selected="false">Openings</button>
+      <button role="tab" id="t-phases" aria-controls="tab-phases" aria-selected="false">Phases &amp; clock</button>
+      <button role="tab" id="t-coach" aria-controls="tab-coach" aria-selected="false">AI coach</button>
+    </div>
+
+    <section id="tab-tactics" role="tabpanel" aria-labelledby="t-tactics" class="panel">
+      <div id="tactics"></div>
+    </section>
+
+    <section id="tab-openings" role="tabpanel" aria-labelledby="t-openings" class="panel" hidden>
+      <p class="note">Each dot is your score minus the score your ratings predicted, pulled toward your average when there are only a few games. The bar is the 90% range. Hollow dot: the raw number.</p>
       <div id="forest"></div>
       <div id="branches"></div>
     </section>
-    <section>
-      <h2>Where in the game you lose win chances</h2>
+
+    <section id="tab-phases" role="tabpanel" aria-labelledby="t-phases" class="panel" hidden>
       <div id="phases" class="cards"></div>
+      <h3 class="sub-title">Blunders by how much clock you had left</h3>
       <div id="risk"></div>
-      <div id="blunders"></div>
+      <h3 class="sub-title">Your biggest blunders</h3>
+      <div id="blunders" class="examples"></div>
     </section>
-    <section>
-      <h2>Coach</h2>
-      <p class="note">An agent with SQL, retrieval and Stockfish tools writes the report. A checker then verifies every number, move and link against the facts and tool results it was given.</p>
+
+    <section id="tab-coach" role="tabpanel" aria-labelledby="t-coach" class="panel" hidden>
+      <p class="note">An AI coach (Claude) reads the analysis, can query your games and run Stockfish, and writes a short report. A checker verifies every number, move and link before you see it.</p>
       <div id="keyBox" hidden>
-        <input id="apiKey" type="password" placeholder="Your Anthropic API key (sk-ant-...)" autocomplete="off" spellcheck="false" aria-label="Anthropic API key">
-        <p class="note">Your key goes only from this page to api.anthropic.com. This site has no server. The key stays in this tab's memory and is gone when you close it. A report usually costs about $0.10–0.40 on your key. Get one at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
+        <label for="apiKey" class="field-label">Your Anthropic API key</label>
+        <input id="apiKey" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false">
+        <p class="note small">The key goes only from this page to api.anthropic.com and is forgotten when you close the tab. A report usually costs $0.10 to $0.40. Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
       </div>
-      <button id="coachBtn">Write my coaching report</button>
+      <button id="coachBtn" class="secondary">Write my coaching report</button>
       <div id="coach"></div>
     </section>
   </main>
-  <footer>Data: Chess.com public API. Engine: <a href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noopener">Stockfish.js</a> (GPL-3.0, served unmodified). Puzzles: Lichess.</footer>
+
+  <section id="how" class="how">
+    <h2 class="section-title">How it works</h2>
+    <ol>
+      <li><strong>Your games</strong> come straight from the Chess.com public API.</li>
+      <li><strong>Stockfish</strong> scores every position, and every blunder is double-checked with a deeper search.</li>
+      <li><strong>Tactics</strong> such as forks and discovered attacks are recognised on the board and compared with your opponents' rates.</li>
+      <li><strong>Openings</strong> are judged against what your rating predicts, with small samples treated cautiously.</li>
+      <li><strong>An AI coach</strong> writes the report, and a checker verifies every claim against the data.</li>
+    </ol>
+  </section>
+
+  <footer>Data: Chess.com public API. Engine: <a href="https://github.com/nmrugg/stockfish.js" target="_blank" rel="noopener">Stockfish.js</a> (GPL-3.0, served unmodified). Puzzles: Lichess. <a href="https://github.com/ashtonaliu/weakness-finder" target="_blank" rel="noopener">Source code</a>.</footer>
   <script src="/static/dist/main.js" type="module"></script>
 </body>
 </html>

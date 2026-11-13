@@ -3,6 +3,7 @@
 // is parity-tested against Python, character for character.
 import { BLUNDER_DROP, moveLabel, phaseSummary, worstBlunders, type GameAnalysis } from "./engine";
 import type { Risk } from "./model";
+import { MOTIF_LABEL, PUZZLE_URL, type TacticSummary } from "./tactics";
 import { formatMoves, openingTable, overall, worstBranch, type GameRow, type OpeningRow } from "./stats";
 
 export interface Fact { id: string; kind: string; text: string; color?: string; family?: string; fen?: string; }
@@ -15,8 +16,23 @@ export function pyRound(x: number): number {
 }
 const pct = (x: number) => `${pyRound(100 * x)}%`;
 const pts = (x: number) => { const v = pyRound(100 * x); return v > 0 ? `+${v}` : `${v === 0 ? 0 : v}`; };
-const f1 = (x: number) => x.toFixed(1);
-const f2 = (x: number) => x.toFixed(2);
+/** Python's "{:.Nf}": toFixed, except exact halves round to even. Whether x is an exact
+ * half is read from its exact decimal expansion: multiplying by 10^d can round 2.675
+ * (really 2.67499999...) to exactly 267.5 and give the wrong answer. */
+export function pyFixed(x: number, d: number): string {
+  const exact = Math.abs(x).toFixed(d + 25);          // exact digits for any double that is a half
+  const tail = exact.slice(exact.indexOf(".") + 1 + d);
+  if (/^50*$/.test(tail)) {
+    const down = Math.abs(x).toFixed(d + 25).slice(0, exact.indexOf(".") + 1 + d).replace(/\.$/, "");
+    const last = Number(down.replace(".", "").slice(-1));
+    const unit = 10 ** -d;
+    const mag = last % 2 === 0 ? Number(down) : Number(down) + unit;    // round half to even
+    return (x < 0 && mag !== 0 ? "-" : "") + mag.toFixed(d);
+  }
+  return x.toFixed(d);
+}
+const f1 = (x: number) => pyFixed(x, 1);
+const f2 = (x: number) => pyFixed(x, 2);
 const pawns = (cp: number) => { const v = cp / 100; return `${v >= 0 ? "+" : ""}${v.toFixed(1)}`; };
 const side = (c: string) => (c === "white" ? "as White" : "as Black");
 
@@ -45,10 +61,13 @@ export function openingExit(analyses: GameAnalysis[], urls: Set<string>) {
   return { games: evals.length, eval12: median(evals), loss13_25: n ? loss / n : 0 };
 }
 
-export function buildFacts(rows: GameRow[], analyses: GameAnalysis[] | null, risk: Risk | null): Fact[] {
+export function buildFacts(rows: GameRow[], analyses: GameAnalysis[] | null, risk: Risk | null,
+                           tactics: TacticSummary | null = null): Fact[] {
   const facts: Fact[] = [];
-  const add = (kind: string, text: string, extra: Partial<Fact> = {}) =>
+  const add = (kind: string, text: string, extra: Partial<Fact> = {}) => {
+    if (kind === "puzzles" && facts.some(f => f.text === text)) return;   // one link per puzzle theme
     facts.push({ id: `F${facts.length + 1}`, kind, text, ...extra });
+  };
 
   const o = overall(rows);
   add("overall", `Across ${o.games} games (average rating ${o.avg_rating}), you scored ${pct(o.score)} ` +
@@ -128,6 +147,8 @@ export function buildFacts(rows: GameRow[], analyses: GameAnalysis[] | null, ris
       add("blunder", `Your move ${moveLabel(m)} (${m.phase}) lost ${pyRound(m.wp_loss)} win%${best}. ` +
         `Game: ${m.url}`, { fen: m.fen });
     }
+    if (tactics) tacticFacts(add, tactics);
+
     const themes: string[] = [];
     if (worstPhase) themes.push(worstPhase);
     if (analyses.some(a => a.moves.some(m => m.wp_loss >= BLUNDER_DROP))) themes.push("blunders");
@@ -137,6 +158,51 @@ export function buildFacts(rows: GameRow[], analyses: GameAnalysis[] | null, ris
     }
   }
   return facts;
+}
+
+function tacticFacts(add: (kind: string, text: string) => void, t: TacticSummary) {
+  if (t.deep) {
+    add("tactics", `Of ${t.flagged} moves flagged as blunders by the fast engine pass (both players), ` +
+      `${t.confirmed} were confirmed by a deeper search at depth ${t.deep_depth}.`);
+  }
+  let shown = 0;
+  const order = t.motifs.map((m, i) => ({ m, i }))
+    .sort((x, y) => (+(x.m.verdict === "no difference") - +(y.m.verdict === "no difference")) || (y.m.me - x.m.me) || (x.i - y.i))
+    .map(x => x.m);
+  for (const m of order) {
+    if (m.verdict === "no difference" && shown >= 3) continue;
+    const what = m.kind === "missed" ? "missed" : "allowed";
+    const label = MOTIF_LABEL[m.motif];
+    const ratio = m.ratio === Infinity ? "" : ` (${f2(m.ratio)} times your opponents' rate per move, 90% interval ` +
+      `${f2(m.ci_low)} to ${f2(m.ci_high)})`;
+    const verdict = m.verdict === "pattern"
+      ? `a pattern, which holds after correcting for all ${t.n_tests} tactic and piece comparisons`
+      : m.verdict === "worth watching"
+        ? `worth watching: it passes on its own but not after correcting for ${t.n_tests} comparisons`
+        : "no clear difference from your opponents";
+    const text = what === "missed"
+      ? `In positions where you blundered, the better move was a ${label} ${m.me} times`
+      : `Your blunders allowed a ${label} ${m.me} times`;
+    add("tactics", `${text}, versus ${m.opp} for your opponents in the same games${ratio}. Verdict: ${verdict}.`);
+    shown++;
+    const ex = t.examples[`${m.kind}:${m.motif}`];
+    if (ex && m.verdict !== "no difference" && m.higher) {
+      const move = ex.ply % 2 === 0 ? `${ex.move_no}.${ex.san}` : `${ex.move_no}...${ex.san}`;
+      const better = ex.best ? `; the engine preferred ${ex.best}` : "";
+      const reply = ex.refutation ? `; the opponent's best reply was ${ex.refutation}` : "";
+      add("tactics", `Example (${label}, ${what}): your move ${move} lost ${pyRound(ex.wp_loss)} win%${better}${reply}. Game: ${ex.url}`);
+      add("puzzles", `Lichess puzzle theme '${label}': ${PUZZLE_URL[m.motif]}`);
+    }
+  }
+  const forks = Object.entries(t.forks_allowed_by).map(([k, v], i) => ({ k, v, i }))
+    .sort((x, y) => (y.v - x.v) || (x.i - y.i));
+  if (forks.length) add("tactics", `The forks your blunders allowed were made by: ${forks.map(x => `${x.k} ${x.v}`).join(", ")}.`);
+  const rates = t.pieces.filter(p => p.opp_moves)
+    .map(p => `${p.piece} moves ${f1(100 * p.rate)}% (opponents ${f1(100 * p.opp_rate)}%)`).join("; ");
+  const flagged = t.pieces.filter(p => p.verdict !== "no difference");
+  add("tactics", `Blunder rate by the piece you moved: ${rates}. ` + (flagged.length
+    ? `Pieces that stand out: ${flagged.map(p => `${p.piece} (${p.verdict})`).join(", ")}.`
+    : "No piece stands out from your opponents' rates."));
 }
 
 export const factsText = (facts: Fact[]) => facts.map(f => `[${f.id}] ${f.text}`).join("\n");

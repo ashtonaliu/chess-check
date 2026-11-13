@@ -197,6 +197,67 @@ def analyse_games(games: list[Game], depth: int = 10, workers: int | None = None
     return out  # type: ignore[return-value]
 
 
+DEEP_DEPTH = 16
+MATE_CP = 2000   # |eval| at or above this means a forced mate was found
+
+
+def _recheck_game(a: dict, path: str, depth: int) -> dict:
+    """Deep values for every flagged blunder in one game: best move before it, the
+    opponent's best reply after it, and the win% lost at this depth."""
+    key = CACHE / f"deep_v1_{a['url'].rsplit('/', 1)[-1]}_d{depth}.json"
+    if key.exists():
+        return json.loads(key.read_text())
+    eng = _engine(path)
+    limit = chess.engine.Limit(depth=depth)
+    out = {}
+    for m in a["moves"]:
+        if m["wp_loss"] < BLUNDER_DROP:
+            continue
+        board = chess.Board(m["fen"])
+        mover = board.turn
+        info = eng.analyse(board, limit)
+        before = info["score"].pov(mover).score(mate_score=3000)
+        best = board.san(info["pv"][0]) if info.get("pv") else None
+        board.push_san(m["san"])
+        if board.is_game_over():
+            after = 3000 if board.is_checkmate() else 0
+            refutation = None
+        else:
+            info = eng.analyse(board, limit)
+            after = info["score"].pov(mover).score(mate_score=3000)
+            refutation = board.san(info["pv"][0]) if info.get("pv") else None
+        out[str(m["ply"])] = {"deep_best": best, "deep_refutation": refutation,
+                              "deep_cp_before": before, "deep_cp_after": after,
+                              "deep_loss": round(max(win_pct(before) - win_pct(after), 0.0), 1)}
+    CACHE.mkdir(parents=True, exist_ok=True)
+    key.write_text(json.dumps(out))
+    return out
+
+
+def recheck_blunders(analyses: list[dict], depth: int = DEEP_DEPTH, workers: int | None = None) -> None:
+    """Screen cheap, confirm expensive: re-search only the positions flagged as blunders
+    (about 3-5% of moves) at a deeper depth. Adds deep_* fields to those move rows."""
+    path = find_stockfish()
+    if not path:
+        return
+    workers = workers or int(os.environ.get("WF_ENGINE_WORKERS", 0)) or max(1, (os.cpu_count() or 2) - 1)
+    try:
+        with ThreadPoolExecutor(workers) as pool:
+            results = list(pool.map(lambda a: _recheck_game(a, path, depth), analyses))
+    finally:
+        with _lock:
+            for e in _all_engines:
+                try:
+                    e.quit()
+                except Exception:
+                    pass
+            _all_engines.clear()
+    _local.__dict__.clear()
+    for a, res in zip(analyses, results):
+        for m in a["moves"]:
+            m.update(res.get(str(m["ply"]), {}))
+
+
 def my_moves(analyses: list[dict]):
     for a in analyses:
         for m in a["moves"]:
@@ -245,6 +306,17 @@ def opening_exit(analyses: list[dict], urls: set[str]) -> dict | None:
             "avg_loss_13_25": mid_losses / mid_moves if mid_moves else 0.0}
 
 
+def confirmed(m: dict) -> tuple[float, str | None]:
+    """Win% lost and best move, from the deep re-check when there is one."""
+    if "deep_loss" in m:
+        return m["deep_loss"], m.get("deep_best")
+    return m["wp_loss"], m.get("best")
+
+
 def worst_blunders(analyses: list[dict], k: int = 5) -> list[dict]:
-    allm = [dict(m, url=a["url"]) for a, m in my_moves(analyses)]
+    """The user's biggest mistakes, by the confirmed (deep) loss when available."""
+    allm = []
+    for a, m in my_moves(analyses):
+        loss, best = confirmed(m)
+        allm.append(dict(m, url=a["url"], wp_loss=loss, best=best))
     return sorted(allm, key=lambda m: -m["wp_loss"])[:k]

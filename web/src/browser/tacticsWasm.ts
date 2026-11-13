@@ -26,25 +26,25 @@ const squareIndex = (square: string) => square.charCodeAt(0) - 97 + 8 * (Number(
 export async function createWasmClassifier(bytes: ArrayBuffer): Promise<ClassifyMotifs> {
   const { instance } = await WebAssembly.instantiate(bytes);
   const wasm = instance.exports as TacticsExports;
+  if (!(wasm.memory instanceof WebAssembly.Memory) || typeof wasm.reserve_records !== "function"
+      || typeof wasm.classify_records !== "function") {
+    throw new Error("Invalid tactic classifier exports");
+  }
   return moves => {
-    try {
-      const pointer = wasm.reserve_records(moves.length);
-      const records = new Uint8Array(wasm.memory.buffer, pointer, moves.length * RECORD_SIZE);
-      for (const [i, move] of moves.entries()) {
-        const start = i * RECORD_SIZE;
-        const chess = new Chess(move.before);
-        writeBoard(chess, records, start);
-        chess.move({ from: move.from, to: move.to, promotion: move.promotion });
-        writeBoard(chess, records, start + BOARD_SIZE);
-        records.set([squareIndex(move.from), squareIndex(move.to), Number(chess.isCheckmate())],
-          start + 2 * BOARD_SIZE);
-      }
-      wasm.classify_records();
-      return Array.from(records.subarray(0, moves.length), mask =>
-        new Set(MOTIFS.filter((_, bit) => mask & (1 << bit))));
-    } catch {
-      return moves.map(move => motifs(move.before, move));
+    const pointer = wasm.reserve_records(moves.length);
+    const records = new Uint8Array(wasm.memory.buffer, pointer, moves.length * RECORD_SIZE);
+    for (const [i, move] of moves.entries()) {
+      const start = i * RECORD_SIZE;
+      const chess = new Chess(move.before);
+      writeBoard(chess, records, start);
+      chess.move({ from: move.from, to: move.to, promotion: move.promotion });
+      writeBoard(chess, records, start + BOARD_SIZE);
+      records.set([squareIndex(move.from), squareIndex(move.to), Number(chess.isCheckmate())],
+        start + 2 * BOARD_SIZE);
     }
+    wasm.classify_records();
+    return Array.from(records.subarray(0, moves.length), mask =>
+      new Set(MOTIFS.filter((_, bit) => mask & (1 << bit))));
   };
 }
 
@@ -57,9 +57,20 @@ export function loadWasmClassifier(engineUrl: string): Promise<ClassifyMotifs | 
   const url = new URL("chess_check_tactics.wasm", engineUrl).href;
   let classifier = classifiers.get(url);
   if (!classifier) {
-    classifier = fetch(url).then(async response =>
-      response.ok ? createWasmClassifier(await response.arrayBuffer()) : undefined
-    ).catch(() => undefined);
+    classifier = fetch(url).then(async response => {
+      if (!response.ok) throw new Error("Could not load tactic classifier");
+      const classify = await createWasmClassifier(await response.arrayBuffer());
+      return (moves: Parameters<ClassifyMotifs>[0]) => {
+        try {
+          return classify(moves);
+        } catch {
+          return moves.map(move => motifs(move.before, move));
+        }
+      };
+    }).catch(() => {
+      classifiers.delete(url);
+      return undefined;
+    });
     classifiers.set(url, classifier);
   }
   return classifier;

@@ -64,17 +64,22 @@ export class Follower {
   }
 
   /** Analyze one finished game and read it against the profile. */
-  async recap(g: Game): Promise<Recap> {
-    const [analysis] = await analyseGames([g], { depth: 8, engineUrl: this.engineUrl, workers: 1 });
-    await recheckBlunders([analysis], { engineUrl: this.engineUrl, workers: 1 });
-    const blunders = classifyGame(g.pgn, analysis);
-    let note: string | null = null;
-    if (g.opponent) {
-      try {
-        const opp = await fetchGames(g.opponent, 100, g.timeClass || this.profile.timeClass);
-        note = opponentNote(g.opponent, opp.filter(x => x.url !== g.url), g.family, g.color === "white" ? "black" : "white");
-      } catch { note = null; }
-    }
-    return buildRecap(g, analysis, blunders, this.profile.rows, this.profile.openings, this.profile.tactics, note);
+  recap(g: Game): Promise<Recap> {
+    return recapGame(g, this.profile, this.engineUrl);
   }
+}
+
+/** Analyze one finished game and read it against a player's profile. */
+export async function recapGame(g: Game, profile: Profile, engineUrl: string): Promise<Recap> {
+  const [analysis] = await analyseGames([g], { depth: 8, engineUrl, workers: 1 });
+  await recheckBlunders([analysis], { engineUrl, workers: 1 });
+  const blunders = classifyGame(g.pgn, analysis);
+  let note: string | null = null;
+  if (g.opponent) {
+    try {
+      const opp = await fetchGames(g.opponent, 100, g.timeClass || profile.timeClass);
+      note = opponentNote(g.opponent, opp.filter(x => x.url !== g.url), g.family, g.color === "white" ? "black" : "white");
+    } catch { note = null; }
+  }
+  return buildRecap(g, analysis, blunders, profile.rows, profile.openings, profile.tactics, note);
 }

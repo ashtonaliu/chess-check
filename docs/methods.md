@@ -280,3 +280,19 @@ cargo build --locked --manifest-path web/rust/openings/Cargo.toml --release --ta
 The initial warm Node run over 150 saved games measured 11.2 ms for the full
 TypeScript opening table and 10.8 ms with Wasm, including conversion. The
 opening model stays opt-in given the similar timings.
+
+Set `CHESS_CHECK_RUST_RISK=1` to use the Rust logistic regression fitter.
+TypeScript still prepares the features and folds and summarizes the
+predictions. Build and check the model with:
+
+```sh
+cargo build --locked --manifest-path web/rust/risk/Cargo.toml --release --target wasm32-unknown-unknown
+(cd web && node --import tsx test/rust-risk.mts)
+```
+
+The full risk stage took a median of 90.4 ms with TypeScript and 38.0 ms
+with warm Wasm in Node. This includes conversion and uses the 25 saved
+games repeated six times with distinct game IDs. Keep all three modules
+opt-in for now. The risk fitter is the strongest candidate for default
+enablement if cold browser timings confirm that its savings outweigh
+the extra download and initialization.

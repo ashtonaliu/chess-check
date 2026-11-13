@@ -141,7 +141,7 @@ export interface Risk {
 }
 
 /** Actual vs expected blunders: train on opponents' moves, score the user's held-out games. */
-export function playerRisk(rows: Row[], nSplits = 5, folds?: number[]): Risk | null {
+export function playerRisk(rows: Row[], nSplits = 5, folds?: number[], fit = fitLogReg): Risk | null {
   const { X, y, groups } = features(rows);
   const me = rows.map(r => r.is_me);
   const oppBlunders = y.reduce((a, v, i) => a + (me[i] ? 0 : v), 0);
@@ -150,7 +150,7 @@ export function playerRisk(rows: Row[], nSplits = 5, folds?: number[]): Risk | n
   const oof = new Array(rows.length).fill(0);
   for (let k = 0; k < nSplits; k++) {
     const tr = rows.map((_, i) => i).filter(i => fold[i] !== k && !me[i]);
-    const m = fitLogReg(tr.map(i => X[i]), tr.map(i => y[i]));
+    const m = fit(tr.map(i => X[i]), tr.map(i => y[i]));
     rows.forEach((_, i) => { if (fold[i] === k) oof[i] = predict(m, X[i]); });
   }
   const sum = (sel: (i: number) => boolean, v: number[]) => v.reduce((a, x, i) => a + (sel(i) ? x : 0), 0);

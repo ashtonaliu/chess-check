@@ -16,3 +16,4 @@ build_module() {
 
 build_module tactics "${CHESS_CHECK_RUST_TACTICS:-0}"
 build_module openings "${CHESS_CHECK_RUST_OPENINGS:-0}"
+build_module risk "${CHESS_CHECK_RUST_RISK:-0}"

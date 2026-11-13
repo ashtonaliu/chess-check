@@ -8,6 +8,7 @@ import { summarize } from "./summary";
 import { summarize as summarizeTactics } from "./tactics";
 import { loadWasmOpeningModel } from "./openingsWasm";
 import { loadWasmClassifier } from "./tacticsWasm";
+import { loadWasmRiskModel } from "./riskWasm";
 import { playerRisk, rowsOf } from "./model";
 import { formatMoves, openingTable, overall, withExpected, worstBranch } from "./stats";
 
@@ -44,7 +45,7 @@ export async function analyzeInBrowser(o: BrowserOptions) {
     report(2, done / total, `Double-checking blunders at depth ${DEEP_DEPTH_BROWSER}: ${done} of ${total}${eta(t1, done, total)}`) });
   report(3, null, "Finding patterns: tactics, pieces, openings and time pressure…");
   await new Promise(r => setTimeout(r, 0));   // let the status paint
-  const risk = playerRisk(rowsOf(analyses));
+  const risk = playerRisk(rowsOf(analyses), 5, undefined, await loadWasmRiskModel(o.engineUrl));
   const tactics = summarizeTactics(analyses, new Map(games.map(g => [g.url, g.pgn])), DEEP_DEPTH_BROWSER, await loadWasmClassifier(o.engineUrl));
   const openingRows = openingTable(rows, 3, await loadWasmOpeningModel(o.engineUrl));
   const openings = openingRows.map(r => {

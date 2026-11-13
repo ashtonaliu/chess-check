@@ -3,11 +3,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && rm -f dist/*.js && esbuild src/main.ts --bundle --format=esm --target=es2020 --splitting --outdir=dist --chunk-names=chunks/[name]-[hash] && npm run copy-engine",
+    "build": "tsc --noEmit && rm -f dist/*.js && esbuild src/main.ts --bundle --define:CHESS_CHECK_RUST_TACTICS=${CHESS_CHECK_RUST_TACTICS:-0} --format=esm --target=es2020 --splitting --outdir=dist --chunk-names=chunks/[name]-[hash] && npm run copy-engine",
     "typecheck": "tsc --noEmit",
-    "copy-engine": "mkdir -p dist/engine && cp node_modules/stockfish/bin/stockfish-19-lite-single.js node_modules/stockfish/bin/stockfish-19-lite-single.wasm dist/engine/",
+    "copy-engine": "mkdir -p dist/engine && cp node_modules/stockfish/bin/stockfish-19-lite-single.js node_modules/stockfish/bin/stockfish-19-lite-single.wasm dist/engine/ && bash ../scripts/build_tactics_wasm.sh dist/engine",
     "test": "node --import tsx --test test/*.test.ts",
-    "build:ext": "tsc --noEmit && rm -rf ../extension/dist && esbuild src/extension/sidepanel.ts src/extension/background.ts --bundle --format=esm --target=es2022 --splitting --outdir=../extension/dist --chunk-names=chunks/[name]-[hash] && mkdir -p ../extension/engine && cp node_modules/stockfish/bin/stockfish-19-lite-single.js node_modules/stockfish/bin/stockfish-19-lite-single.wasm ../extension/engine/ && cp style.css ../extension/style.css"
+    "build:ext": "tsc --noEmit && rm -rf ../extension/dist && esbuild src/extension/sidepanel.ts src/extension/background.ts --bundle --define:CHESS_CHECK_RUST_TACTICS=${CHESS_CHECK_RUST_TACTICS:-0} --format=esm --target=es2022 --splitting --outdir=../extension/dist --chunk-names=chunks/[name]-[hash] && mkdir -p ../extension/engine && cp node_modules/stockfish/bin/stockfish-19-lite-single.js node_modules/stockfish/bin/stockfish-19-lite-single.wasm ../extension/engine/ && cp style.css ../extension/style.css && bash ../scripts/build_tactics_wasm.sh ../extension/engine"
   },
   "devDependencies": {
     "esbuild": "0.25.10",

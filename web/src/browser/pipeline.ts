@@ -6,6 +6,7 @@ import { fetchGames } from "./games";
 import { buildFacts } from "./facts";
 import { summarize } from "./summary";
 import { summarize as summarizeTactics } from "./tactics";
+import { loadWasmClassifier } from "./tacticsWasm";
 import { playerRisk, rowsOf } from "./model";
 import { formatMoves, openingTable, overall, withExpected, worstBranch } from "./stats";
 
@@ -43,7 +44,7 @@ export async function analyzeInBrowser(o: BrowserOptions) {
   report(3, null, "Finding patterns: tactics, pieces, openings and time pressure…");
   await new Promise(r => setTimeout(r, 0));   // let the status paint
   const risk = playerRisk(rowsOf(analyses));
-  const tactics = summarizeTactics(analyses, new Map(games.map(g => [g.url, g.pgn])), DEEP_DEPTH_BROWSER);
+  const tactics = summarizeTactics(analyses, new Map(games.map(g => [g.url, g.pgn])), DEEP_DEPTH_BROWSER, await loadWasmClassifier(o.engineUrl));
   const openings = openingTable(rows).map(r => {
     const flagged = r.verdict.endsWith("weakness") || r.verdict === "worth watching";
     const b = flagged ? worstBranch(rows, r.color, r.family) : null;

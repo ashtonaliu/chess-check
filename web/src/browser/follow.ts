@@ -6,6 +6,7 @@ import { fetchGames, type Game } from "./games";
 import { buildRecap, opponentNote, type Recap } from "./recap";
 import type { GameRow } from "./stats";
 import { classifyGame, type TacticSummary } from "./tactics";
+import { loadWasmClassifier } from "./tacticsWasm";
 
 export interface Profile {
   username: string; timeClass: string | null;
@@ -73,7 +74,7 @@ export class Follower {
 export async function recapGame(g: Game, profile: Profile, engineUrl: string): Promise<Recap> {
   const [analysis] = await analyseGames([g], { depth: 8, engineUrl, workers: 1 });
   await recheckBlunders([analysis], { engineUrl, workers: 1 });
-  const blunders = classifyGame(g.pgn, analysis);
+  const blunders = classifyGame(g.pgn, analysis, await loadWasmClassifier(engineUrl));
   let note: string | null = null;
   if (g.opponent) {
     try {

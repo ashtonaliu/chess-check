@@ -239,3 +239,30 @@ The TypeScript port is tested against Python output on real games (`web/test/`, 
 - Compare each opening against all Lichess players at the same rating, using the open Lichess database.
 - Tag blunders by tactical motif (forks, pins, back-rank) and link matching Lichess puzzles.
 - Load the tables into BigQuery; the SQL is standard and only the connection changes.
+
+## Experimental Rust tactic classifier
+
+The default builds use the TypeScript classifier. To try the Rust classifier,
+install Cargo and the `wasm32-unknown-unknown` Rust target, then run from the
+repository root:
+
+```sh
+CHESS_CHECK_RUST_TACTICS=1 npm --prefix web run build
+bash scripts/build_static.sh
+CHESS_CHECK_RUST_TACTICS=1 bash scripts/build_extension.sh
+```
+
+Both browser entry points fall back to TypeScript if the Wasm file fails to
+load or execute. Move legality, PGN replay, and checkmate detection use
+chess.js in both paths.
+
+```sh
+node web/test/rust-tactics.mjs
+(cd web && node --import tsx test/rust-reports.mts --benchmark)
+```
+
+The benchmark repeats the 25 saved games six times and measures the complete
+tactic summary with a warm Wasm instance, including move replay and data
+conversion. The initial Node run on Apple Silicon measured median times of
+692 ms for TypeScript and 689 ms for Wasm. It excludes Stockfish and Wasm
+initialization.

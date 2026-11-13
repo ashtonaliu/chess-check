@@ -157,17 +157,28 @@ function sanMove(fen: string, san: string | null | undefined): Move | null {
   if (!san) return null;
   try { return new Chess(fen).move(san); } catch { return null; }
 }
-const geometric = (fen: string, m: Move) => {
-  const found = motifs(fen, { from: m.from, to: m.to, promotion: m.promotion });
+export type ClassifyMotifs = (moves: readonly Move[]) => readonly ReadonlySet<string>[];
+
+const geometric = (found: ReadonlySet<string>) => {
   return REPORTED.filter(x => x !== "mate" && found.has(x)) as string[];
 };
 
-export function classifyGame(pgn: string, a: GameAnalysis): BlunderRec[] {
+export function classifyGame(pgn: string, a: GameAnalysis, classify?: ClassifyMotifs): BlunderRec[] {
   const replay = new Chess();
   replay.loadPgn(pgn);
   const history = replay.history({ verbose: true });
   const rows = a.moves as (MoveRow & DeepFields)[];
   const out: BlunderRec[] = [];
+  const candidates: Move[] = [];
+  const apply: ((found: ReadonlySet<string>) => void)[] = [];
+  const classifyLater = (move: Move, receive: (found: ReadonlySet<string>) => void) => {
+    if (!classify) {
+      receive(motifs(move.before, move));
+      return;
+    }
+    candidates.push(move);
+    apply.push(receive);
+  };
   history.forEach((mv, i) => {
     const row = rows[i];
     if (!row) return;
@@ -181,8 +192,14 @@ export function classifyGame(pgn: string, a: GameAnalysis): BlunderRec[] {
     const best = sanMove(fen, row.deep_best !== undefined ? row.deep_best : row.best);
     rec.best = best ? best.san : null;
     if (best && !(best.from === mv.from && best.to === mv.to && (best.promotion ?? "") === (mv.promotion ?? ""))) {
-      rec.missed = geometric(fen, best);
-      if ((row.deep_cp_before ?? row.cp_before) >= MATE_CP) rec.missed = ["mate", ...rec.missed];
+      classifyLater(best, found => {
+        rec.missed = geometric(found);
+        if ((row.deep_cp_before ?? row.cp_before) >= MATE_CP) rec.missed.unshift("mate");
+        if (rec.missed.includes("fork")) {
+          const fp = new Chess(fen).get(best.from);
+          rec.missed_fork_by = fp ? NAME[fp.type] : null;
+        }
+      });
     }
     const afterFen = mv.after;
     const nxt = rows[i + 1];
@@ -190,19 +207,18 @@ export function classifyGame(pgn: string, a: GameAnalysis): BlunderRec[] {
     if ((row.deep_cp_after ?? row.cp_after) <= -MATE_CP) rec.allowed.push("mate");
     if (refute) {
       rec.refutation = refute.san;
-      rec.allowed.push(...geometric(afterFen, refute));
-      const after = new Chess(afterFen);
-      const cap = after.get(refute.to as never);
-      if (cap && cap.color === new Chess(fen).turn()) rec.lost = NAME[cap.type as PT];
-      const fp = after.get(refute.from as never);
-      if (rec.allowed.includes("fork") && fp) rec.fork_by = NAME[fp.type as PT];
-    }
-    if (rec.missed.includes("fork") && best) {
-      const fp = new Chess(fen).get(best.from as never);
-      rec.missed_fork_by = fp ? NAME[fp.type as PT] : null;
+      classifyLater(refute, found => {
+        rec.allowed.push(...geometric(found));
+        const after = new Chess(afterFen);
+        const cap = after.get(refute.to);
+        if (cap && cap.color === moved?.color) rec.lost = NAME[cap.type];
+        const fp = after.get(refute.from);
+        if (rec.allowed.includes("fork") && fp) rec.fork_by = NAME[fp.type];
+      });
     }
     out.push(rec);
   });
+  if (classify && candidates.length) classify(candidates).forEach((found, i) => apply[i](found));
   return out;
 }
 
@@ -261,8 +277,8 @@ export interface TacticSummary {
   forks_allowed_by: Record<string, number>; pieces_lost: Record<string, number>; blunders: BlunderRec[];
 }
 
-export function summarize(analyses: GameAnalysis[], pgns: Map<string, string>, deepDepth = 16): TacticSummary {
-  const recs = analyses.flatMap(a => classifyGame(pgns.get(a.url)!, a));
+export function summarize(analyses: GameAnalysis[], pgns: Map<string, string>, deepDepth = 16, classify?: ClassifyMotifs): TacticSummary {
+  const recs = analyses.flatMap(a => classifyGame(pgns.get(a.url)!, a, classify));
   const all = analyses.flatMap(a => a.moves);
   const movesMe = all.filter(m => m.is_me).length, movesOpp = all.filter(m => !m.is_me).length;
   const count = (sel: (m: MoveRow) => boolean) => {

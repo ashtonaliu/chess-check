@@ -9,3 +9,4 @@ eval_results
 web/node_modules
 web/dist
 tests
+web/rust/tactics/target

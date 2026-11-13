@@ -163,10 +163,11 @@ const geometric = (fen: string, m: Move) => {
 };
 
 export function classifyGame(pgn: string, a: GameAnalysis): BlunderRec[] {
+  const rows = a.moves as (MoveRow & DeepFields)[];
+  if (!rows.some(row => row.wp_loss >= BLUNDER_DROP && (row.deep_loss ?? row.wp_loss) >= BLUNDER_DROP)) return [];
   const replay = new Chess();
   replay.loadPgn(pgn);
   const history = replay.history({ verbose: true });
-  const rows = a.moves as (MoveRow & DeepFields)[];
   const out: BlunderRec[] = [];
   history.forEach((mv, i) => {
     const row = rows[i];
@@ -174,9 +175,8 @@ export function classifyGame(pgn: string, a: GameAnalysis): BlunderRec[] {
     const loss = row.deep_loss ?? row.wp_loss;
     if (!(row.wp_loss >= BLUNDER_DROP && loss >= BLUNDER_DROP)) return;
     const fen = mv.before;
-    const moved = new Chess(fen).get(mv.from as never);
     const rec: BlunderRec = { url: a.url, ply: row.ply, move_no: row.move_no, san: row.san, is_me: row.is_me,
-      phase: row.phase, wp_loss: loss, piece: moved ? NAME[moved.type as PT] : null, allowed: [], missed: [],
+      phase: row.phase, wp_loss: loss, piece: NAME[mv.piece], allowed: [], missed: [],
       lost: null, refutation: null, best: row.best ?? null, fen };
     const best = sanMove(fen, row.deep_best !== undefined ? row.deep_best : row.best);
     rec.best = best ? best.san : null;
@@ -193,13 +193,11 @@ export function classifyGame(pgn: string, a: GameAnalysis): BlunderRec[] {
       rec.allowed.push(...geometric(afterFen, refute));
       const after = new Chess(afterFen);
       const cap = after.get(refute.to as never);
-      if (cap && cap.color === new Chess(fen).turn()) rec.lost = NAME[cap.type as PT];
-      const fp = after.get(refute.from as never);
-      if (rec.allowed.includes("fork") && fp) rec.fork_by = NAME[fp.type as PT];
+      if (cap && cap.color === mv.color) rec.lost = NAME[cap.type as PT];
+      if (rec.allowed.includes("fork")) rec.fork_by = NAME[refute.piece];
     }
     if (rec.missed.includes("fork") && best) {
-      const fp = new Chess(fen).get(best.from as never);
-      rec.missed_fork_by = fp ? NAME[fp.type as PT] : null;
+      rec.missed_fork_by = NAME[best.piece];
     }
     out.push(rec);
   });

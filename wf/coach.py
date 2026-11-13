@@ -12,6 +12,7 @@ turn after the model has finished.
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass, field
 
 import pandas as pd
@@ -20,7 +21,13 @@ from .db import SCHEMA_DOC, ReadOnlySQL
 from .facts import facts_text
 from .verify import feedback, verify
 
-MODEL = "claude-opus-5-5"
+# Haiku 5.5 won the model-choice eval (scripts/eval_models.py): fewest unsupported
+# claims in first drafts, clean after repair on every player, about 30x cheaper than
+# Opus 5.5. Override with WF_COACH_MODEL.
+MODEL = os.environ.get("WF_COACH_MODEL", "claude-haiku-5-5")
+# Server-side refusal fallbacks exist for these models only (not Haiku 5.5).
+FALLBACK_MODELS = {"claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-2", "claude-fable-5-1",
+                   "claude-opus-5"}
 MAX_TOOL_TURNS = 8
 
 SYSTEM = """\
@@ -36,6 +43,8 @@ need a new number, get it with run_sql and cite the result.
 - Only call something a weakness if a fact's verdict says "weakness" or \
 "possible weakness", or a model fact shows more blunders than expected. If the \
 evidence is thin, say so plainly.
+- Order the weaknesses by strength of evidence: a verdict of "pattern" or "weakness" first, \
+then "possible weakness" and "worth watching". Within the same strength, put the larger effect first.
 - Recommendations should be concrete (what to study, which puzzle theme link) \
 but must not invent statistics.
 
@@ -204,6 +213,8 @@ def _client():
 
 
 def _call(client, messages, tools=None):
+    extra = ({"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
+             if MODEL in FALLBACK_MODELS else {})
     return client.beta.messages.create(
         model=MODEL,
         max_tokens=16000,
@@ -211,8 +222,7 @@ def _call(client, messages, tools=None):
         tools=tools or TOOLS,
         messages=messages,
         output_config={"effort": "medium"},
-        betas=["server-side-fallback-2026-07-01"],
-        fallbacks="default",
+        **extra,
     )
 
 

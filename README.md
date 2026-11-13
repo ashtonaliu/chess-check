@@ -21,7 +21,7 @@ Everything is compared with your opponents in the same games. A typical result, 
 
 1. Open the [demo](https://ashtonaliu.github.io/weakness-finder/). It starts with an analysis of my own 300 blitz games.
 2. Enter any Chess.com username and press Analyze. 150 games take about 15 to 40 seconds.
-3. For the AI coaching report, paste your own [Anthropic API key](https://console.anthropic.com/settings/keys). The key only goes from your browser to Anthropic, and a report costs about $0.10 to $0.40.
+3. For the AI coaching report, paste your own [Anthropic API key](https://console.anthropic.com/settings/keys). The key only goes from your browser to Anthropic, and a report costs under one cent.
 
 ## How it works
 
@@ -66,6 +66,16 @@ Pins and back-rank mates scored too low (precision 0.49 and 0.27), so the app le
 
 When I checked a raw report by hand, most of its claims were true but impossible to verify, and one win-loss record was simply wrong. Giving the coach computed facts makes every claim checkable.
 
+**Which model writes the report.** I ran the same coach with three Claude models on the same 5 players.
+
+| Model | Unsupported claims, first draft | Key findings cited | Cost per report |
+|---|---:|---:|---:|
+| Opus 5.5 | 12% | 84% | $0.15 |
+| Sonnet 5.5 | 12% | 88% | $0.06 |
+| **Haiku 5.5** | **4%** | **84%** | **$0.005** |
+
+The smallest model was the most accurate and about 34 times cheaper than Opus, so the coach uses Haiku. Sonnet kept putting citations in the wrong sentence even after the checker told it how to fix them. I also found that Haiku listed small-sample openings ahead of a stronger finding, so I added a rule to order findings by strength of evidence; after that, every report led with the strongest finding.
+
 **Game search.** The coach can search your games by meaning, for example "games where I threw away a winning position". I tested 13 questions with known right answers (precision@5: the share of the top 5 results that are correct).
 
 | Search method | Precision@5 |
@@ -84,6 +94,7 @@ Embeddings understand rewording ("got flagged" finds games lost on time) but con
 - **A detector that finds everything is useless.** My first tactic detector caught almost every fork but also flagged many moves that were not forks (precision 0.42). Adding the rule that the forking piece must not simply be capturable raised it to 0.83.
 - **Check the checker.** My claim checker had three bugs of its own. One rejected correct game links, so the coach deleted good information to make it happy.
 - **Measure before trusting the hype.** AI embeddings alone did worse than plain keyword search. Combining them did best.
+- **The biggest model is not always the best one.** Haiku beat Opus on accuracy at a thirtieth of the price. Measuring it took an hour; guessing would have cost 30 times more per report.
 - **Two versions keep each other honest.** I wrote the analysis in Python and again in TypeScript for the browser. Testing that both give the same answers caught a rounding difference and a solver that stopped too early.
 
 ## Tech used

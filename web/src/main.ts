@@ -456,8 +456,8 @@ async function browserCoach() {
     const res = await runCoach({ client: await makeClient(key), username: run.username, facts: run.facts,
       games: run.gameRows, moves: run.moveRows, engineUrl: ENGINE_URL, onStatus: status, summaries: run.summaries });
     renderCoach({ ...res, username: run.username }, false,
-      `Cost: about $${costUsd(res.usage).toFixed(2)} on your key (${res.usage.input_tokens.toLocaleString()} input and ` +
-      `${res.usage.output_tokens.toLocaleString()} output tokens, Claude Opus 5.5).`);
+      `Cost: about $${costUsd(res.usage).toFixed(3)} on your key (${res.usage.input_tokens.toLocaleString()} input and ` +
+      `${res.usage.output_tokens.toLocaleString()} output tokens, Claude Haiku 5.5).`);
   } catch (e) {
     $("coach").innerHTML = `<p class="weak">${esc(describeError(e))}</p>`;
   } finally {

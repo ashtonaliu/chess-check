@@ -1,4 +1,4 @@
-// Side panel of the Weakness Finder Chrome extension. It shows the recap of the
+// Side panel of the Chess Check Chrome extension. It shows the recap of the
 // Chess.com game in the active tab, and only once that game is finished: see
 // guard.ts. It never reads or changes Chess.com's page, only the tab's address.
 import { recapGame, type Profile } from "../browser/follow";

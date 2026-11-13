@@ -36,7 +36,7 @@ def _load_box() -> ToolBox:
 
 
 box = _load_box()
-server = MCPServer(name="weakness-finder",
+server = MCPServer(name="chess-check",
                    instructions="Tools over one chess player's analysed games.")
 DESC = {t["name"]: t["description"] for t in tools_for(box.sql.dialect)}
 

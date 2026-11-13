@@ -1,10 +1,10 @@
-# Weakness Finder
+# Chess Check
 
 Type in a Chess.com username and find out what that player is actually bad at.
 
-**[Try the live demo](https://ashtonaliu.github.io/weakness-finder/)**. It runs entirely in your browser, so there is nothing to install and no account needed.
+**[Try the live demo](https://ashtonaliu.github.io/chess-check/)**. It runs entirely in your browser, so there is nothing to install and no account needed.
 
-![Weakness Finder showing key findings, tactic comparisons and annotated example positions](docs/img/screenshot.png)
+![Chess Check showing key findings, tactic comparisons and annotated example positions](docs/img/screenshot.png)
 
 ## What it does
 
@@ -20,7 +20,7 @@ Everything is compared with your opponents in the same games. A typical result, 
 
 ## Try it
 
-1. Open the [demo](https://ashtonaliu.github.io/weakness-finder/). It starts with an analysis of my own 300 blitz games.
+1. Open the [demo](https://ashtonaliu.github.io/chess-check/). It starts with an analysis of my own 300 blitz games.
 2. Enter any Chess.com username and press Analyze. 150 games take about 15 to 40 seconds.
 3. Press **Follow my games** to get a recap after every game you finish: the result and how surprising it was, the turning point on a board, your record in that opening, whether the mistake fits one of your patterns, and a note on your opponent.
 4. For the AI coaching report, paste your own [Anthropic API key](https://console.anthropic.com/settings/keys). The key only goes from your browser to Anthropic, and a report costs under one cent.
@@ -40,7 +40,7 @@ Everything is compared with your opponents in the same games. A typical result, 
 
 1. Run `scripts/build_extension.sh` (or download the zip from the releases page and unzip it).
 2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and choose the `extension` folder.
-3. Click the Weakness Finder icon on a Chess.com tab and enter your username.
+3. Click the Chess Check icon on a Chess.com tab and enter your username.
 
 The extension never reads or changes Chess.com's pages. It only looks at the address of your Chess.com tab to know which game you are viewing, and it talks only to Chess.com's public API. Everything else, including Stockfish, runs inside the extension.
 

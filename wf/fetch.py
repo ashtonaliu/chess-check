@@ -9,7 +9,7 @@ import chess.pgn
 import requests
 
 API = "https://api.chess.com/pub/player/{user}/games/archives"
-HEADERS = {"User-Agent": "weakness-finder/0.1 (portfolio project)"}
+HEADERS = {"User-Agent": "chess-check/0.1 (portfolio project)"}
 
 DRAW_RESULTS = {"agreed", "repetition", "stalemate", "insufficient",
                 "50move", "timevsinsufficient"}

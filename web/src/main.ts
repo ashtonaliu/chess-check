@@ -5,7 +5,7 @@ import type { Recap } from "./browser/recap";
 import { boardSvg, esc, moveSquares, notificationText, PLURAL, PUZZLE, recapCard } from "./ui/recapCard";
 import { embed } from "./browser/search";
 
-// Weakness Finder UI. Plain TypeScript, no framework. In the static demo the
+// Chess Check UI. Plain TypeScript, no framework. In the static demo the
 // analysis runs in the browser (browser/pipeline.ts); with the Python server it
 // comes from /api/analyze. Either way the page renders the same payload.
 
@@ -416,14 +416,14 @@ function renderRecap(r: Recap, isNew: boolean) {
   $("recaps").prepend(recapCard(r, isNew));
   if (isNew) {
     unseen++;
-    if (document.hidden) document.title = `(${unseen}) Weakness Finder`;
+    if (document.hidden) document.title = `(${unseen}) Chess Check`;
     if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
       const n = notificationText(r);
       new Notification(n.title, { body: n.body });
     }
   }
 }
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { unseen = 0; document.title = "Weakness Finder"; } });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { unseen = 0; document.title = "Chess Check"; } });
 
 function followStatus(msg: string) {
   const el = $("followStatus");

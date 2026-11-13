@@ -1,5 +1,5 @@
 ---
-title: Weakness Finder
+title: Chess Check
 emoji: ♟️
 colorFrom: green
 colorTo: gray

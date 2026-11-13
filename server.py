@@ -22,7 +22,7 @@ from wf.pipeline import Analysis, analyze, to_payload
 
 load_env()
 
-app = FastAPI(title="Weakness Finder")
+app = FastAPI(title="Chess Check")
 WEB = Path(__file__).parent / "web"
 USER_RE = re.compile(r"^[A-Za-z0-9_-]{3,25}$")
 _cache: dict[tuple, tuple[float, Analysis]] = {}

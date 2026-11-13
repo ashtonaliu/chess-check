@@ -35,7 +35,16 @@ def available() -> bool:
     return shutil.which("claude") is not None
 
 
-def _claude(prompt: str, state: Path, resume: str | None = None) -> dict:
+def _parse(stdout: str) -> dict:
+    """The JSON result line. Newer models can be preceded by a CLI warning line
+    (e.g. "[claude-code:unrecognized_model]" on CLI versions older than the model)."""
+    for line in reversed(stdout.splitlines()):
+        if line.startswith("{"):
+            return json.loads(line)
+    raise json.JSONDecodeError("no JSON result line", stdout, 0)
+
+
+def _claude(prompt: str, state: Path, resume: str | None = None, model: str = MODEL) -> dict:
     cfg = {"mcpServers": {"wf": {
         "command": sys.executable, "args": ["-m", "wf.mcp_server", str(state)],
         # the tool server is a separate process: pass through engine and SQL-backend settings
@@ -45,7 +54,7 @@ def _claude(prompt: str, state: Path, resume: str | None = None) -> dict:
     }}}
     (state / "mcp.json").write_text(json.dumps(cfg))
     cmd = ["claude", "-p", prompt, "--output-format", "json",
-           "--model", MODEL, "--effort", "medium",
+           "--model", model, "--effort", "medium",
            "--system-prompt", SYSTEM.replace("run_sql", "the run_sql tool"),
            "--tools", "",
            "--mcp-config", str(state / "mcp.json"), "--strict-mcp-config",
@@ -58,7 +67,7 @@ def _claude(prompt: str, state: Path, resume: str | None = None) -> dict:
     proc = subprocess.run(cmd, cwd=state, env=env, capture_output=True, text=True,
                           timeout=TIMEOUT)
     try:
-        out = json.loads(proc.stdout)
+        out = _parse(proc.stdout)
     except json.JSONDecodeError:
         raise RuntimeError(f"Claude Code failed: {(proc.stderr or proc.stdout)[-500:]}")
     if out.get("is_error"):
@@ -76,7 +85,7 @@ def complete(prompt: str, effort: str = "medium") -> str:
              "--effort", effort, "--tools", "", "--strict-mcp-config",
              "--setting-sources", ""],
             cwd=d, env=env, capture_output=True, text=True, timeout=TIMEOUT)
-    out = json.loads(proc.stdout)
+    out = _parse(proc.stdout)
     if out.get("is_error"):
         raise RuntimeError(f"Claude Code error: {out.get('result')}")
     return out.get("result") or ""
@@ -88,10 +97,21 @@ def _facts_now(state: Path, base: list[dict]) -> list[dict]:
     return base + extra
 
 
+def _cost(out: dict) -> dict:
+    """List-price cost, tokens and API time of one CLI call (as reported by Claude Code)."""
+    mu = out.get("modelUsage") or {}
+    return {"cost_usd": sum(v.get("costUSD", 0) for v in mu.values()),
+            "input_tokens": sum(v.get("inputTokens", 0) + v.get("cacheReadInputTokens", 0)
+                                + v.get("cacheCreationInputTokens", 0) for v in mu.values()),
+            "output_tokens": sum(v.get("outputTokens", 0) for v in mu.values()),
+            "api_ms": out.get("duration_api_ms", 0), "models": sorted(mu)}
+
+
 def run_coach_cli(username: str, facts: list[dict], games: pd.DataFrame,
                   moves: pd.DataFrame | None, repair: bool = True,
                   keep_state: bool = False,
-                  summaries: list[tuple[str, str]] | None = None) -> CoachResult:
+                  summaries: list[tuple[str, str]] | None = None,
+                  model: str = MODEL) -> CoachResult:
     state = Path(tempfile.mkdtemp(prefix="wf-coach-"))
     try:
         (state / "games.pkl").write_bytes(pickle.dumps(games))
@@ -103,7 +123,8 @@ def run_coach_cli(username: str, facts: list[dict], games: pd.DataFrame,
         prompt = (f"Player: {username}\n\nFacts:\n{facts_text(facts)}\n\n"
                   "Write the report. Use the tools if a weakness needs more detail. "
                   "Reply with only the report in Markdown.")
-        out = _claude(prompt, state)
+        out = _claude(prompt, state, model=model)
+        spend = _cost(out)
         report = first_report = (out.get("result") or "").strip()
         first = verify(report, _facts_now(state, facts))
         final, repaired, turns = first, False, out.get("num_turns", 0)
@@ -112,7 +133,11 @@ def run_coach_cli(username: str, facts: list[dict], games: pd.DataFrame,
                    "fact or tool result:\n" + feedback(first) +
                    "\n\nRewrite the full report fixing only these. Remove a claim rather "
                    "than guess, or look it up with a tool and cite it. Reply with only the report.")
-            out = _claude(fix, state, resume=out["session_id"])
+            out = _claude(fix, state, resume=out["session_id"], model=model)
+            more = _cost(out)
+            for k in ("cost_usd", "input_tokens", "output_tokens", "api_ms"):
+                spend[k] += more[k]
+            spend["models"] = sorted(set(spend["models"]) | set(more["models"]))
             report = (out.get("result") or "").strip()
             final, repaired = verify(report, _facts_now(state, facts)), True
             turns += out.get("num_turns", 0)
@@ -122,7 +147,7 @@ def run_coach_cli(username: str, facts: list[dict], games: pd.DataFrame,
             if calls_p.exists() else []
         return CoachResult(report=report, verification=final, first_verification=first,
                            facts=all_facts, tool_calls=calls, repaired=repaired,
-                           usage={"backend": "claude-code", "turns": turns},
+                           usage={"backend": "claude-code", "turns": turns, "model": model, **spend},
                            first_report=first_report)
     finally:
         if not keep_state:

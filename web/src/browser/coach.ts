@@ -7,7 +7,14 @@ import type { Row } from "./model";
 import type { GameRow } from "./stats";
 import { ToolBox, TOOLS } from "./tools";
 
-export const MODEL = "claude-opus-5-5";
+// Haiku 5.5 won the model-choice eval (scripts/eval_models.py): fewest unsupported
+// claims in first drafts, clean after repair on every player, about 30x cheaper than Opus.
+export const MODEL = "claude-haiku-5-5";
+const FALLBACK_MODELS = new Set(["claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-2", "claude-fable-5-1", "claude-opus-5"]);
+/** List prices in USD per million tokens (input, output). */
+const PRICES: Record<string, [number, number]> = {
+  "claude-haiku-5-5": [0.10, 0.50], "claude-sonnet-5-5": [2, 10], "claude-opus-5-5": [4, 20],
+};
 const MAX_TOOL_TURNS = 8;
 
 export const SYSTEM = `You are a chess coach writing a short, specific report for one player, based on an analysis of their recent Chess.com games.
@@ -16,6 +23,7 @@ Rules (a program checks your report against them):
 - Every number, chess move and link you write must come from a fact [F#] or a tool result [T#], and the sentence must cite it, e.g. "... 38% [F3]." Do not round differently, convert units or compute new numbers in your head; if you need a new number, get it with run_sql and cite the result.
 - Write moves exactly as they appear in the facts.
 - Only call something a weakness if a fact's verdict says "weakness" or "possible weakness", or a model fact shows more blunders than expected. If the evidence is thin, say so plainly.
+- Order the weaknesses by strength of evidence: a verdict of "pattern" or "weakness" first, then "possible weakness" and "worth watching". Within the same strength, put the larger effect first.
 - Recommendations should be concrete (what to study, which puzzle theme link) but must not invent statistics.
 
 Format (Markdown, under 350 words): a one-sentence summary, then "## Biggest weaknesses" with up to 3 items (evidence, then what to do), then "## What's working" (1-2 items), then "## Training plan" (3-5 bullet points).`;
@@ -64,7 +72,7 @@ export async function runCoach(opts: {
       const resp = await opts.client.beta.messages.create({
         model: MODEL, max_tokens: 16000, system: SYSTEM, tools: TOOLS, messages,
         output_config: { effort: "medium" },
-        betas: ["server-side-fallback-2026-07-01"], fallbacks: "default",
+        ...(FALLBACK_MODELS.has(MODEL) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
       });
       usage.input_tokens += resp.usage?.input_tokens ?? 0;
       usage.output_tokens += resp.usage?.output_tokens ?? 0;
@@ -109,7 +117,9 @@ export async function runCoach(opts: {
   }
 }
 
-/** Opus 5.5 list prices ($4 / $20 per million tokens), for showing the visitor what a report cost. */
-export const costUsd = (u: { input_tokens: number; output_tokens: number }) =>
-  (u.input_tokens * 4 + u.output_tokens * 20) / 1e6;
+/** What a report cost at list prices, shown to the visitor (ignores cache discounts, so an upper bound). */
+export const costUsd = (u: { input_tokens: number; output_tokens: number }, model = MODEL) => {
+  const [pin, pout] = PRICES[model] ?? PRICES["claude-opus-5-5"];
+  return (u.input_tokens * pin + u.output_tokens * pout) / 1e6;
+};
 

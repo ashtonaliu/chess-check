@@ -1,9 +1,9 @@
 {
  "username": "ashton-iwnl",
- "generated_at": "2026-11-13T15:53:59+00:00",
- "report": "Your play is close to your rating overall: you scored 48% against 49% expected [F1], and you made about as many blunders as similar-rated players would in your positions (0.99 times expected [F2]). The clearest thing to fix is missing discovered attacks.\n\n## Biggest weaknesses\n\n**1. Missing discovered attacks (a pattern).** When you blundered, the better move was a discovered attack 17 times, against 4 for your opponents [F22]. That is 4.25 times their rate, and it still holds after correcting for multiple comparisons [F22]. For example, you played 29.Bd7 and lost 86 win%, when the engine preferred Bf5 (https://www.chess.com/game/live/187005539854) [F23]. A related trend is worth watching but not yet confirmed: the better move was a hanging piece 28 times, against 16 for your opponents [F19]. One case is 43...Kh7, where Qxf4+ was available [F20].\n*What to do:* before every move, look for any piece of yours sitting in front of your own rook, bishop or queen. Drill https://lichess.org/training/discoveredAttack [F24].\n\n**2. Queen's Pawn Opening as White (possible weakness).** You scored 27% against 47% expected over 11 games [F7]. The median eval after move 12 was +0.0 [F13], so you get no advantage from the opening.\n*What to do:* pick one concrete setup, such as the London, and learn its typical middlegame plans.\n\n**3. Englund Gambit as Black (possible weakness).** You scored 21% against 49% expected over 7 games [F8], with a median eval of -0.4 after move 12 [F14]. The sample is small, so treat this as a warning sign rather than a firm conclusion. The same goes for the Pirc as White: 4 games, 0% scored [F6].\n*What to do:* think about swapping the Englund for a sounder defence.\n\n## What's working\n\n- **Clock management in the middle zone.** With 10-30% of your clock left, you blundered only 0.74 times as often as expected, and the interval of 0.59 to 0.92 excludes 1 [F4]. Even under 10% you didn't blunder more than expected [F3].\n- **Phase-by-phase play is even with your opponents.** In the endgame you blundered on 3.4% of moves against their 3.5% [F11].\n\n## Training plan\n\n- Do discovered-attack puzzles every day [F24], plus hanging-piece puzzles a few times a week (https://lichess.org/training/hangingPiece) [F21].\n- Use the most time when you have plenty of clock. Your blunder rate with over 30% left was 1.06 times expected [F5], so take a full blunder check before committing to a move.\n- Do middlegame puzzle sets to sharpen your calculation (https://lichess.org/training/middlegame) [F28].\n- Build a short repertoire file for the Queen's Pawn as White and a replacement for the Englund, then review your losses in those openings.\n- Replay https://www.chess.com/game/live/186801649660 and find Qxf4+ yourself [F15].",
+ "generated_at": "2026-11-13T16:18:14+00:00",
+ "report": "## Summary\n\nOver 300 games you scored 48% against 49% expected [F1], and your overall blunder count matched expectation [F2]. The main concern is a tactical pattern: you miss discovered attacks far more often than your opponents do.\n\n## Biggest weaknesses\n\n**1. Missed discovered attacks (pattern).** In positions where you blundered, the better move was a discovered attack 18 times, versus 4 for your opponents (4.50 times their rate) [F22]. Example: 29.Bd7 lost 86 win% when the engine preferred Bf5 [F23], in https://www.chess.com/game/live/187005539854.\n*Do:* Work through discovered-attack puzzles [F24]. Before each move, check whether moving a piece uncovers a line for a rook, bishop, or queen.\n\n**2. Underperformance in three openings (possible weakness, small samples).**\n- Pirc Defense as White: 0% in 4 games vs 48% expected [F6].\n- Queen's Pawn Opening as White: 27% in 11 games vs 47% expected [F7].\n- Englund Gambit as Black: 21% in 7 games vs 49% expected [F8].\n\nEach rating-adjusted interval includes zero [F6][F7][F8], so this is suggestive, not proven. Your engine evals after move 12 were roughly level in these games [F12][F13][F14].\n*Do:* Review these games from the opening onward and build a short repertoire fix for each.\n\n**3. Hanging pieces missed (worth watching).** In blunder positions, the better move was capturing or saving a hanging piece 28 times, versus 16 for opponents (1.75 times their rate), though this does not hold after correcting for multiple comparisons [F19]. Example: 43...Kh7 lost 97 win% when the engine preferred Qxf4+ [F15].\n*Do:* Practise [hanging piece puzzles](https://lichess.org/training/hangingPiece) [F21].\n\n## What's working\n\n- **Time pressure in the 10-30% band:** You made 60 blunders against 82.2 expected (0.73 times) [F4].\n- **Not letting opponents use discovered attacks:** Your blunders allowed 6 discovered attacks versus 21 for your opponents (0.29 times) [F25].\n\n## Training plan\n\n- Solve discovered-attack puzzles regularly: https://lichess.org/training/discoveredAttack [F24].\n- Before every move, ask \"what hangs after this?\" for both sides [F19][F21].\n- Review your Pirc, Queen's Pawn, and Englund games from the opening onward [F6][F7][F8].\n- Use middlegame puzzles to practise tactics after the opening: https://lichess.org/training/middlegame [F28].",
  "verification": {
-  "checked": 42,
+  "checked": 37,
   "unsupported": [],
   "uncited": [],
   "bad_citations": [],
@@ -11,104 +11,79 @@
   "ok": true
  },
  "first_verification": {
-  "checked": 46,
+  "checked": 39,
   "unsupported": [
    {
     "type": "miscited number",
-    "claim": 17.0,
-    "sentence": "Missing discovered attacks (a pattern).** When you blundered, the better move was a discovered attack 17 times, against 4 times for your opponents."
-   },
-   {
-    "type": "miscited number",
-    "claim": 4.0,
-    "sentence": "Missing discovered attacks (a pattern).** When you blundered, the better move was a discovered attack 17 times, against 4 times for your opponents."
-   },
-   {
-    "type": "move",
-    "claim": "c4",
-    "sentence": "*What to do:* pick one concrete setup, such as the London or a 2.c4 line, and learn its typical middlegame plans."
-   },
-   {
-    "type": "move",
-    "claim": "d4",
-    "sentence": "*What to do:* think about swapping the Englund for a sounder reply to 1.d4."
-   },
-   {
-    "type": "number",
     "claim": 15.0,
-    "sentence": "Do 15 minutes of discovered-attack puzzles a day [F24], plus hanging-piece puzzles twice a week (https://lichess.org/training/hangingPiece) [F21]."
+    "sentence": "Solve discovered-attack puzzles for 15 minutes a day: https://lichess.org/training/discoveredAttack [F24]."
    },
    {
     "type": "miscited number",
-    "claim": 25.0,
-    "sentence": "Do middlegame puzzle sets to sharpen calculation from moves 13-25 [F28]."
-   },
-   {
-    "type": "miscited number",
-    "claim": 13.0,
-    "sentence": "Do middlegame puzzle sets to sharpen calculation from moves 13-25 [F28]."
+    "claim": 12.0,
+    "sentence": "Review your Pirc, Queen's Pawn, and Englund games, focusing on the first 12 moves [F6][F7][F8]."
    }
   ],
   "uncited": [
    {
-    "claim": 17.0,
-    "sentence": "Missing discovered attacks (a pattern).** When you blundered, the better move was a discovered attack 17 times, against 4 times for your opponents."
+    "claim": 15.0,
+    "sentence": "Solve discovered-attack puzzles for 15 minutes a day: https://lichess.org/training/discoveredAttack [F24]."
    },
    {
-    "claim": 4.0,
-    "sentence": "Missing discovered attacks (a pattern).** When you blundered, the better move was a discovered attack 17 times, against 4 times for your opponents."
-   },
-   {
-    "claim": 25.0,
-    "sentence": "Do middlegame puzzle sets to sharpen calculation from moves 13-25 [F28]."
-   },
-   {
-    "claim": 13.0,
-    "sentence": "Do middlegame puzzle sets to sharpen calculation from moves 13-25 [F28]."
+    "claim": 12.0,
+    "sentence": "Review your Pirc, Queen's Pawn, and Englund games, focusing on the first 12 moves [F6][F7][F8]."
    }
   ],
   "bad_citations": [],
-  "unsupported_rate": 0.15217391304347827,
+  "unsupported_rate": 0.05128205128205128,
   "ok": false
  },
  "repaired": true,
  "tool_calls": [],
  "usage": {
   "backend": "claude-code",
-  "turns": 2
+  "turns": 2,
+  "model": "claude-haiku-5-5",
+  "cost_usd": 0.19147699999999998,
+  "input_tokens": 16960,
+  "output_tokens": 6069,
+  "api_ms": 26654,
+  "models": [
+   "claude-haiku-5-5"
+  ]
  },
  "facts": [
   {
    "id": "F1",
-   "text": "Across 300 games (average rating 1702), you scored 48% versus 49% expected from ratings (-1 points)."
+   "text": "Across 300 games (average rating 1701), you scored 48% versus 49% expected from ratings (-1 points)."
   },
   {
    "id": "F2",
-   "text": "A blunder-risk model trained only on your opponents' moves (players of similar rating) expected 579.6 blunders in your 12619 moves given how hard the positions were; you made 574, 0.99 times the expected count (90% interval 0.92 to 1.06)."
+   "text": "A blunder-risk model trained only on your opponents' moves (players of similar rating) expected 587.2 blunders in your 12621 moves given how hard the positions were; you made 579, 0.99 times the expected count (90% interval 0.92 to 1.06)."
   },
   {
    "id": "F3",
-   "text": "With under 10% of the clock left, you made 95 blunders in 1561 moves versus 101.9 expected (0.93 times expected, 90% interval 0.78 to 1.11). Treat a band as different from expected only if its interval excludes 1."
+   "text": "With under 10% of the clock left, you made 100 blunders in 1581 moves versus 109.4 expected (0.91 times expected, 90% interval 0.77 to 1.08). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F4",
-   "text": "With 10-30% of the clock left, you made 60 blunders in 1818 moves versus 80.9 expected (0.74 times expected, 90% interval 0.59 to 0.92). Treat a band as different from expected only if its interval excludes 1."
+   "text": "With 10-30% of the clock left, you made 60 blunders in 1826 moves versus 82.2 expected (0.73 times expected, 90% interval 0.58 to 0.91). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F5",
-   "text": "With over 30% of the clock left, you made 419 blunders in 9240 moves versus 396.8 expected (1.06 times expected, 90% interval 0.97 to 1.14). Treat a band as different from expected only if its interval excludes 1."
+   "text": "With over 30% of the clock left, you made 419 blunders in 9214 moves versus 395.6 expected (1.06 times expected, 90% interval 0.98 to 1.15). Treat a band as different from expected only if its interval excludes 1."
   },
   {
    "id": "F6",
-   "text": "Pirc Defense as White: 4 games, scored 0% versus 48% expected. Rating-adjusted gap after shrinkage: -3 points (90% interval -14 to +4). Verdict: possible weakness."
+   "text": "Pirc Defense as White: 4 games, scored 0% versus 48% expected. Rating-adjusted gap after shrinkage: -4 points (90% interval -15 to +3). Verdict: possible weakness."
   },
   {
    "id": "F7",
-   "text": "Queen's Pawn Opening as White: 11 games, scored 27% versus 47% expected. Rating-adjusted gap after shrinkage: -3 points (90% interval -13 to +3). Verdict: possible weakness."
+   "text": "Queen's Pawn Opening as White: 11 games, scored 27% versus 47% expected. Rating-adjusted gap after shrinkage: -4 points (90% interval -14 to +3). Verdict: possible weakness."
   },
   {
    "id": "F8",
-   "text": "Englund Gambit as Black: 7 games, scored 21% versus 49% expected. Rating-adjusted gap after shrinkage: -3 points (90% interval -13 to +4). Verdict: possible weakness."
+   "text": "Englund Gambit as Black: 7 games, scored 21% versus 49% expected. Rating-adjusted gap after shrinkage: -4 points (90% interval -14 to +3). Verdict: possible weakness."
   },
   {
    "id": "F9",
@@ -116,11 +91,11 @@
   },
   {
    "id": "F10",
-   "text": "In the middlegame you lose an average of 5.1 win% per move, with a blunder (a drop of 20 win% or more) on 6.5% of moves (4961 moves analysed). Your opponents: 5.0 win% per move, blunders on 6.2% of moves."
+   "text": "In the middlegame you lose an average of 5.1 win% per move, with a blunder (a drop of 20 win% or more) on 6.6% of moves (4978 moves analysed). Your opponents: 5.0 win% per move, blunders on 6.2% of moves."
   },
   {
    "id": "F11",
-   "text": "In the endgame you lose an average of 2.9 win% per move, with a blunder (a drop of 20 win% or more) on 3.4% of moves (4075 moves analysed). Your opponents: 2.8 win% per move, blunders on 3.5% of moves."
+   "text": "In the endgame you lose an average of 2.9 win% per move, with a blunder (a drop of 20 win% or more) on 3.4% of moves (4060 moves analysed). Your opponents: 2.8 win% per move, blunders on 3.5% of moves."
   },
   {
    "id": "F12",
@@ -148,7 +123,7 @@
   },
   {
    "id": "F18",
-   "text": "Of 1118 moves flagged as blunders by the fast engine pass (both players), 974 were confirmed by a deeper search at depth 16."
+   "text": "Of 1126 moves flagged as blunders by the fast engine pass (both players), 979 were confirmed by a deeper search at depth 16."
   },
   {
    "id": "F19",
@@ -164,7 +139,7 @@
   },
   {
    "id": "F22",
-   "text": "In positions where you blundered, the better move was a discovered attack 17 times, versus 4 for your opponents in the same games (4.25 times your opponents' rate per move, 90% interval 1.75 to 10.30). Verdict: a pattern, which holds after correcting for all 18 tactic and piece comparisons."
+   "text": "In positions where you blundered, the better move was a discovered attack 18 times, versus 4 for your opponents in the same games (4.50 times your opponents' rate per move, 90% interval 1.87 to 10.86). Verdict: a pattern, which holds after correcting for all 18 tactic and piece comparisons."
   },
   {
    "id": "F23",
@@ -176,7 +151,7 @@
   },
   {
    "id": "F25",
-   "text": "Your blunders allowed a discovered attack 6 times, versus 20 for your opponents in the same games (0.30 times your opponents' rate per move, 90% interval 0.14 to 0.63). Verdict: worth watching: it passes on its own but not after correcting for 18 comparisons."
+   "text": "Your blunders allowed a discovered attack 6 times, versus 21 for your opponents in the same games (0.29 times your opponents' rate per move, 90% interval 0.14 to 0.60). Verdict: a pattern, which holds after correcting for all 18 tactic and piece comparisons."
   },
   {
    "id": "F26",
@@ -184,7 +159,7 @@
   },
   {
    "id": "F27",
-   "text": "Blunder rate by the piece you moved: pawn moves 3.2% (opponents 3.0%); knight moves 4.7% (opponents 4.2%); bishop moves 4.5% (opponents 4.3%); rook moves 4.2% (opponents 4.5%); queen moves 4.7% (opponents 4.8%); king moves 2.9% (opponents 2.6%). No piece stands out from your opponents' rates."
+   "text": "Blunder rate by the piece you moved: pawn moves 3.3% (opponents 3.1%); knight moves 4.7% (opponents 4.1%); bishop moves 4.4% (opponents 4.3%); rook moves 4.3% (opponents 4.5%); queen moves 4.8% (opponents 4.8%); king moves 2.9% (opponents 2.7%). No piece stands out from your opponents' rates."
   },
   {
    "id": "F28",

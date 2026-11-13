@@ -88,8 +88,8 @@ test("agent loop: tool call, citation of the tool result, and a repair turn", as
   assert.equal(res.tool_calls[0].name, "example_games");
   assert.ok(!res.first_verification.ok);
   assert.ok(res.repaired && res.verification.ok);
-  assert.equal(calls[0].model, "claude-opus-5-5");
-  assert.equal(calls[0].fallbacks, "default");
+  assert.equal(calls[0].model, "claude-haiku-5-5");
+  assert.equal(calls[0].fallbacks, undefined);   // Haiku 5.5 has no server-side refusal fallback
   assert.deepEqual(res.usage, { input_tokens: 30, output_tokens: 15 });
 });
 

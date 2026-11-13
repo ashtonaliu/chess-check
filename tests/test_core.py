@@ -140,7 +140,8 @@ def test_coach_tool_loop_and_repair():
     assert not res.first_verification["ok"]       # 99 was invented
     assert res.repaired and res.verification["ok"]  # 42 is in T1 and F1
     assert fake.calls[0]["model"] == coach.MODEL
-    assert fake.calls[0]["fallbacks"] == "default"
+    # refusal fallbacks are only sent for models that support them
+    assert ("fallbacks" in fake.calls[0]) == (coach.MODEL in coach.FALLBACK_MODELS)
 
 
 def test_sql_tool_is_read_only():

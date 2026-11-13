@@ -41,6 +41,10 @@ export interface OpeningRow {
   raw_z: number; n_openings: number; verdict: string;
 }
 
+type OpeningGroup = { n: number; mean_resid: number };
+type Posterior = Pick<OpeningRow, "shrunk" | "post_sd" | "ci_low" | "ci_high" | "p_below">;
+export type ShrinkOpenings = (groups: OpeningGroup[], sigma2: number, mu: number) => Posterior[];
+
 /** Hierarchical normal model with the between-opening SD integrated out (see wf/stats.py). */
 function shrink(groups: { n: number; mean_resid: number }[], sigma2: number, mu: number) {
   const G = groups.length;
@@ -94,7 +98,7 @@ export function verdict(r: Pick<OpeningRow, "p_below" | "ci_high" | "ci_low" | "
   return "not enough evidence";
 }
 
-export function openingTable(rows: GameRow[], minGames = 3): OpeningRow[] {
+export function openingTable(rows: GameRow[], minGames = 3, shrinkOpenings: ShrinkOpenings = shrink): OpeningRow[] {
   if (!rows.length) return [];
   const sigma2 = rows.length > 1 ? Math.max(variance(rows.map(r => r.residual)), 0.05) : 0.2;
   const mu = mean(rows.map(r => r.residual));
@@ -109,7 +113,13 @@ export function openingTable(rows: GameRow[], minGames = 3): OpeningRow[] {
     mean_resid: mean(g.map(r => r.residual)),
   }));
   if (!groups.length) return [];
-  const post = shrink(groups, sigma2, mu);
+  let post: Posterior[];
+  try {
+    post = shrinkOpenings(groups, sigma2, mu);
+  } catch (error) {
+    if (shrinkOpenings === shrink) throw error;
+    post = shrink(groups, sigma2, mu);
+  }
   const out = groups.map((g, i) => {
     const raw_z = g.mean_resid / Math.sqrt(sigma2 / g.n);
     const row = { ...g, ...post[i], raw_z, n_openings: groups.length, verdict: "" };

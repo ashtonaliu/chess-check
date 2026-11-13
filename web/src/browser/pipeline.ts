@@ -6,6 +6,7 @@ import { fetchGames } from "./games";
 import { buildFacts } from "./facts";
 import { summarize } from "./summary";
 import { summarize as summarizeTactics } from "./tactics";
+import { loadWasmOpeningModel } from "./openingsWasm";
 import { loadWasmClassifier } from "./tacticsWasm";
 import { playerRisk, rowsOf } from "./model";
 import { formatMoves, openingTable, overall, withExpected, worstBranch } from "./stats";
@@ -45,7 +46,8 @@ export async function analyzeInBrowser(o: BrowserOptions) {
   await new Promise(r => setTimeout(r, 0));   // let the status paint
   const risk = playerRisk(rowsOf(analyses));
   const tactics = summarizeTactics(analyses, new Map(games.map(g => [g.url, g.pgn])), DEEP_DEPTH_BROWSER, await loadWasmClassifier(o.engineUrl));
-  const openings = openingTable(rows).map(r => {
+  const openingRows = openingTable(rows, 3, await loadWasmOpeningModel(o.engineUrl));
+  const openings = openingRows.map(r => {
     const flagged = r.verdict.endsWith("weakness") || r.verdict === "worth watching";
     const b = flagged ? worstBranch(rows, r.color, r.family) : null;
     return { color: r.color, family: r.family, n: r.n, score: r.score, expected: r.expected,
@@ -59,7 +61,7 @@ export async function analyzeInBrowser(o: BrowserOptions) {
   return {
     username: o.username, time_class: o.timeClass, generated_at: new Date().toISOString(),
     overall: overall(rows), openings, phases: phaseSummary(analyses), blunders,
-    risk, facts: buildFacts(rows, analyses, risk, tactics), engine: true, analyses, tactics,
+    risk, facts: buildFacts(rows, analyses, risk, tactics, openingRows), engine: true, analyses, tactics,
     gameRows: rows, moveRows: rowsOf(analyses),
     summaries: games.map((g, i) => [g.url, summarize(g, analyses[i])] as [string, string]),
     seconds: Math.round((performance.now() - t0) / 1000),

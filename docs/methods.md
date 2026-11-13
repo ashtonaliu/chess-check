@@ -266,3 +266,17 @@ tactic summary with a warm Wasm instance, including move replay and data
 conversion. The initial Node run on Apple Silicon measured median times of
 692 ms for TypeScript and 689 ms for Wasm. It excludes Stockfish and Wasm
 initialization.
+
+The opening model can also use Rust. Set `CHESS_CHECK_RUST_OPENINGS=1`
+when building the site or extension. Rust computes the posterior estimates
+and intervals. TypeScript handles game grouping, verdicts, and branch labels.
+With the Wasm target installed and Cargo on PATH, run:
+
+```sh
+cargo build --locked --manifest-path web/rust/openings/Cargo.toml --release --target wasm32-unknown-unknown
+(cd web && node --import tsx test/rust-openings.mts)
+```
+
+The initial warm Node run over 150 saved games measured 11.2 ms for the full
+TypeScript opening table and 10.8 ms with Wasm, including conversion. The
+opening model stays opt-in given the similar timings.

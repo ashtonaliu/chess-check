@@ -62,7 +62,7 @@ export function openingExit(analyses: GameAnalysis[], urls: Set<string>) {
 }
 
 export function buildFacts(rows: GameRow[], analyses: GameAnalysis[] | null, risk: Risk | null,
-                           tactics: TacticSummary | null = null): Fact[] {
+                           tactics: TacticSummary | null = null, table = openingTable(rows)): Fact[] {
   const facts: Fact[] = [];
   const add = (kind: string, text: string, extra: Partial<Fact> = {}) => {
     if (kind === "puzzles" && facts.some(f => f.text === text)) return;   // one link per puzzle theme
@@ -85,7 +85,6 @@ export function buildFacts(rows: GameRow[], analyses: GameAnalysis[] | null, ris
     }
   }
 
-  const table = openingTable(rows);
   const branchFact = (r: OpeningRow) => {
     const b = worstBranch(rows, r.color, r.family);
     if (!b) return;

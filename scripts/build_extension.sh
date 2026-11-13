@@ -6,5 +6,5 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 (cd "$ROOT/web" && npm run build:ext >/dev/null)
 mkdir -p "$ROOT/dist"
 rm -f "$ROOT/dist/chess-check-extension.zip"
-(cd "$ROOT/extension" && zip -qr "$ROOT/dist/chess-check-extension.zip" manifest.json sidepanel.html style.css icons dist engine)
+(cd "$ROOT/extension" && zip -qr "$ROOT/dist/chess-check-extension.zip" manifest.json offscreen.html icons dist engine)
 echo "Built extension/ and dist/chess-check-extension.zip ($(du -h "$ROOT/dist/chess-check-extension.zip" | cut -f1))"

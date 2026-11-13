@@ -212,6 +212,10 @@ MySQL is the persistent store for the full app when `WF_SQL_BACKEND=mysql` is se
 
 **Fair play.** Chess.com forbids outside assistance during a game, and in live chess the clock starts at pairing, so there is no safe "before the game" moment. Recaps use only finished games, which is all the public API returns, and the opponent note and win probability appear only after the game.
 
+**Chrome extension** (`extension/`, built from `web/src/extension/` by `scripts/build_extension.sh`). A Manifest V3 extension whose side panel runs the same browser code as the website: game fetching, Stockfish (bundled, not loaded from a CDN, since the Chrome Web Store forbids remote code), tactics and the recap card. It asks only for the side panel and storage, and for access to `www.chess.com` (to read the active tab's address) and `api.chess.com`.
+
+The fair-play guard (`web/src/extension/guard.ts`, tested in `web/test/guard.test.ts`): the active tab's address is turned into a canonical game URL, and a recap is shown only if that URL appears in the player's games from the public API, which lists finished games only. A game still being played never appears there, so it never gets a recap; the panel shows only "Your recap will appear when this game ends" and checks again every 20 seconds. Pages that are not games, including the page where games are played, show no data. Tested in a development harness with three cases: a game finished 6 minutes earlier (recap), an unfinished game (waiting message, no data anywhere in the panel), and the play page (hint only).
+
 Browser notifications are optional (the "Notify me" button asks for permission), and the tab title shows a count of unread recaps.
 
 ## Cross-language parity

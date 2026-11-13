@@ -9,3 +9,7 @@ eval_results/
 .env
 site/
 data/
+extension/dist/
+extension/engine/
+extension/style.css
+dist/

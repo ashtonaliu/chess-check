@@ -59,3 +59,19 @@ for (const [i, labels] of expectedMotifs.entries()) {
   assert.deepEqual(names.filter((_, bit) => mask & (1 << bit)).sort(), labels, `fixture ${i}`);
 }
 console.log(`Rust motif labels match the Python fixture on ${moves.length} moves.`);
+
+execFileSync("cargo", ["build", "--quiet", "--locked", "--release", "--target",
+  "wasm32-unknown-unknown", "--manifest-path", manifest]);
+const wasm = readFileSync(new URL("../rust/tactics/target/wasm32-unknown-unknown/release/chess_check_tactics.wasm", import.meta.url));
+const { instance: { exports: { memory, reserve_records, classify_records } } } = await WebAssembly.instantiate(wasm);
+const pointer = reserve_records(moves.length);
+const records = new Uint8Array(memory.buffer, pointer, moves.length * 131);
+for (const [i, move] of moves.entries()) {
+  const [before, after, from, to, mate] = move.split(" ");
+  const start = i * 131;
+  records.set(Buffer.from((before + after).replaceAll(".", "\0")), start);
+  records.set([Number(from), Number(to), Number(mate)], start + 128);
+}
+classify_records();
+assert.deepEqual(Array.from(records.subarray(0, moves.length)), classified.map(Number));
+console.log(`Wasm batch results match native Rust on ${moves.length} moves.`);

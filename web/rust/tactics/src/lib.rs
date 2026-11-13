@@ -107,3 +107,47 @@ mod tests {
         assert_eq!(attacks(&board, 64), 0);
     }
 }
+
+// The browser writes a batch into this module's linear memory. Each record
+// consists of two 64-byte boards, from/to square indices and a mate flag.
+#[cfg(target_arch = "wasm32")]
+mod wasm {
+    use crate::motifs;
+    use std::cell::RefCell;
+
+    const RECORD_SIZE: usize = 131;
+    thread_local! {
+        static INPUT: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) };
+    }
+
+    #[no_mangle]
+    pub extern "C" fn reserve_records(count: usize) -> *mut u8 {
+        INPUT.with_borrow_mut(|input| {
+            input.resize(count * RECORD_SIZE, 0);
+            input.as_mut_ptr()
+        })
+    }
+
+    /// Overwrites the start of the input buffer with one mask per record.
+    #[no_mangle]
+    pub extern "C" fn classify_records() {
+        INPUT.with_borrow_mut(|input| {
+            for index in 0..input.len() / RECORD_SIZE {
+                let start = index * RECORD_SIZE;
+                let record = &input[start..start + RECORD_SIZE];
+                let (from, to) = (record[128] as usize, record[129] as usize);
+                input[index] = if from < 64 && to < 64 {
+                    motifs(
+                        record[..64].try_into().unwrap(),
+                        record[64..128].try_into().unwrap(),
+                        from,
+                        to,
+                        record[130] != 0,
+                    )
+                } else {
+                    0
+                };
+            }
+        });
+    }
+}

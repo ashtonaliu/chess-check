@@ -18,17 +18,46 @@ from chesscheck import db, engine, model  # noqa: E402
 from chesscheck.facts import build_facts  # noqa: E402
 from chesscheck.fetch import fetch_games  # noqa: E402
 from chesscheck.stats import games_frame  # noqa: E402
+from make_parity_fixture import FIXTURES, fixture_games  # noqa: E402
 
 COLS = ["url", "ply", "move_no", "san", "best", "mover", "is_me", "phase", "cp_before", "cp_after",
         "wp_loss", "clock", "clock_frac", "time_spent", "legal_moves", "in_check",
         "captures_available", "material_balance", "non_pawn_material", "is_capture"]
 
 
+def refresh_facts(out):
+    fixture = json.loads(out.read_text())
+    games = fixture_games(fixture["games"])
+    moves_by_url = {g.url: [] for g in games}
+    for move in fixture["rows"]:
+        # FEN is only used in fact metadata, which this fixture omits.
+        moves_by_url[move["url"]].append({**move, "fen": None})
+    analyses = [
+        {"url": g.url, "color": g.color, "opening_eval": fixture["opening_eval"][g.url],
+         "moves": moves_by_url[g.url]} for g in games
+    ]
+    write_facts(fixture, games, analyses)
+    out.write_text(json.dumps(fixture))
+    print(f"refreshed facts in {out.relative_to(ROOT)}")
+
+
+def write_facts(fixture, games, analyses):
+    facts, _ = build_facts(games_frame(games), analyses, fixture["risk"])
+    fixture["facts"] = [{"id": f["id"], "text": f["text"]} for f in facts]
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("username")
+    ap.add_argument("username", nargs="?")
     ap.add_argument("--games", type=int, default=40)
+    ap.add_argument("--refresh-facts", action="store_true", help="Reuse saved analysis and risk")
     args = ap.parse_args()
+    out = FIXTURES / "model.json"
+    if args.refresh_facts:
+        refresh_facts(out)
+        return
+    if not args.username:
+        ap.error("username is required unless refreshing facts")
     games = fetch_games(args.username, args.games, {"blitz"})
     analyses = engine.analyse_games(games, depth=8)
     moves = db.moves_frame(analyses)[COLS]
@@ -50,8 +79,7 @@ def main():
                    "moves": g.moves_san, "pgn": ""} for g in games],
         "opening_eval": {a["url"]: a["opening_eval"] for a in analyses},
     }
-    facts, _ = build_facts(games_frame(games), analyses, fixture["risk"])
-    fixture["facts"] = [{"id": f["id"], "text": f["text"]} for f in facts]
+    write_facts(fixture, games, analyses)
 
     # search: summaries, BM25 scores, embeddings and hybrid rankings
     from chesscheck.search import GameIndex, embedder
@@ -67,7 +95,6 @@ def main():
         "hybrid_top5": [[i for i, _ in idx.search(q, 5, "hybrid")] for q in queries],
         "embed_top5": [[i for i, _ in idx.search(q, 5, "embed")] for q in queries],
     }
-    out = ROOT / "web" / "test" / "fixtures" / "model.json"
     out.write_text(json.dumps(fixture))
     print(f"wrote {out.relative_to(ROOT)}: {len(rows)} moves from {len(games)} games, "
           f"{int(y.sum())} blunders, {out.stat().st_size // 1024} KB")

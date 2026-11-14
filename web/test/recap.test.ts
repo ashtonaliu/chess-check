@@ -5,8 +5,8 @@ import { test } from "node:test";
 
 import type { GameAnalysis } from "../src/browser/engine";
 import type { Game } from "../src/browser/games";
-import { buildRecap, opponentNote, pregameExpected, upset } from "../src/browser/recap";
-import { withExpected } from "../src/browser/stats";
+import { buildRecap, opponentNote, upset } from "../src/browser/recap";
+import { pregameExpected, withExpected } from "../src/browser/stats";
 import { classifyGame, summarize } from "../src/browser/tactics";
 
 const fx = JSON.parse(readFileSync(new URL("./fixtures/tactics.json", import.meta.url), "utf8"));
@@ -70,7 +70,7 @@ test("opponent note: their record in this opening as their color, from their own
     ...Array.from({ length: 5 }, () => mk("Sicilian Defense", "black", 0.5)),
   ];
   const note = opponentNote("rival", opp, "Scotch Game", "white")!;
-  assert.match(note, /Scotch Game as White in 6 of their last 10 games as White, scoring 100% against an expected 50%/);
+  assert.match(note, /Scotch Game as White in 6 of their last 10 games as White, scoring 100% against an expected 52%/);
   const fresh = opponentNote("rival", opp, "London System", "white")!;
   assert.match(fresh, /new territory for rival: none of their last 10 games as White\. They usually play the Scotch Game \(6 games\)/);
   assert.equal(opponentNote("rival", opp.slice(0, 3), "Scotch Game", "white"), null);   // too few games to say

@@ -6,7 +6,7 @@ import { test } from "node:test";
 
 import type { Game } from "../src/browser/games";
 import { openingNames } from "../src/browser/games";
-import { expectedScore, normCdf, openingTable, overall, withExpected, worstBranch } from "../src/browser/stats";
+import { expectedScore, normCdf, openingTable, overall, pregameExpected, withExpected, worstBranch } from "../src/browser/stats";
 
 const fx = JSON.parse(readFileSync(new URL("./fixtures/parity.json", import.meta.url), "utf8"));
 const rows = withExpected(fx.games as Game[]);
@@ -17,6 +17,16 @@ test("expected score and normal CDF", () => {
   close(expectedScore(1500, 1500), 0.5, 1e-12, "even");
   close(expectedScore(1900, 1500), 0.90909, 1e-4, "+400");
   close(normCdf(1.645), 0.95002, 1e-5, "cdf");
+});
+
+test("pregame expected scores match Python across ratings, colors and time classes", () => {
+  for (const [my, opp, color, timeClass, expected] of fx.expected_score_grid) {
+    const actual = pregameExpected(my, opp, color, timeClass);
+    close(actual, expected, 1e-12, `${my} vs ${opp} as ${color} in ${timeClass}`);
+    if (timeClass === "bullet" || timeClass === "blitz" || timeClass === "rapid") {
+      assert.equal(pregameExpected(opp, my, color === "white" ? "black" : "white", timeClass), 1 - actual);
+    }
+  }
 });
 
 test("opening family names match Python", () => {

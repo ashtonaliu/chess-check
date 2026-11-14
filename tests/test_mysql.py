@@ -20,7 +20,7 @@ import pytest
 from chesscheck import coach, mysql_store
 from chesscheck.db import ReadOnlySQL
 from chesscheck.env import load_env
-from chesscheck.stats import expected_score
+from chesscheck.stats import pregame_expected
 
 ROOT = Path(__file__).resolve().parents[1]
 pytestmark = pytest.mark.skipif(os.environ.get("CHESS_CHECK_TEST_MYSQL") != "1", reason="set CHESS_CHECK_TEST_MYSQL=1 with MySQL running")
@@ -50,7 +50,10 @@ def frames():
         "score": g["score"], "time_class": g["timeClass"], "eco": g["eco"], "opening": g["opening"],
         "family": g["family"], "end_time": g["endTime"], "moves": " ".join(g["moves"][:16]),
     } for g in fx["games"]])
-    games["expected"] = [expected_score(a, b) for a, b in zip(games.my_rating, games.opp_rating)]
+    games["expected"] = [
+        pregame_expected(g.my_rating, g.opp_rating, g.color, g.time_class)
+        for g in games.itertuples()
+    ]
     games["residual"] = games.score - games.expected
     moves = pd.DataFrame(fx["rows"])
     return games, moves

@@ -417,6 +417,25 @@ be read from its end time, which includes its length, so session features descri
 state at their previous game, and "game 1 of a session" is not a category. Opponents' pre-game
 ratings in history games are estimated as their post-game rating plus the player's own change.
 
+### The upset meter's formula
+
+`scripts/fit_expected_score.py` downloads the last two months of bullet, blitz and rapid games for
+1,500 of the cached players (data/odds/calib) and fits, per time class,
+expected = sigmoid(a × logit(Elo expected) + b × colour), using each game from both sides with no
+intercept, so the formula is symmetric. Ratings are pre-game, as in the odds experiment. Fitted on
+games before 2026-11-01 and checked on games from 2026-11-07:
+
+| Time class | Fit games | Test games | a | b | Elo Brier | Formula Brier | Gain (90% interval) |
+|---|---:|---:|---:|---:|---:|---:|---|
+| Bullet | 81,339 | 18,878 | 0.4092 | 0.0580 | 0.23832 | 0.23514 | +0.00318 (+0.00207 to +0.00456) |
+| Blitz | 574,360 | 202,775 | 0.4637 | 0.0606 | 0.23814 | 0.23722 | +0.00092 (+0.00078 to +0.00106) |
+| Rapid | 19,393 | 3,594 | 0.3770 | 0.0583 | 0.23434 | 0.22873 | +0.00561 (+0.00375 to +0.00810) |
+
+The recap uses these coefficients (`CALIBRATION` in `web/src/browser/recap.ts`); daily games keep the
+Elo formula. The opponent's pre-game rating in training games is estimated, so a little noise in
+the rating gap may shrink a; the exact pre-game ratings in the 14,807 target games showed the same
+overconfidence. The opening tables in the main report still use the Elo formula.
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

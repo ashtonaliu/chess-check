@@ -6,7 +6,7 @@ The input collection is read-only. Downloads, feature caches and results go in d
 import argparse
 from bisect import bisect_left
 from collections import defaultdict, deque
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 import hashlib
 import io
@@ -297,6 +297,19 @@ def analyse(raw, binary, cache):
     return data, True
 
 
+def analyse_batch(batch, binary, cache):
+    try:
+        return [(gid, *analyse(raw, binary, cache)) for gid, raw in batch]
+    finally:
+        # python-chess runs the UCI connection on a non-daemon thread. Close
+        # it before the process pool attempts to join the worker.
+        process = getattr(engine._local, "engine", None)
+        if process is not None:
+            process.close()
+            engine._all_engines.remove(process)
+            del engine._local.engine
+
+
 def evaluate_games(jobs, binary, cache, workers):
     version = subprocess.check_output([binary, "--version"], text=True, timeout=15).splitlines()[0]
     with Path(binary).open("rb") as handle:
@@ -306,20 +319,27 @@ def evaluate_games(jobs, binary, cache, workers):
     elapsed = uncached = 0
     started = time.perf_counter()
     print(f"Engine: {version}, depth {DEPTH}, {len(jobs)} distinct games", flush=True)
-    try:
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            for i, (gid, (data, fresh)) in enumerate(zip(jobs, pool.map(
-                lambda raw: analyse(raw, binary, destination), jobs.values()
-            )), 1):
-                results[gid] = data
-                elapsed += data["engine_seconds"] if fresh else 0
-                uncached += fresh
-                if i % 250 == 0 or i == len(jobs):
-                    print(f"Engine: {i}/{len(jobs)} games", flush=True)
-    finally:
-        for process in engine._all_engines:
-            process.quit()
-        engine._all_engines.clear()
+    pending = []
+    for gid, raw in jobs.items():
+        path = destination / f"{gid}.json"
+        if path.is_file():
+            results[gid] = json.loads(path.read_text())
+        else:
+            pending.append((gid, raw))
+    if pending:
+        print(f"Engine: resuming with {len(results)} cached games", flush=True)
+        batch_size = min(32, math.ceil(len(pending) / workers))
+        with ProcessPoolExecutor(max_workers=workers) as pool:
+            batches = [pool.submit(analyse_batch, pending[i:i + batch_size], binary, destination)
+                       for i in range(0, len(pending), batch_size)]
+            for finished in as_completed(batches):
+                previous = len(results)
+                for gid, data, fresh in finished.result():
+                    results[gid] = data
+                    elapsed += data["engine_seconds"] if fresh else 0
+                    uncached += fresh
+                if len(results) // 250 > previous // 250 or len(results) == len(jobs):
+                    print(f"Engine: {len(results)}/{len(jobs)} games", flush=True)
     timing = {"version": version, "binary_sha256_prefix": identity, "depth": DEPTH,
               "games": len(jobs), "uncached_games": uncached, "engine_seconds_this_run": elapsed,
               "engine_seconds_all_games": sum(data["engine_seconds"] for data in results.values()),

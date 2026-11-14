@@ -143,9 +143,20 @@ def profile(history, counts):
     return features
 
 
+def motif_support(counts):
+    """Count events once per history game, even if several targets use it."""
+    totals = {motif: dict.fromkeys(FIELDS, 0) for motif in MOTIFS}
+    for game in counts.values():
+        for side in game['sides'].values():
+            for motif, events in totals.items():
+                for field in FIELDS:
+                    events[field] += side[field][motif]
+    return totals
+
+
 def feature_rows(rows, counts):
     ratings, main, interactions, outcomes, groups = [], [], [], [], []
-    for focal, raw, gid, pregame, histories in rows:
+    for focal, raw, _, pregame, histories in rows:
         color = study.side(raw, focal)
         groups.append(focal)
         outcomes.append(round(2 * study.score_of(raw[color]['result'])))
@@ -206,8 +217,8 @@ def evaluate(rows, counts):
 
     rng = np.random.default_rng(study.SEED)
     comparisons = []
-    for base, full in ((list(models)[0], list(models)[1]), (list(models)[0], list(models)[2]),
-                       (list(models)[1], list(models)[2])):
+    ratings_only, profiles, matchups = models
+    for base, full in ((ratings_only, profiles), (ratings_only, matchups), (profiles, matchups)):
         metrics = {}
         for metric in ('brier', 'log_loss'):
             change = predictions[base][metric] - predictions[full][metric]
@@ -234,10 +245,11 @@ def main():
     destination = args.cache / f'motifs-v1-d{study.DEPTH}-{identity}'
     started = time.perf_counter()
     counts = analyse_games(jobs, binary, destination, args.workers)
+    wall_seconds = time.perf_counter() - started
     result = evaluate(rows, counts)
     result.update(games=len(jobs), depth=study.DEPTH, motifs=MOTIFS, engine_binary=identity,
                   engine_seconds=sum(data['engine_seconds'] for data in counts.values()),
-                  engine_stage_wall_seconds=time.perf_counter() - started)
+                  engine_stage_wall_seconds=wall_seconds, motif_support=motif_support(counts))
     path = args.cache / f'{manifest_path.stem}-tactic-matchups-{identity}.json'
     study.write_json(path, result)
     print(json.dumps(result, indent=2))

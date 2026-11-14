@@ -316,6 +316,25 @@ worse than the plain Elo formula. So this rules out large engine effects, not
 small ones. Reaching 2-point resolution would take about 25 times more games,
 roughly 1.8 million game analyses, which is weeks of CPU on one machine.
 
+**Nested regularization check** (`scripts/eval_engine_regularization.py`, run against
+the study's cache with no new engine work). The study's logistic models used C = 1.
+Here C is chosen inside each training fold by an inner grouped 4-fold split on
+Brier, over 0.0001 to 10, and the models are evaluated on the same five
+held-out folds. Ratings alone chose C = 0.01 to 0.03; ratings plus engine features
+chose 0.0001 to 0.001.
+
+| Logistic model | Ratings only | Ratings plus engine | Change (90% interval) |
+|---|---:|---:|---|
+| Brier, C = 1 (study) | 0.236165 | 0.243307 | −0.007143 (−0.011891 to −0.002324) |
+| Brier, nested C | 0.236156 | 0.236538 | −0.000382 (−0.002217 to +0.001519) |
+| Log loss, nested C | 0.865007 | 0.864590 | +0.000417 (−0.003984 to +0.004812) |
+
+Tuned this way, the penalty disappears, which confirms it was overfitting. The
+engine model got there by choosing very strong regularization, shrinking the
+engine features almost to zero, so the narrower interval does not mean the test
+became more sensitive. It means the engine features could not earn weight in 995
+games. The 10-point resolution above still applies.
+
 For the accuracy gap, 991 targets had moves for both players. Adding engine
 features lowered out-of-fold R² from 0.000741 to −0.029585 for ridge and
 from −0.024083 to −0.084170 for histogram gradient boosting.

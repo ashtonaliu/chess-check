@@ -3,7 +3,7 @@
 // run in Chess.com's page or in the service worker). The cube overlay asks it
 // for recaps through the background service worker.
 import { recapGame, type Profile } from "../browser/follow";
-import { fetchGames } from "../browser/games";
+import { findGame } from "../browser/games";
 import { analyzeInBrowser } from "../browser/pipeline";
 import type { Recap } from "../browser/recap";
 import { canShowRecap, gameIdFromApiUrl } from "./guard";
@@ -53,11 +53,12 @@ export async function handle(req: Request): Promise<Reply> {
     const p = ensureProfile(req.username, req.timeClass);
     if (req.type === "profile" || p.status !== "ready") return p;
     if (recaps.has(req.gameId)) return { status: "recap", recap: recaps.get(req.gameId)! };
-    // Fair-play guard: only games the public API already lists as finished.
-    const recent = await fetchGames(req.username, 30, null);
-    const finished = new Set(recent.map(g => gameIdFromApiUrl(g.url)).filter((x): x is string => !!x));
-    if (!canShowRecap(req.gameId, finished)) return { status: "pending" };
-    const game = recent.find(g => gameIdFromApiUrl(g.url) === req.gameId)!;
+    // Fair-play guard: only games the public API already lists as finished. Look the game up by ID,
+    // since a player can finish dozens of games after the one they open.
+    const found = await findGame(req.username, req.gameId);
+    const finished = new Set(found ? [gameIdFromApiUrl(found.url)!] : []);
+    if (!canShowRecap(req.gameId, finished) || !found) return { status: "pending" };
+    const game = found;
     const recap = await recapGame(game, profile!, ENGINE_URL);
     recaps.set(req.gameId, recap);
     return { status: "recap", recap };

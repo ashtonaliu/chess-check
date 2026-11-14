@@ -8,6 +8,7 @@ test("every Chess.com game address form maps to the game ID", () => {
   const id = "187138001290";
   for (const u of [
     `https://www.chess.com/game/${id}`,                       // current live-game pages (the address that broke v0.1)
+    `https://www.chess.com/live/game/${id}`,                  // what Chess.com rewrites /game/<id> to after loading
     `https://www.chess.com/game/${id}?tab=review`,
     `https://www.chess.com/game/live/${id}`,
     `https://www.chess.com/game/live/${id}?move=12`,
@@ -15,13 +16,14 @@ test("every Chess.com game address form maps to the game ID", () => {
     `https://chess.com/game/${id}`,
   ]) assert.equal(gameIdFromPage(u), id, u);
   assert.equal(gameIdFromPage("https://www.chess.com/game/daily/9001"), "9001");
+  assert.equal(gameIdFromPage("https://www.chess.com/daily/game/9001"), "9001");
 });
 
 test("pages that are not games, and look-alikes, give no game", () => {
   for (const u of ["https://www.chess.com/play/online", "https://www.chess.com/home", "https://www.chess.com/game/",
                    "https://lichess.org/game/123", "https://evil.com/www.chess.com/game/123",
                    "https://www.chess.com.evil.com/game/123", "https://www.chess.com/game/live/abc",
-                   "https://www.chess.com/games/archive", "not a url", null, undefined]) {
+                   "https://www.chess.com/games/archive", "https://www.chess.com/live/game/", "https://www.chess.com/live", "not a url", null, undefined]) {
     assert.equal(gameIdFromPage(u as string), null, String(u));
   }
 });

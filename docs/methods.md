@@ -488,6 +488,23 @@ Elo formula. The opponent's pre-game rating in training games is estimated, so a
 the rating gap may shrink a; the exact pre-game ratings in the 14,807 target games showed the same
 overconfidence. The opening tables in the main report still use the Elo formula.
 
+**Gate test: does a tactic profile predict the player's own next game?** (`scripts/eval_tactic_gate.py`,
+no new engine work). The big engine study (`docs/engine-study-plan.md`) was to run only if it did.
+A focal player's target game is part of the history of their later targets, so 728 target games
+(all 250 players) already have motif counts. For each, the player's pooled profile from their
+previous 50 games is compared with their own mistakes in that game, out of sample by grouped
+5-fold over players, beyond their rating:
+
+| That game's ... | Correlation with the profile | Out-of-sample R², rating + profile |
+|---|---:|---:|
+| Missed tactics (share of opportunities) | −0.03 | −0.002 |
+| Allowed tactics (per move) | +0.10 | +0.001 |
+| Missed + allowed (per move) | +0.02 | −0.006 |
+
+Only allowing tactics shows a faint trait. A single game has few tactical chances, so its count is
+mostly noise, and a 50-game profile does not predict it. The gate failed, so the big engine run is
+not being done for tactics.
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

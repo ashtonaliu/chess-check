@@ -1,8 +1,10 @@
 # Plan: the big engine study
 
-Status: planned, not started. Run it after Codex's tactics study (draft PR #27) is reviewed, and use
-that study's first stage as the go/no-go gate: if a player's tactic profile does not even predict
-their own tactical mistakes in the next game, skip this run.
+Status: not running. The gate failed on 2026-11-14: a player's tactic profile from their previous
+50 games did not predict their own tactical mistakes in the next game (correlations −0.03 to
++0.10, out-of-sample R² at most +0.001 over 728 games; `scripts/eval_tactic_gate.py`, see the
+methods). The tactics study itself (PR #27) found no gain over calibrated ratings plus colour. The
+design below stays here in case a different question makes a large engine run worth it.
 
 ## Goal
 

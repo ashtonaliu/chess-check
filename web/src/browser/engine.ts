@@ -89,10 +89,18 @@ export class Engine {
   terminate() { this.w.terminate(); }
 }
 
+/** One Stockfish worker per core but one, up to MAX_WORKERS. */
+export const MAX_WORKERS = 8;
+export const defaultWorkers = () => Math.max(1, Math.min((navigator.hardwareConcurrency || 2) - 1, MAX_WORKERS));
+
 // ---------- cache (IndexedDB) ----------
 
 const DB = "wf-engine-cache", STORE = "games", CACHE_VERSION = 1;
+let askedToPersist = false;
 function openDb(): Promise<IDBDatabase | null> {
+  // Ask once that the browser not evict this cache when disk space runs low (losing it only costs a
+  // rebuild, so a refusal is fine). The extension has the unlimitedStorage permission instead.
+  if (!askedToPersist) { askedToPersist = true; void navigator.storage?.persist?.().catch(() => false); }
   return new Promise(resolve => {
     try {
       const req = indexedDB.open(DB, 1);
@@ -204,7 +212,7 @@ export async function analyseGames(games: Game[], opts: PoolOptions): Promise<Ga
   let done = cached;
   opts.onProgress?.(done, games.length, cached);
 
-  const n = Math.max(1, Math.min(opts.workers ?? Math.max(1, (navigator.hardwareConcurrency || 2) - 1), 8, todo.length));
+  const n = Math.max(1, Math.min(opts.workers ?? defaultWorkers(), todo.length));
   const engines: Engine[] = [];
   try {
     if (todo.length) {
@@ -253,7 +261,7 @@ export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: 
   const todo = analyses.map((a, i) => i).filter(i => !cached[i] && analyses[i].moves.some(m => m.wp_loss >= BLUNDER_DROP));
   const total = todo.reduce((n, i) => n + analyses[i].moves.filter(m => m.wp_loss >= BLUNDER_DROP).length, 0);
   let done = 0;
-  const n = Math.max(1, Math.min(opts.workers ?? Math.max(1, (navigator.hardwareConcurrency || 2) - 1), 8, todo.length));
+  const n = Math.max(1, Math.min(opts.workers ?? defaultWorkers(), todo.length));
   const engines: Engine[] = [];
   try {
     if (todo.length) { for (let i = 0; i < n; i++) engines.push(new Engine(opts.engineUrl)); await Promise.all(engines.map(e => e.init())); }

@@ -18,9 +18,9 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from wf import engine  # noqa: E402
-from wf.fetch import fetch_games  # noqa: E402
-from wf.search import GameIndex  # noqa: E402
+from chesscheck import engine  # noqa: E402
+from chesscheck.fetch import fetch_games  # noqa: E402
+from chesscheck.search import GameIndex  # noqa: E402
 
 B = engine.BLUNDER_DROP
 

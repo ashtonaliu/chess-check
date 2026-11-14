@@ -1,4 +1,4 @@
-// Fetch and parse Chess.com games in the browser. Mirrors wf/fetch.py.
+// Fetch and parse Chess.com games in the browser. Mirrors chesscheck/fetch.py.
 // The Chess.com public API sends Access-Control-Allow-Origin: *, so no
 // server is needed.
 import { Chess } from "chess.js";
@@ -25,7 +25,7 @@ export interface Game {
 const DRAWS = new Set(["agreed", "repetition", "stalemate", "insufficient", "50move", "timevsinsufficient"]);
 const FAMILY_ENDINGS = new Set(["Defense", "Opening", "Game", "Gambit", "Attack", "System"]);
 
-// Same table as wf/fetch.py CANONICAL.
+// Same table as chesscheck/fetch.py CANONICAL.
 const CANONICAL: [string, string][] = [
   ["Nimzo Indian", "Nimzo-Indian Defense"], ["Bogo Indian", "Bogo-Indian Defense"],
   ["Queens Indian", "Queen's Indian Defense"], ["Kings Indian Attack", "King's Indian Attack"],

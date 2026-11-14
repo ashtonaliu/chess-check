@@ -1,9 +1,9 @@
 """MySQL backend tests against a real server. Skipped unless configured:
 
   docker compose up -d mysql
-  WF_TEST_MYSQL=1 .venv/bin/python -m pytest tests/test_mysql.py
+  CHESS_CHECK_TEST_MYSQL=1 .venv/bin/python -m pytest tests/test_mysql.py
 
-Credentials come from WF_MYSQL_WRITER_URL / WF_MYSQL_READER_URL, or are built
+Credentials come from CHESS_CHECK_MYSQL_WRITER_URL / CHESS_CHECK_MYSQL_READER_URL, or are built
 from the passwords in .env (MySQL on 127.0.0.1:3306).
 """
 from __future__ import annotations
@@ -17,13 +17,13 @@ import pandas as pd
 import pymysql
 import pytest
 
-from wf import coach, mysql_store
-from wf.db import ReadOnlySQL
-from wf.env import load_env
-from wf.stats import expected_score
+from chesscheck import coach, mysql_store
+from chesscheck.db import ReadOnlySQL
+from chesscheck.env import load_env
+from chesscheck.stats import expected_score
 
 ROOT = Path(__file__).resolve().parents[1]
-pytestmark = pytest.mark.skipif(os.environ.get("WF_TEST_MYSQL") != "1", reason="set WF_TEST_MYSQL=1 with MySQL running")
+pytestmark = pytest.mark.skipif(os.environ.get("CHESS_CHECK_TEST_MYSQL") != "1", reason="set CHESS_CHECK_TEST_MYSQL=1 with MySQL running")
 
 
 class Secret(str):
@@ -36,8 +36,8 @@ class Secret(str):
 @pytest.fixture(scope="module")
 def urls():
     load_env()
-    w = os.environ.get("WF_MYSQL_WRITER_URL") or f"mysql://wf_writer:{os.environ['WF_WRITER_PASSWORD']}@127.0.0.1:3306"
-    r = os.environ.get("WF_MYSQL_READER_URL") or f"mysql://wf_reader:{os.environ['WF_READER_PASSWORD']}@127.0.0.1:3306"
+    w = os.environ.get("CHESS_CHECK_MYSQL_WRITER_URL") or f"mysql://chesscheck_writer:{os.environ['CHESS_CHECK_WRITER_PASSWORD']}@127.0.0.1:3306"
+    r = os.environ.get("CHESS_CHECK_MYSQL_READER_URL") or f"mysql://chesscheck_reader:{os.environ['CHESS_CHECK_READER_PASSWORD']}@127.0.0.1:3306"
     return Secret(w), Secret(r)
 
 
@@ -97,11 +97,11 @@ def test_same_answers_on_duckdb_and_mysql(urls, frames, loaded):
 @pytest.mark.parametrize("sql", [
     "INSERT INTO games (url, color) VALUES ('x', 'white')",
     "DROP TABLE moves",
-    "CREATE DATABASE wf_should_not_exist",
+    "CREATE DATABASE chesscheck_should_not_exist",
     "SELECT * FROM games INTO OUTFILE '/tmp/leak.csv'",
 ])
 def test_reader_cannot_write_even_bypassing_the_tool(urls, loaded, sql):
-    """Straight to MySQL as wf_reader, skipping the tool's SELECT-only check."""
+    """Straight to MySQL as chesscheck_reader, skipping the tool's SELECT-only check."""
     conn = mysql_store._connect(urls[1], database=loaded)
     with pytest.raises(pymysql.MySQLError):
         with conn.cursor() as cur:
@@ -119,9 +119,9 @@ def test_tool_refuses_writes_and_stops_runaway_queries(urls, loaded):
 
 def test_coach_toolbox_runs_on_mysql(monkeypatch, urls, frames):
     games, moves = frames
-    monkeypatch.setenv("WF_SQL_BACKEND", "mysql")
-    monkeypatch.setenv("WF_MYSQL_WRITER_URL", urls[0])
-    monkeypatch.setenv("WF_MYSQL_READER_URL", urls[1])
+    monkeypatch.setenv("CHESS_CHECK_SQL_BACKEND", "mysql")
+    monkeypatch.setenv("CHESS_CHECK_MYSQL_WRITER_URL", urls[0])
+    monkeypatch.setenv("CHESS_CHECK_MYSQL_READER_URL", urls[1])
     box = coach.ToolBox(games, moves, [])
     assert box.sql.dialect == "MySQL 8"
     assert "MySQL 8 SQL" in coach.tools_for(box.sql.dialect)[0]["description"]

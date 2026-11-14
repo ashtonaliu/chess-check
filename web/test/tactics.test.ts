@@ -1,4 +1,4 @@
-// The TypeScript tactic detector, summary and facts must match wf/tactics.py.
+// The TypeScript tactic detector, summary and facts must match chesscheck/tactics.py.
 // Fixture: scripts/make_tactics_fixture.py (Lichess puzzle positions, CC0, and real games).
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";

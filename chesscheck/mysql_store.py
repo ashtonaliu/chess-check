@@ -1,13 +1,13 @@
 """MySQL backend: a persistent store for analyses, and the coach's SQL tool.
 
-Each analysis gets its own schema (wf_<hash>) with `games` and `moves`
+Each analysis gets its own schema (chesscheck_<hash>) with `games` and `moves`
 tables, so the coach only ever sees the current player's data. Two users:
-wf_writer loads data; wf_reader, which the coach's tool connects as, has only
-SELECT on wf_% schemas (deploy/mysql/init.sh). The reader session is also set
+chesscheck_writer loads data; chesscheck_reader, which the coach's tool connects as, has only
+SELECT on chesscheck_% schemas (deploy/mysql/init.sh). The reader session is also set
 to read-only transactions with a statement timeout.
 
-DuckDB stays the in-process analytics engine (wf/db.py); this module is
-enabled with WF_SQL_BACKEND=mysql plus WF_MYSQL_WRITER_URL / WF_MYSQL_READER_URL.
+DuckDB stays the in-process analytics engine (chesscheck/db.py); this module is
+enabled with CHESS_CHECK_SQL_BACKEND=mysql plus CHESS_CHECK_MYSQL_WRITER_URL / CHESS_CHECK_MYSQL_READER_URL.
 """
 from __future__ import annotations
 
@@ -56,7 +56,7 @@ MOVES_COLS = ["url", "ply", "move_no", "san", "best", "mover", "is_me", "phase",
 
 
 def enabled() -> bool:
-    return os.environ.get("WF_SQL_BACKEND", "").lower() == "mysql"
+    return os.environ.get("CHESS_CHECK_SQL_BACKEND", "").lower() == "mysql"
 
 
 def _connect(url: str, database: str | None = None) -> pymysql.connections.Connection:
@@ -69,7 +69,7 @@ def _connect(url: str, database: str | None = None) -> pymysql.connections.Conne
 def schema_for(games: pd.DataFrame) -> str:
     """Stable schema name for one analysis (same games -> same schema)."""
     key = "|".join(sorted(games.url)) if not games.empty else "empty"
-    return "wf_" + hashlib.sha1(key.encode()).hexdigest()[:16]
+    return "chesscheck_" + hashlib.sha1(key.encode()).hexdigest()[:16]
 
 
 def _clean(v):
@@ -87,7 +87,7 @@ def _clean(v):
 def load(games: pd.DataFrame, moves: pd.DataFrame | None, writer_url: str | None = None) -> str:
     """Write one analysis into its own schema and return the schema name."""
     schema = schema_for(games)
-    conn = _connect(writer_url or os.environ["WF_MYSQL_WRITER_URL"])
+    conn = _connect(writer_url or os.environ["CHESS_CHECK_MYSQL_WRITER_URL"])
     try:
         with conn.cursor() as cur:
             cur.execute(f"CREATE DATABASE IF NOT EXISTS `{schema}`")
@@ -117,7 +117,7 @@ class MySQLReadOnlySQL:
     dialect = DIALECT
 
     def __init__(self, schema: str, reader_url: str | None = None):
-        self.conn = _connect(reader_url or os.environ["WF_MYSQL_READER_URL"], database=schema)
+        self.conn = _connect(reader_url or os.environ["CHESS_CHECK_MYSQL_READER_URL"], database=schema)
         with self.conn.cursor() as cur:
             cur.execute("SET SESSION TRANSACTION READ ONLY")
             cur.execute(f"SET SESSION max_execution_time = {TIMEOUT_MS}")

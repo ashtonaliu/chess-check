@@ -4,7 +4,7 @@ Same prompt, tools, verifier and repair turn as the API backend in coach.py,
 but billed to the user's Claude subscription instead of an API key, so it
 only works where Claude Code is installed and logged in (i.e. locally).
 
-- tools are served by wf.mcp_server over MCP (stdio), restricted with
+- tools are served by chesscheck.mcp_server over MCP (stdio), restricted with
   --strict-mcp-config / --allowedTools; all built-in tools are disabled
 - the repair turn resumes the same session with the verifier's findings
 """
@@ -26,8 +26,8 @@ from .facts import facts_text
 from .verify import feedback, verify
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOL_NAMES = ["mcp__wf__run_sql", "mcp__wf__example_games", "mcp__wf__search_games",
-              "mcp__wf__engine_eval"]
+TOOL_NAMES = ["mcp__chesscheck__run_sql", "mcp__chesscheck__example_games", "mcp__chesscheck__search_games",
+              "mcp__chesscheck__engine_eval"]
 TIMEOUT = 600
 
 
@@ -45,12 +45,12 @@ def _parse(stdout: str) -> dict:
 
 
 def _claude(prompt: str, state: Path, resume: str | None = None, model: str = MODEL) -> dict:
-    cfg = {"mcpServers": {"wf": {
-        "command": sys.executable, "args": ["-m", "wf.mcp_server", str(state)],
+    cfg = {"mcpServers": {"chesscheck": {
+        "command": sys.executable, "args": ["-m", "chesscheck.mcp_server", str(state)],
         # the tool server is a separate process: pass through engine and SQL-backend settings
         "env": {"PYTHONPATH": str(ROOT), **{k: v for k, v in os.environ.items()
-                                            if k in ("STOCKFISH_PATH", "WF_SQL_BACKEND",
-                                                     "WF_MYSQL_WRITER_URL", "WF_MYSQL_READER_URL")}},
+                                            if k in ("STOCKFISH_PATH", "CHESS_CHECK_SQL_BACKEND",
+                                                     "CHESS_CHECK_MYSQL_WRITER_URL", "CHESS_CHECK_MYSQL_READER_URL")}},
     }}}
     (state / "mcp.json").write_text(json.dumps(cfg))
     cmd = ["claude", "-p", prompt, "--output-format", "json",
@@ -77,7 +77,7 @@ def _claude(prompt: str, state: Path, resume: str | None = None, model: str = MO
 
 def complete(prompt: str, effort: str = "medium") -> str:
     """Plain one-shot completion through Claude Code: no tools, no MCP."""
-    with tempfile.TemporaryDirectory(prefix="wf-plain-") as d:
+    with tempfile.TemporaryDirectory(prefix="chess-check-plain-") as d:
         env = {k: v for k, v in os.environ.items()
                if k not in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")}
         proc = subprocess.run(
@@ -112,7 +112,7 @@ def run_coach_cli(username: str, facts: list[dict], games: pd.DataFrame,
                   keep_state: bool = False,
                   summaries: list[tuple[str, str]] | None = None,
                   model: str = MODEL) -> CoachResult:
-    state = Path(tempfile.mkdtemp(prefix="wf-coach-"))
+    state = Path(tempfile.mkdtemp(prefix="chess-check-coach-"))
     try:
         (state / "games.pkl").write_bytes(pickle.dumps(games))
         if moves is not None:

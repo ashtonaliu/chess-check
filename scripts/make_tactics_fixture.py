@@ -16,11 +16,11 @@ import chess
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from wf import engine  # noqa: E402
-from wf.facts import build_facts  # noqa: E402
-from wf.fetch import fetch_games  # noqa: E402
-from wf.stats import games_frame  # noqa: E402
-from wf.tactics import motifs, summarize  # noqa: E402
+from chesscheck import engine  # noqa: E402
+from chesscheck.facts import build_facts  # noqa: E402
+from chesscheck.fetch import fetch_games  # noqa: E402
+from chesscheck.stats import games_frame  # noqa: E402
+from chesscheck.tactics import motifs, summarize  # noqa: E402
 
 
 def main():

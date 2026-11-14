@@ -4,10 +4,10 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from wf import coach, model
-from wf.fetch import opening_names
-from wf.stats import expected_score, games_frame, opening_table, shrink
-from wf.verify import verify
+from chesscheck import coach, model
+from chesscheck.fetch import opening_names
+from chesscheck.stats import expected_score, games_frame, opening_table, shrink
+from chesscheck.verify import verify
 
 
 # ---------- stats ----------

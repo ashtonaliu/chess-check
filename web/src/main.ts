@@ -49,7 +49,7 @@ const side = (c: string) => (c === "white" ? "as White" : "as Black");
 const cap1 = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 interface StaticConfig { analysis: string; report: string; repo: string; browser?: boolean; }
-const STATIC = (window as unknown as { WF_STATIC?: StaticConfig }).WF_STATIC ?? null;
+const STATIC = (window as unknown as { CHESS_CHECK_STATIC?: StaticConfig }).CHESS_CHECK_STATIC ?? null;
 const ENGINE_URL = new URL("engine/stockfish-19-lite-single.js", import.meta.url).href;
 const BROWSER_DEPTH = 8;
 
@@ -566,6 +566,6 @@ else { const qs = new URLSearchParams(location.search).get("u"); if (qs) ($("use
 // Debug hook (only with ?debug=1): lets the real coach tools (DuckDB-WASM, Stockfish)
 // be exercised from the console with a scripted client, without an API key.
 if (new URLSearchParams(location.search).get("debug") === "1") {
-  (window as unknown as Record<string, unknown>).__wf = { runCoach, getRun: () => browserRun, engineUrl: ENGINE_URL, embed, current: () => current,
+  (window as unknown as Record<string, unknown>).__cc = { runCoach, getRun: () => browserRun, engineUrl: ENGINE_URL, embed, current: () => current,
     follower: () => follower };
 }

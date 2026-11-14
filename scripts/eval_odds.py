@@ -48,7 +48,7 @@ import requests
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from wf.fetch import DRAW_RESULTS, HEADERS, opening_names  # noqa: E402
+from chesscheck.fetch import DRAW_RESULTS, HEADERS, opening_names  # noqa: E402
 
 DATA = ROOT / "data" / "odds" / "v3"      # v2 (no other time controls or account info) stays on disk
 V1_PLAYERS = ROOT / "data" / "odds" / "players"     # first, smaller run: used only to pick focal players

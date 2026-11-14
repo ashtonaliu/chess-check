@@ -13,9 +13,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from wf.facts import build_facts  # noqa: E402
-from wf.fetch import fetch_games, opening_names  # noqa: E402
-from wf.stats import games_frame, opening_table, overall, verdict, worst_branch  # noqa: E402
+from chesscheck.facts import build_facts  # noqa: E402
+from chesscheck.fetch import fetch_games, opening_names  # noqa: E402
+from chesscheck.stats import games_frame, opening_table, overall, verdict, worst_branch  # noqa: E402
 
 
 def main():

@@ -1,4 +1,4 @@
-// search_games must match wf/search.py: summaries character for character,
+// search_games must match chesscheck/search.py: summaries character for character,
 // BM25 scores to 1e-9, and the hybrid ranking exactly (given the same
 // embedding vectors, which are injected from the Python fixture).
 import assert from "node:assert/strict";

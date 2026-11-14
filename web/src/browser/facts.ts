@@ -1,5 +1,5 @@
 // The numbered facts the coach is given, and the verifier that checks its
-// report against them. Ports of wf/facts.py and wf/verify.py; the facts text
+// report against them. Ports of chesscheck/facts.py and chesscheck/verify.py; the facts text
 // is parity-tested against Python, character for character.
 import { BLUNDER_DROP, moveLabel, phaseSummary, worstBlunders, type GameAnalysis } from "./engine";
 import type { Risk } from "./model";
@@ -48,7 +48,7 @@ function median(xs: number[]): number {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 }
 
-/** Median eval after move 12 and win% lost per move in moves 13-25 (wf/engine.py opening_exit). */
+/** Median eval after move 12 and win% lost per move in moves 13-25 (chesscheck/engine.py opening_exit). */
 export function openingExit(analyses: GameAnalysis[], urls: Set<string>) {
   const evals: number[] = [];
   let loss = 0, n = 0;
@@ -207,7 +207,7 @@ function tacticFacts(add: (kind: string, text: string) => void, t: TacticSummary
 
 export const factsText = (facts: Fact[]) => facts.map(f => `[${f.id}] ${f.text}`).join("\n");
 
-// ---------- verifier (wf/verify.py) ----------
+// ---------- verifier (chesscheck/verify.py) ----------
 
 const CITE = /\[([FT]\d+)\]/g;
 const URL_RE = /https?:\/\/\S+/g;

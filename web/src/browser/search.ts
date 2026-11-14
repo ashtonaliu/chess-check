@@ -1,4 +1,4 @@
-// search_games in the browser: the same per-game summaries as wf/search.py,
+// search_games in the browser: the same per-game summaries as chesscheck/search.py,
 // BM25 matching rank_bm25's BM25Okapi exactly, all-MiniLM-L6-v2 embeddings
 // through transformers.js (loaded only when the coach searches), and the
 // same reciprocal-rank fusion. Summaries and BM25 are parity-tested.
@@ -96,7 +96,7 @@ export class GameIndex {
     const [q] = await this.embedFn([query]);
     return vectors.map(v => v.reduce((a, x, i) => a + x * q[i], 0));
   }
-  /** Reciprocal-rank fusion of BM25 and embeddings, as in wf/search.py. */
+  /** Reciprocal-rank fusion of BM25 and embeddings, as in chesscheck/search.py. */
   async search(query: string, k = 5): Promise<{ i: number; score: number }[]> {
     const fused = new Array(this.urls.length).fill(0);
     for (const s of [this.bm25Scores(query), await this.embedScores(query)]) {

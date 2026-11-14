@@ -12,8 +12,8 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from wf import db, engine, model  # noqa: E402
-from wf.fetch import fetch_games  # noqa: E402
+from chesscheck import db, engine, model  # noqa: E402
+from chesscheck.fetch import fetch_games  # noqa: E402
 
 
 def main():

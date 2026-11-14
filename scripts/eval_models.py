@@ -26,8 +26,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from wf.coach_cli import run_coach_cli  # noqa: E402
-from wf.pipeline import analyze  # noqa: E402
+from chesscheck.coach_cli import run_coach_cli  # noqa: E402
+from chesscheck.pipeline import analyze  # noqa: E402
 
 MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"]
 SECTIONS = ["## Biggest weaknesses", "## What's working", "## Training plan"]

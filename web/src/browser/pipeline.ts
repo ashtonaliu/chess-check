@@ -1,5 +1,5 @@
 // Full analysis in the browser, producing the same payload shape as the
-// Python server's /api/analyze (wf/pipeline.py to_payload), so the page
+// Python server's /api/analyze (chesscheck/pipeline.py to_payload), so the page
 // renders either one.
 import { analyseGames, BLUNDER_DROP, DEEP_DEPTH_BROWSER, moveLabel, phaseSummary, recheckBlunders, worstBlunders } from "./engine";
 import { fetchGames } from "./games";

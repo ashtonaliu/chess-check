@@ -24,7 +24,7 @@ from .fetch import Game
 
 OPENING_PLIES = 24          # through move 12
 BLUNDER_DROP = 20.0         # win% lost in one move
-CACHE = Path(os.environ.get("WF_CACHE", ".cache/engine"))
+CACHE = Path(os.environ.get("CHESS_CHECK_CACHE", ".cache/engine"))
 PIECE_VALUES = {chess.PAWN: 1, chess.KNIGHT: 3, chess.BISHOP: 3,
                 chess.ROOK: 5, chess.QUEEN: 9}
 CACHE_VERSION = 3
@@ -172,9 +172,9 @@ def analyse_games(games: list[Game], depth: int = 10, workers: int | None = None
     path = find_stockfish()
     if not path:
         raise RuntimeError("Stockfish not found; install it or set STOCKFISH_PATH")
-    # WF_ENGINE_WORKERS caps Stockfish processes on small hosts, where
+    # CHESS_CHECK_ENGINE_WORKERS caps Stockfish processes on small hosts, where
     # os.cpu_count() reports the machine's cores, not the container's share
-    workers = workers or int(os.environ.get("WF_ENGINE_WORKERS", 0)) \
+    workers = workers or int(os.environ.get("CHESS_CHECK_ENGINE_WORKERS", 0)) \
         or max(1, (os.cpu_count() or 2) - 1)
     out: list[dict | None] = [None] * len(games)
     try:
@@ -240,7 +240,7 @@ def recheck_blunders(analyses: list[dict], depth: int = DEEP_DEPTH, workers: int
     path = find_stockfish()
     if not path:
         return
-    workers = workers or int(os.environ.get("WF_ENGINE_WORKERS", 0)) or max(1, (os.cpu_count() or 2) - 1)
+    workers = workers or int(os.environ.get("CHESS_CHECK_ENGINE_WORKERS", 0)) or max(1, (os.cpu_count() or 2) - 1)
     try:
         with ThreadPoolExecutor(workers) as pool:
             results = list(pool.map(lambda a: _recheck_game(a, path, depth), analyses))

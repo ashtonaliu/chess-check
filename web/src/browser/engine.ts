@@ -1,6 +1,6 @@
 // Stockfish in the browser: a pool of single-threaded WASM engines (one per
 // core; the multi-threaded build needs cross-origin isolation, which GitHub
-// Pages can't provide), plus the per-move analysis of wf/engine.py.
+// Pages can't provide), plus the per-move analysis of chesscheck/engine.py.
 import { Chess, type Move } from "chess.js";
 import type { Game } from "./games";
 
@@ -95,7 +95,7 @@ export const defaultWorkers = () => Math.max(1, Math.min((navigator.hardwareConc
 
 // ---------- cache (IndexedDB) ----------
 
-const DB = "wf-engine-cache", STORE = "games", CACHE_VERSION = 1;
+const DB = "chess-check-engine-cache", STORE = "games", CACHE_VERSION = 1;
 let askedToPersist = false;
 function openDb(): Promise<IDBDatabase | null> {
   // Ask once that the browser not evict this cache when disk space runs low (losing it only costs a
@@ -103,12 +103,45 @@ function openDb(): Promise<IDBDatabase | null> {
   if (!askedToPersist) { askedToPersist = true; void navigator.storage?.persist?.().catch(() => false); }
   return new Promise(resolve => {
     try {
+      let created = false;
       const req = indexedDB.open(DB, 1);
-      req.onupgradeneeded = () => req.result.createObjectStore(STORE);
-      req.onsuccess = () => resolve(req.result);
+      req.onupgradeneeded = () => { created = true; req.result.createObjectStore(STORE); };
+      req.onsuccess = () => {
+        const db = req.result;
+        if (created) void moveOldCache(db).finally(() => resolve(db));
+        else resolve(db);
+      };
       req.onerror = () => resolve(null);
     } catch { resolve(null); }
   });
+}
+
+/** One-time move of engine results saved under the cache's earlier name, so nobody loses them. */
+const OLD_DB = "wf-engine-cache";
+async function moveOldCache(db: IDBDatabase): Promise<void> {
+  try {
+    const names = (await indexedDB.databases?.())?.map(d => d.name) ?? [];
+    if (!names.includes(OLD_DB)) return;
+    const old = await new Promise<IDBDatabase | null>(res => {
+      const r = indexedDB.open(OLD_DB);
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => res(null);
+    });
+    if (!old || !old.objectStoreNames.contains(STORE)) { old?.close(); return; }
+    const entries = await new Promise<[IDBValidKey, unknown][]>(res => {
+      const out: [IDBValidKey, unknown][] = [];
+      const cur = old.transaction(STORE, "readonly").objectStore(STORE).openCursor();
+      cur.onsuccess = () => { const c = cur.result; if (c) { out.push([c.key, c.value]); c.continue(); } else res(out); };
+      cur.onerror = () => res(out);
+    });
+    old.close();
+    await new Promise<void>(res => {
+      const tx = db.transaction(STORE, "readwrite");
+      for (const [k, v] of entries) tx.objectStore(STORE).put(v, k);
+      tx.oncomplete = tx.onerror = tx.onabort = () => res();
+    });
+    indexedDB.deleteDatabase(OLD_DB);
+  } catch { /* an unreadable old cache only costs a rebuild */ }
 }
 function idb<T>(db: IDBDatabase | null, mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest): Promise<T | undefined> {
   if (!db) return Promise.resolve(undefined);
@@ -138,7 +171,7 @@ async function readCached<T>(db: IDBDatabase | null, keys: string[]): Promise<(T
   return keys.map(() => undefined);
 }
 
-// ---------- per-game analysis (wf/engine.py _analyse) ----------
+// ---------- per-game analysis (chesscheck/engine.py _analyse) ----------
 
 type Stored = Omit<GameAnalysis, "color" | "opening_eval"> & { opening_eval_white: number | null };
 
@@ -245,7 +278,7 @@ export async function analyseGames(games: Game[], opts: PoolOptions): Promise<Ga
   });
 }
 
-// ---------- deep re-check of flagged blunders (wf/engine.py recheck_blunders) ----------
+// ---------- deep re-check of flagged blunders (chesscheck/engine.py recheck_blunders) ----------
 
 export const DEEP_DEPTH_BROWSER = 14;
 
@@ -298,7 +331,7 @@ export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: 
   analyses.forEach((a, i) => { const d = cached[i]; if (d) for (const m of a.moves) Object.assign(m, d[String(m.ply)] ?? {}); });
 }
 
-// ---------- summaries (wf/engine.py) ----------
+// ---------- summaries (chesscheck/engine.py) ----------
 
 export function phaseSummary(analyses: GameAnalysis[], mine = true) {
   const rows: Record<string, { moves: number; loss: number; blunders: number }> = {
@@ -315,7 +348,7 @@ export function phaseSummary(analyses: GameAnalysis[], mine = true) {
   }]));
 }
 
-/** The user's biggest mistakes, by the confirmed (deep) loss when available (wf/engine.py worst_blunders). */
+/** The user's biggest mistakes, by the confirmed (deep) loss when available (chesscheck/engine.py worst_blunders). */
 export function worstBlunders(analyses: GameAnalysis[], k = 5) {
   const all = analyses.flatMap(a => a.moves.filter(m => m.is_me).map(m => {
     const d = m as MoveRow & { deep_loss?: number; deep_best?: string | null };

@@ -32,9 +32,9 @@ async function load<T>(key: string, fallback: T): Promise<T> {
 async function save(key: string, value: unknown) {
   try { await chrome.storage.local.set({ [key]: value }); } catch { /* not remembered */ }
 }
-type Dev = { __wfPageUrl?: string; __wfCallback?: (id: string) => Promise<Callback | null>; __wfSignedIn?: string };
+type Dev = { __ccPageUrl?: string; __ccCallback?: (id: string) => Promise<Callback | null>; __ccSignedIn?: string };
 const dev = window as unknown as Dev;
-const pageUrl = () => dev.__wfPageUrl ?? location.href;
+const pageUrl = () => dev.__ccPageUrl ?? location.href;
 
 export interface Players { white: string; black: string }
 
@@ -42,7 +42,7 @@ export interface Players { white: string; black: string }
  *  sidebar link to your profile. Null when signed out. Nothing else on the page is read. */
 let signedIn: string | null = null;
 function signedInUser(): string | null {
-  if (dev.__wfSignedIn !== undefined) return dev.__wfSignedIn || null;
+  if (dev.__ccSignedIn !== undefined) return dev.__ccSignedIn || null;
   if (signedIn) return signedIn;
   for (const s of Array.from(document.scripts)) {
     const m = s.textContent?.match(/"user":\{"id":\d+,[^{}]*?"username":"([\w-]+)"/);
@@ -60,7 +60,7 @@ interface Served { kind: "live" | "daily"; callback: Callback; players: Players 
 async function fetchGame(id: string, url: string): Promise<Served | null> {
   const kind = /\/daily\//.test(new URL(url).pathname) ? "daily" : "live";
   let callback: Callback | null;
-  if (dev.__wfCallback) callback = await dev.__wfCallback(id);
+  if (dev.__ccCallback) callback = await dev.__ccCallback(id);
   else {
     const r = await fetch(`/callback/${kind}/game/${id}`, { credentials: "include" });
     if (r.status === 404) return null;

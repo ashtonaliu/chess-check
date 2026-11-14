@@ -14,10 +14,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from wf import db, engine, model  # noqa: E402
-from wf.facts import build_facts  # noqa: E402
-from wf.fetch import fetch_games  # noqa: E402
-from wf.stats import games_frame  # noqa: E402
+from chesscheck import db, engine, model  # noqa: E402
+from chesscheck.facts import build_facts  # noqa: E402
+from chesscheck.fetch import fetch_games  # noqa: E402
+from chesscheck.stats import games_frame  # noqa: E402
 
 COLS = ["url", "ply", "move_no", "san", "best", "mover", "is_me", "phase", "cp_before", "cp_after",
         "wp_loss", "clock", "clock_frac", "time_spent", "legal_moves", "in_check",
@@ -54,7 +54,7 @@ def main():
     fixture["facts"] = [{"id": f["id"], "text": f["text"]} for f in facts]
 
     # search: summaries, BM25 scores, embeddings and hybrid rankings
-    from wf.search import GameIndex, embedder
+    from chesscheck.search import GameIndex, embedder
     idx = GameIndex.build(games, analyses)
     queries = ["ran out of clock and got flagged", "threw away a completely winning game",
                "my king got mated", "games that ended in a draw"]

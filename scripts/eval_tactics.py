@@ -23,7 +23,7 @@ import chess
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from wf.tactics import MOTIFS, motifs  # noqa: E402
+from chesscheck.tactics import MOTIFS, motifs  # noqa: E402
 
 
 def truth(themes: set[str]) -> set[str]:

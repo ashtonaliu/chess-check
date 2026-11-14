@@ -25,8 +25,8 @@ import requests
 
 from eval_odds import _boot, expected, pregame_rating, score_of
 
-from wf import engine, tactics
-from wf.fetch import HEADERS
+from chesscheck import engine, tactics
+from chesscheck.fetch import HEADERS
 
 ROOT = Path(__file__).resolve().parents[1]
 API = "https://api.chess.com/pub/player"
@@ -250,7 +250,7 @@ def analyse(raw, binary, cache):
     path = cache / f"{gid}.json"
     if path.is_file():
         return json.loads(path.read_text()), False
-    from wf.fetch import Game
+    from chesscheck.fetch import Game
 
     game = Game(url=raw["url"], color="white", my_rating=0, opp_rating=0,
                 score=0, time_class="blitz", eco="", opening="", family="",

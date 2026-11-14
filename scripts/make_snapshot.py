@@ -16,9 +16,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from wf.coach_cli import run_coach_auto  # noqa: E402
-from wf.env import load_env  # noqa: E402
-from wf.pipeline import analyze, to_payload  # noqa: E402
+from chesscheck.coach_cli import run_coach_auto  # noqa: E402
+from chesscheck.env import load_env  # noqa: E402
+from chesscheck.pipeline import analyze, to_payload  # noqa: E402
 
 
 def main():

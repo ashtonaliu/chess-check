@@ -36,13 +36,13 @@ Everything is compared with your opponents in the same games. A typical result, 
 
 ## Post-game recaps
 
-**Chrome extension.** The extension puts a small cube on Chess.com pages that you can drag anywhere. Open one of your finished games and the cube turns green; click it to see the recap. While you are playing, clicking it only says the recap will appear when the game ends. To install it before it is in the Chrome Web Store:
+**Chrome extension.** The extension puts a small cube on Chess.com pages that you can drag anywhere. There is nothing to set up: open one of your finished games and the cube turns green; click it to see the recap. While you are playing, clicking it only says the recap will appear when the game ends. To install it before it is in the Chrome Web Store:
 
 1. Run `scripts/build_extension.sh` (or download the zip from the releases page and unzip it).
 2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and choose the `extension` folder.
-3. Reload your Chess.com tab, click the cube and enter your username. The first setup analyzes your last 150 games and takes a minute or two.
+3. Reload your Chess.com tab and open a finished game. The first recap analyzes your last 150 games in that time control, which takes a minute or two.
 
-Clicking the toolbar icon hides or shows the cube. The extension never reads Chess.com's pages. It only looks at the address of the tab to know which game you are viewing, and it talks only to Chess.com's public API. The cube sits in its own isolated element, and Stockfish runs in a hidden extension page, not in Chess.com's page.
+The cube knows who you are from the Chess.com account you are signed in to, and it gets both players from the game itself. If you are signed out, it asks once which of the two players you are. It reads nothing else from the page, and it runs no analysis until Chess.com lists the game as finished, so Stockfish never runs during a game. Clicking the toolbar icon hides or shows the cube.
 
 **On the website,** press **Follow my games** and keep the tab open; a recap appears after each game you finish.
 

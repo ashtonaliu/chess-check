@@ -3,17 +3,14 @@
 // run in Chess.com's page or in the service worker). The cube overlay asks it
 // for recaps through the background service worker.
 import { recapGame, type Profile } from "../browser/follow";
-import { findGame } from "../browser/games";
+import { findGame, type Game } from "../browser/games";
 import { analyzeInBrowser } from "../browser/pipeline";
 import type { Recap } from "../browser/recap";
 import { canShowRecap, gameIdFromApiUrl } from "./guard";
 
-export type Request =
-  | { type: "profile"; username: string; timeClass: string }
-  | { type: "recap"; username: string; timeClass: string; gameId: string };
+export type Request = { type: "recap"; username: string; gameId: string };
 export type Reply =
   | { status: "building"; progress: string }
-  | { status: "ready" }
   | { status: "pending" }                      // not finished yet (or not this player's game)
   | { status: "recap"; recap: Recap }
   | { status: "error"; message: string };
@@ -28,11 +25,14 @@ let building: Promise<void> | null = null;
 let progress = "Starting…";
 let lastError = "";
 const recaps = new Map<string, Recap>();
+const finished = new Map<string, Game>();      // games the public API already listed as finished
 
-function ensureProfile(username: string, timeClass: string): Reply {
+/** Build (once) the profile for this player and time class. Only called for a finished game,
+ *  so Stockfish never runs while the player is in a game. */
+function ensureProfile(username: string, timeClass: string): Reply | null {
   const key = `${username.toLowerCase()}|${timeClass}`;
-  if (key !== profileKey) { profileKey = key; profile = null; building = null; recaps.clear(); lastError = ""; }
-  if (profile) return { status: "ready" };
+  if (key !== profileKey) { profileKey = key; profile = null; building = null; lastError = ""; }
+  if (profile) return null;
   if (lastError) return { status: "error", message: lastError };
   if (!building) {
     progress = `Analyzing ${username}'s recent ${timeClass} games…`;
@@ -50,17 +50,21 @@ function ensureProfile(username: string, timeClass: string): Reply {
 
 export async function handle(req: Request): Promise<Reply> {
   try {
-    const p = ensureProfile(req.username, req.timeClass);
-    if (req.type === "profile" || p.status !== "ready") return p;
-    if (recaps.has(req.gameId)) return { status: "recap", recap: recaps.get(req.gameId)! };
+    const key = `${req.username.toLowerCase()}|${req.gameId}`;
+    if (recaps.has(key)) return { status: "recap", recap: recaps.get(key)! };
     // Fair-play guard: only games the public API already lists as finished. Look the game up by ID,
     // since a player can finish dozens of games after the one they open.
-    const found = await findGame(req.username, req.gameId);
-    const finished = new Set(found ? [gameIdFromApiUrl(found.url)!] : []);
-    if (!canShowRecap(req.gameId, finished) || !found) return { status: "pending" };
-    const game = found;
+    let game = finished.get(key);
+    if (!game) {
+      const found = await findGame(req.username, req.gameId);
+      const ids = new Set(found ? [gameIdFromApiUrl(found.url)!] : []);
+      if (!found || !canShowRecap(req.gameId, ids)) return { status: "pending" };
+      finished.set(key, game = found);
+    }
+    const p = ensureProfile(req.username, game.timeClass);
+    if (p) return p;
     const recap = await recapGame(game, profile!, ENGINE_URL);
-    recaps.set(req.gameId, recap);
+    recaps.set(key, recap);
     return { status: "recap", recap };
   } catch (e) {
     return { status: "error", message: (e as Error).message };

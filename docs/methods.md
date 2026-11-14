@@ -224,15 +224,21 @@ Browser notifications are optional (the "Notify me" button asks for permission),
 
 ## Odds experiment
 
-`scripts/eval_odds.py` asks whether account history predicts a game's result better than ratings alone. `collect` takes the 30 opponents I have played most who have at least 110 blitz games in the last two months, uses each one's last 60 games as targets, and caches the target opponents' histories too (data/odds/, about 1,100 players). `evaluate` builds features for each target game from games that ended before it: the Elo expected score, each player's mean residual over their last 20 games and with this game's color over their last 50, both players' residuals in each side's most-played opening with that color (shrunk toward zero with k = 10), the share of the last three games won, games in the last hour and minutes since the last game. A multinomial logistic regression over win, draw and loss is scored with grouped 5-fold cross-validation by focal player, and the 90% interval comes from resampling focal players 2,000 times.
+`scripts/eval_odds.py` asks whether account history predicts a game's result better than ratings alone. The first run used 1,780 games from 30 players. The current one uses 14,830 games: `collect` picks 250 players with enough blitz games (a fixed pseudo-random sample of players from the first run), takes each one's last 60 games as targets, and downloads the last two months of blitz games for every target opponent (12,178 players, cached in data/odds/v2/), including clock times and how each game ended.
 
-| Model | Log loss | Brier (expected score) |
-|---|---:|---:|
-| Elo formula | n/a | 0.2394 |
-| Ratings only, fitted | 0.8253 | 0.2392 |
-| Ratings plus history | 0.8307 | 0.2412 |
+Each target game gets features built only from games that ended before it: the Elo expected score from pre-game ratings; each player's recent form and results with this color; both players' results in each side's most-played opening; each player's results against the openings the other side usually plays with these colors; the share of losses that were on time, the share of wins where the opponent ran out of time, and the clock left at the end, plus their product across players (a frequent flagger against someone who often loses on time); the share of the last three games won; games in the hour before the previous game ended; and minutes between the previous two games. Models predict win, draw or loss and are scored by grouped 5-fold cross-validation over the 250 players, with 90% intervals from resampling players.
 
-History is worse by 0.0055 in log loss (90% interval 0.0008 to 0.0100) and 0.0020 in Brier (0.0006 to 0.0035). The largest history weights were games in the last hour for each player, and they did not hold up on unseen players. The test has little power: if history shifted each game's expected score by a typical 3 percentage points, the Brier score would improve by about 0.03² = 0.0009, while the interval above is about 0.003 wide. So it rules out large effects only.
+| Model | Log loss | Brier (expected score) | Brier change vs ratings only (90% interval) |
+|---|---:|---:|---|
+| Elo formula | n/a | 0.2398 | |
+| Ratings only, logistic | 0.8407 | 0.2387 | |
+| Ratings plus first-run history, logistic | 0.8410 | 0.2387 | +0.0000 (−0.0003 to +0.0003) |
+| Ratings plus all history and matchups, logistic | 0.8420 | 0.2389 | −0.0002 (−0.0006 to +0.0002) |
+| Ratings plus all history and matchups, gradient boosting | 0.8420 | 0.2391 | −0.0004 (−0.0007 to +0.0000) |
+
+The widest interval is 0.0008, so the test could detect a history effect that shifts a typical game's expected score by about 2 percentage points (0.02² ≈ 0.0004). Targeted checks on the games where a matchup applies (mean of score minus Elo expected score) found nothing outside noise in openings. For clock habits, the top 10% of games where the time matchup favored the focal player came out +0.015 (−0.006 to +0.036), and the bottom 10% came out −0.019 (−0.041 to +0.003).
+
+**A leak I caught.** The first run of this version measured "games in the last hour" and "minutes since the last game" from the target game's end time. That end time includes how long the target game lasted, and game length gives away how it ended. Gradient boosting combined those features with the clock habits and showed a gain of +0.0044 (0.0034 to 0.0053) over ratings, while no feature group helped on its own. Dropping the two features removed the gain (+0.0003, −0.0001 to +0.0006). They are now measured from the end of the player's previous game, and the table above is the corrected run.
 
 **Post-game ratings.** The `rating` field in Chess.com's game archive is the rating after the game. Across 980,711 consecutive game pairs, a player's rating change agreed with the result of that same game 99.6% of the time and with the previous game's result 50.2% of the time. The first run used those ratings and reported a Brier score of 0.163 for the fitted ratings model against 0.218 for the Elo formula, because the fitted model had learned to read the result from the rating change. The script now uses each player's rating after their previous game in the same time class. For past games in a player's history, the opponent's pre-game rating is estimated as their post-game rating plus the player's own rating change. On these games, post-game ratings move the expected score by 2.2 percentage points on average, almost always toward the actual result.
 

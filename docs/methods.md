@@ -395,6 +395,28 @@ the reverse matchup. The three models use the same five held-out focal-player
 folds. Each selects regularization by Brier score inside a grouped four-fold
 split of its training data. Paired 90% intervals resample focal players.
 
+**Results.** The study analyzed 70,222 distinct depth-10 history games for
+995 targets across 250 focal players. The full pass took about 83 wall minutes
+with 14 workers (69,098.416 summed seconds across workers). The final model
+rerun used the complete cache. Across distinct history games, the detector
+counted 53,787 fork opportunities, 7,573 missed forks, 14,436 allowed forks,
+and 43,236 forks played. Back-rank mates had 1,900 opportunities and 151 misses.
+
+- Ratings and color yielded Brier 0.236645 and log loss 0.866444.
+- Adding motif profiles yielded Brier 0.237306 and log loss 0.867459.
+  Improvements over ratings and color were −0.000661 for Brier
+  (90% interval −0.002233 to +0.000953) and −0.001015 for log loss
+  (−0.004733 to +0.002581).
+- Adding the matchup terms yielded Brier 0.237033 and log loss 0.866642.
+  Improvements over ratings and color were −0.000387 for Brier
+  (−0.002337 to +0.001525) and −0.000198 for log loss
+  (−0.004499 to +0.004054).
+
+The matchup terms alone improved on the motif-profile model by +0.000274
+Brier (−0.000362 to +0.000929) and +0.000817 log loss (−0.000532 to +0.002226).
+All six paired intervals span zero. The study leaves room for small effects
+and estimates the combined predictive value of these motif features.
+
 ```sh
 python scripts/eval_tactic_matchups.py --source /path/to/data/odds/v3 --workers 14
 ```

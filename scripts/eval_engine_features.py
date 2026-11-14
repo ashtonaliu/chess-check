@@ -275,7 +275,10 @@ def analyse(raw, binary, cache):
             "losses": [move["wp_loss"] for move in moves],
             "phase_losses": {phase: [move["wp_loss"] for move in moves if move["phase"] == phase]
                              for phase in PHASES},
-            "changes": [move["cp_after"] - move["cp_before"] for move in moves],
+            # clipped to +-1000 cp: mates are stored as +-3000, and one mating line would otherwise
+            # decide a player's whole sharpness number
+            "changes": [max(min(move["cp_after"], 1000), -1000) - max(min(move["cp_before"], 1000), -1000)
+                        for move in moves],
             "low_clock": [int(move["wp_loss"] >= engine.BLUNDER_DROP) for move in timed
                           if move["clock_frac"] < 0.10],
             "normal_clock": [int(move["wp_loss"] >= engine.BLUNDER_DROP) for move in timed
@@ -298,7 +301,7 @@ def evaluate_games(jobs, binary, cache, workers):
     version = subprocess.check_output([binary, "--version"], text=True, timeout=15).splitlines()[0]
     with Path(binary).open("rb") as handle:
         identity = hashlib.file_digest(handle, "sha256").hexdigest()[:16]
-    destination = cache / f"games-v1-d{DEPTH}-{identity}"
+    destination = cache / f"games-v2-d{DEPTH}-{identity}"   # v2: sharpness clipped at +-1000 cp
     results = {}
     elapsed = uncached = 0
     started = time.perf_counter()

@@ -105,15 +105,16 @@ The smallest model was the most accurate and about 34 times cheaper than Opus, s
 
 Embeddings understand rewording ("got flagged" finds games lost on time) but confuse who did what ("my king got mated" also finds games where I mated someone). Keywords handle that case, so the coach uses both.
 
-**Does a player's history predict the result?** I wanted to know whether a pre-game "odds" number could beat plain ratings, so I tested it on 1,780 blitz games from 30 players, using only games that ended before each one. History meant recent form, results with each color, each player's main opening, win streaks and how many games they had played in the last hour. I scored both models on players they had not seen (Brier score: 0.25 is a coin flip, lower is better).
+**Does a player's history predict the result?** I wanted to know whether a pre-game "odds" number could beat plain ratings. I tested it on 14,830 blitz games from 250 players, using only games that ended before each one. History meant recent form, results with each color, results in each side's main openings, how each player scores against the openings the other one usually plays, clock habits (losing on time, flagging opponents, clock left at the end), win streaks and how much each player had been playing. I scored the models on players they had not seen (Brier score: 0.25 is a coin flip, lower is better).
 
 | Model | Brier score |
 |---|---:|
-| Elo formula from the two ratings | 0.239 |
-| Ratings, fitted | 0.239 |
-| Ratings plus history | 0.241 |
+| Elo formula from the two ratings | 0.2398 |
+| Ratings, fitted | 0.2387 |
+| Ratings plus all history, linear model | 0.2389 |
+| Ratings plus all history, gradient boosting | 0.2391 |
 
-With this sample, history did not measurably improve on ratings. The small loss (0.0006 to 0.0035 worse, 90% interval) comes from fitting 14 extra features to 1,780 games. That is not the same as showing history is useless. Chess.com pairs you with someone of about your rating, so most games start close to a coin flip, and an edge of 3 percentage points per game would only change the Brier score by about 0.001, three times smaller than this test could see. The app does not show pre-game odds anyway because of the fair-play rules below.
+None of the history models beat ratings. This sample could detect an effect of about 2 percentage points per game, so if history matters, it matters less than that. Chess.com pairs you with someone of about your rating, so most games start close to a coin flip, and the rating already carries most of what history knows. The one hint was clock habits: when one player often flags opponents and the other often loses on time, the flagger scored about 1.5 to 1.9 points better than ratings predicted, but both intervals just reached zero. The app does not show pre-game odds anyway because of the fair-play rules below.
 
 ## What I learned
 
@@ -124,6 +125,7 @@ With this sample, history did not measurably improve on ratings. The small loss 
 - **Measure before trusting the hype.** AI embeddings alone did worse than plain keyword search. Combining them did best.
 - **The biggest model is not always the best one.** Haiku beat Opus on accuracy at a thirtieth of the price. Measuring it took an hour; guessing would have cost 30 times more per report.
 - **Check where the numbers come from.** My first run of the odds test said a fitted model beat the Elo formula by a wide margin. The reason was that Chess.com's archive stores each player's rating after the game, so the winner's rating already included the points they won. Using each player's rating from their previous game removed the gap.
+- **A result that looks too good probably is.** My first run of the bigger odds test said gradient boosting beat ratings clearly. No single group of features helped on its own, which made me suspicious. Two features measured time from when the game ended, so they included how long the game lasted, and that gives away how it ended. Measured from the previous game instead, the gain disappeared.
 - **Two versions keep each other honest.** I wrote the analysis in Python and again in TypeScript for the browser. Testing that both give the same answers caught a rounding difference and a solver that stopped too early.
 
 ## Tech used

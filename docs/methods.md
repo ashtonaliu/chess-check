@@ -369,6 +369,58 @@ games. The model rerun reused all 70,467 engine results.
 python scripts/eval_engine_features.py --source /path/to/data/odds/v3 --workers 18
 ```
 
+### Tactical matchups
+
+`scripts/eval_tactic_matchups.py` uses the same sampled targets, previous-game
+ratings, and 50 strictly pre-start blitz games per player as the Stockfish
+history study. It reads the downloaded PGNs offline and stores separate
+depth-10 motif counts. The original cache pooled motifs across types.
+
+The detector tags the engine's best move and the move actually played. A
+missed motif is present in the best move, absent in the played move, and
+accompanied by a drop of at least 20 win-percentage points. An allowed motif
+appears on the best reply to a move with that drop. The model uses missed
+events per tagged best-move opportunity, and opportunities, allowed events,
+and played motifs per move. Played motifs count only on moves below the drop
+threshold. Fixed pseudo-counts shrink sparse rates toward zero. Played motifs
+estimate how often a player uses a motif, including opportunities gifted by an
+opponent. Single-move tags also miss combinations that unfold over several
+moves, and pin and back-rank tags were less precise in puzzle validation.
+
+The baseline calibrates the pre-game Elo gap and color with multinomial
+logistic regression. The first extension adds the difference between players'
+motif rates. The second adds two matchup terms per motif, combining one
+player's played rate with the other's missed or allowed rate and subtracting
+the reverse matchup. The three models use the same five held-out focal-player
+folds. Each selects regularization by Brier score inside a grouped four-fold
+split of its training data. Paired 90% intervals resample focal players.
+
+**Results.** The study analyzed 70,222 distinct depth-10 history games for
+995 targets across 250 focal players. The full pass took about 83 wall minutes
+with 14 workers (69,098.416 summed seconds across workers). The final model
+rerun used the complete cache. Across distinct history games, the detector
+counted 53,787 fork opportunities, 7,573 missed forks, 14,436 allowed forks,
+and 43,236 forks played. Back-rank mates had 1,900 opportunities and 151 misses.
+
+- Ratings and color yielded Brier 0.236645 and log loss 0.866444.
+- Adding motif profiles yielded Brier 0.237306 and log loss 0.867459.
+  Improvements over ratings and color were −0.000661 for Brier
+  (90% interval −0.002233 to +0.000953) and −0.001015 for log loss
+  (−0.004733 to +0.002581).
+- Adding the matchup terms yielded Brier 0.237033 and log loss 0.866642.
+  Improvements over ratings and color were −0.000387 for Brier
+  (−0.002337 to +0.001525) and −0.000198 for log loss
+  (−0.004499 to +0.004054).
+
+The matchup terms alone improved on the motif-profile model by +0.000274
+Brier (−0.000362 to +0.000929) and +0.000817 log loss (−0.000532 to +0.002226).
+All six paired intervals span zero. The study leaves room for small effects
+and estimates the combined predictive value of these motif features.
+
+```sh
+python scripts/eval_tactic_matchups.py --source /path/to/data/odds/v3 --workers 14
+```
+
 ### Beating raw ratings on a large holdout
 
 `scripts/eval_session_effects.py` uses every game in the v3 player histories (12,233 players),
@@ -435,6 +487,23 @@ The recap uses these coefficients (`CALIBRATION` in `web/src/browser/recap.ts`);
 Elo formula. The opponent's pre-game rating in training games is estimated, so a little noise in
 the rating gap may shrink a; the exact pre-game ratings in the 14,807 target games showed the same
 overconfidence. The opening tables in the main report still use the Elo formula.
+
+**Gate test: does a tactic profile predict the player's own next game?** (`scripts/eval_tactic_gate.py`,
+no new engine work). The big engine study (`docs/engine-study-plan.md`) was to run only if it did.
+A focal player's target game is part of the history of their later targets, so 728 target games
+(all 250 players) already have motif counts. For each, the player's pooled profile from their
+previous 50 games is compared with their own mistakes in that game, out of sample by grouped
+5-fold over players, beyond their rating:
+
+| That game's ... | Correlation with the profile | Out-of-sample R², rating + profile |
+|---|---:|---:|
+| Missed tactics (share of opportunities) | −0.03 | −0.002 |
+| Allowed tactics (per move) | +0.10 | +0.001 |
+| Missed + allowed (per move) | +0.02 | −0.006 |
+
+Only allowing tactics shows a faint trait. A single game has few tactical chances, so its count is
+mostly noise, and a 50-game profile does not predict it. The gate failed, so the big engine run is
+not being done for tactics.
 
 ## Cross-language parity
 

@@ -54,8 +54,8 @@ def build_facts(df: pd.DataFrame, analyses: list[dict] | None = None,
     o = overall(df)
     add("overall",
         f"Across {o['games']} games (average rating {o['avg_rating']}), you "
-        f"scored {pct(o['score'])} versus {pct(o['expected'])} expected from "
-        f"ratings ({_pts(o['resid'])} points).")
+        f"scored {pct(o['score'])} versus {pct(o['expected'])} expected before play "
+        f"({_pts(o['resid'])} points).")
 
     if risk:
         add("model",

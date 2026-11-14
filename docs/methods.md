@@ -483,10 +483,12 @@ games before 2026-11-01 and checked on games from 2026-11-07:
 | Blitz | 574,360 | 202,775 | 0.4637 | 0.0606 | 0.23814 | 0.23722 | +0.00092 (+0.00078 to +0.00106) |
 | Rapid | 19,393 | 3,594 | 0.3770 | 0.0583 | 0.23434 | 0.22873 | +0.00561 (+0.00375 to +0.00810) |
 
-The recap uses these coefficients (`CALIBRATION` in `web/src/browser/recap.ts`); daily games keep the
-Elo formula. The opponent's pre-game rating in training games is estimated, so a little noise in
-the rating gap may shrink a; the exact pre-game ratings in the 14,807 target games showed the same
-overconfidence. The opening tables in the main report still use the Elo formula.
+I use the same formula for the recap's upset meter and opening history, the main report's overall
+and opening scores (including opening branches), and opponent notes. I also use those game scores
+in the coach's facts and SQL tools. For daily games and other time classes without fitted coefficients,
+I use plain Elo. I estimated the opponent's pre-game rating in the training games, so noise in the
+rating gap may shrink a. The exact pre-game ratings in the 14,807 target games showed the same
+overconfidence.
 
 **Gate test: does a tactic profile predict the player's own next game?** (`scripts/eval_tactic_gate.py`,
 no new engine work). The big engine study (`docs/engine-study-plan.md`) was to run only if it did.

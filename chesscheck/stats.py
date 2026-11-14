@@ -1,7 +1,7 @@
 """Rating-adjusted opening performance with hierarchical Bayesian shrinkage.
 
-For each game, expected score comes from the Elo formula. The residual
-(actual - expected) removes opponent strength. Per-opening mean residuals
+For each game, expected score accounts for ratings and, where calibrated,
+color and time class. The residual is actual score minus expected score. Per-opening mean residuals
 are shrunk toward the player's average in proportion to how little data
 backs them, so 4 unlucky games don't become "a weakness".
 """
@@ -22,6 +22,29 @@ def expected_score(my: float, opp: float) -> float:
     return 1.0 / (1.0 + 10 ** ((opp - my) / 400.0))
 
 
+# Fitted on Chess.com games by scripts/fit_expected_score.py.
+CALIBRATION = {
+    "bullet": (0.4092, 0.0580),
+    "blitz": (0.4637, 0.0606),
+    "rapid": (0.3770, 0.0583),
+}
+ELO_LOGIT_LIMIT = math.log(9999)  # Elo probability clipped to [0.0001, 0.9999]
+
+
+def pregame_expected(my: float, opp: float, color: str, time_class: str) -> float:
+    """Expected score from the player's perspective, with the upset meter calibration."""
+    coefficients = CALIBRATION.get(time_class)
+    if coefficients is None:
+        return expected_score(my, opp)
+    a, b = coefficients
+    elo_logit = (my - opp) / 400 * math.log(10)
+    elo_logit = min(max(elo_logit, -ELO_LOGIT_LIMIT), ELO_LOGIT_LIMIT)
+    z = a * elo_logit + b * (1 if color == "white" else -1)
+    # Compute both sides from the same probability so they are exact complements.
+    upper = 1 / (1 + math.exp(-abs(z)))
+    return upper if z >= 0 else 1 - upper
+
+
 def games_frame(games: list[Game]) -> pd.DataFrame:
     df = pd.DataFrame([{
         "url": g.url, "color": g.color, "my_rating": g.my_rating,
@@ -32,8 +55,8 @@ def games_frame(games: list[Game]) -> pd.DataFrame:
     } for g in games])
     if df.empty:
         return df
-    df["expected"] = [expected_score(a, b)
-                      for a, b in zip(df.my_rating, df.opp_rating)]
+    df["expected"] = [pregame_expected(g.my_rating, g.opp_rating, g.color, g.time_class)
+                      for g in games]
     df["residual"] = df.score - df.expected
     return df
 

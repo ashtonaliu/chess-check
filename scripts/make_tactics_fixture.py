@@ -21,9 +21,25 @@ from chesscheck.facts import build_facts  # noqa: E402
 from chesscheck.fetch import fetch_games  # noqa: E402
 from chesscheck.stats import games_frame  # noqa: E402
 from chesscheck.tactics import motifs, summarize  # noqa: E402
+from make_parity_fixture import FIXTURES, fixture_games  # noqa: E402
+
+
+def tactic_facts(games, analyses, summary):
+    facts, _ = build_facts(games_frame(games), analyses, None, summary)
+    return [{"id": f["id"], "text": f["text"]} for f in facts]
 
 
 def main():
+    out = FIXTURES / "tactics.json"
+    if sys.argv[1:] == ["--refresh-facts"]:
+        fixture = json.loads(out.read_text())
+        games = fixture_games(fixture["games"])
+        analyses = fixture["analyses"]
+        summary = summarize(analyses, {g.url: g.pgn for g in games})
+        fixture["facts"] = tactic_facts(games, analyses, summary)
+        out.write_text(json.dumps(fixture, allow_nan=False))
+        print(f"refreshed facts in {out.relative_to(ROOT)}")
+        return
     puzzles_csv, user = sys.argv[1], sys.argv[2]
     positions = []
     with open(puzzles_csv, newline="") as f:
@@ -45,7 +61,7 @@ def main():
     engine.recheck_blunders(analyses)
     pgns = {g.url: g.pgn for g in games}
     summary = summarize(analyses, pgns)
-    facts, _ = build_facts(games_frame(games), analyses, None, summary)
+    facts = tactic_facts(games, analyses, summary)
     fixture = {
         "positions": positions,
         "games": [{"url": g.url, "color": g.color, "myRating": g.my_rating, "oppRating": g.opp_rating,
@@ -56,7 +72,7 @@ def main():
                      for a in analyses],
         "summary": {k: summary[k] for k in ("motifs", "pieces", "n_tests", "flagged", "confirmed",
                                             "forks_allowed_by", "pieces_lost")},
-        "facts": [{"id": f["id"], "text": f["text"]} for f in facts],
+        "facts": facts,
     }
     out = ROOT / "web/test/fixtures/tactics.json"
     def clean(x):   # JSON has no NaN/Infinity: NaN -> null, infinities -> strings

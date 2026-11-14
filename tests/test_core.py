@@ -6,7 +6,7 @@ import pytest
 
 from chesscheck import coach, model
 from chesscheck.fetch import opening_names
-from chesscheck.stats import expected_score, games_frame, opening_table, shrink
+from chesscheck.stats import expected_score, games_frame, opening_table, pregame_expected, shrink
 from chesscheck.verify import verify
 
 
@@ -15,6 +15,22 @@ from chesscheck.verify import verify
 def test_expected_score():
     assert expected_score(1500, 1500) == pytest.approx(0.5)
     assert expected_score(1900, 1500) == pytest.approx(0.909, abs=1e-3)
+
+
+def test_pregame_expected():
+    white = pregame_expected(1500, 1500, "white", "blitz")
+    assert 0.51 < white < 0.52
+    assert pregame_expected(1500, 1500, "black", "blitz") == 1 - white
+
+    for time_class in ("bullet", "blitz", "rapid"):
+        favored = pregame_expected(1700, 1500, "white", time_class)
+        assert pregame_expected(1500, 1700, "black", time_class) == 1 - favored
+    bullet = pregame_expected(1700, 1500, "white", "bullet")
+    blitz = pregame_expected(1700, 1500, "white", "blitz")
+    elo = expected_score(1700, 1500)
+    assert 0.5 < bullet < blitz < elo
+    assert pregame_expected(1700, 1500, "white", "daily") == elo
+    assert pregame_expected(1700, 1500, "black", "unknown") == elo
 
 
 def test_shrinkage_pulls_small_samples_harder():

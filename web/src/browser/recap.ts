@@ -4,7 +4,7 @@
 // rules forbid outside help while playing).
 import { BLUNDER_DROP, moveLabel, type GameAnalysis } from "./engine";
 import type { Game } from "./games";
-import { expectedScore, type GameRow } from "./stats";
+import { pregameExpected, type GameRow } from "./stats";
 import { MOTIF_LABEL, type BlunderRec, type TacticSummary } from "./tactics";
 
 export interface Recap {
@@ -23,26 +23,6 @@ const HOW_WON: Record<string, string> = { timeout: "on time", checkmated: "by ch
 const HOW_LOST: Record<string, string> = { timeout: "on time", checkmated: "by checkmate", resigned: "by resignation", abandoned: "by abandonment" };
 const HOW_DREW: Record<string, string> = { agreed: "by agreement", repetition: "by repetition", stalemate: "by stalemate",
   insufficient: "with insufficient material", "50move": "by the 50-move rule", timevsinsufficient: "on time vs insufficient material" };
-
-/** How surprising a result was, from the pre-game expected score (Elo). */
-/**
- * Pre-game expected score for the upset meter. The Elo formula is overconfident in matched online
- * games and ignores colour, so each live time class uses expected = sigmoid(a * logit(Elo) + b * colour),
- * fitted on Chess.com games before 2026-11-01 and checked on games from 2026-11-07
- * (scripts/fit_expected_score.py; Brier gain over Elo: bullet +0.0032, blitz +0.0009, rapid +0.0056).
- * Daily games and anything else keep the Elo formula.
- */
-export const CALIBRATION: Record<string, { a: number; b: number }> = {
-  bullet: { a: 0.4092, b: 0.0580 }, blitz: { a: 0.4637, b: 0.0606 }, rapid: { a: 0.3770, b: 0.0583 },
-};
-
-export function pregameExpected(myRating: number, oppRating: number, color: "white" | "black", timeClass: string): number {
-  const elo = Math.min(Math.max(expectedScore(myRating, oppRating), 1e-4), 1 - 1e-4);
-  const c = CALIBRATION[timeClass];
-  if (!c) return elo;
-  const z = c.a * Math.log(elo / (1 - elo)) + c.b * (color === "white" ? 1 : -1);
-  return 1 / (1 + Math.exp(-z));
-}
 
 export function upset(score: number, expected: number): string {
   if (score === 1) return expected < 0.35 ? "Big upset win" : expected < 0.45 ? "Upset win" : expected > 0.65 ? "Win as the favorite" : "Win";
@@ -115,7 +95,7 @@ export function opponentNote(opponent: string, oppGames: Game[], family: string,
   const pct = (x: number) => `${Math.round(100 * x)}%`;
   if (inFamily.length >= 3) {
     const sc = inFamily.reduce((a, g) => a + g.score, 0) / inFamily.length;
-    const exp = inFamily.reduce((a, g) => a + expectedScore(g.myRating, g.oppRating), 0) / inFamily.length;
+    const exp = inFamily.reduce((a, g) => a + pregameExpected(g.myRating, g.oppRating, g.color, g.timeClass), 0) / inFamily.length;
     return `${opponent} has played the ${family} as ${side} in ${inFamily.length} of their last ${asColor.length} games as ${side}, ` +
       `scoring ${pct(sc)} against an expected ${pct(exp)}.` + (topFamily !== family ? ` Their most common opening as ${side} is the ${topFamily} (${topN} games).` : "");
   }

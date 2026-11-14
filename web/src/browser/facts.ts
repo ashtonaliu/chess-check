@@ -71,7 +71,7 @@ export function buildFacts(rows: GameRow[], analyses: GameAnalysis[] | null, ris
 
   const o = overall(rows);
   add("overall", `Across ${o.games} games (average rating ${o.avg_rating}), you scored ${pct(o.score)} ` +
-    `versus ${pct(o.expected)} expected from ratings (${pts(o.resid)} points).`);
+    `versus ${pct(o.expected)} expected before play (${pts(o.resid)} points).`);
 
   if (risk) {
     add("model", `A blunder-risk model trained only on your opponents' moves (players of similar rating) ` +

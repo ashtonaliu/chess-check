@@ -335,6 +335,27 @@ engine features almost to zero, so the narrower interval does not mean the test
 became more sensitive. It means the engine features could not earn weight in 995
 games. The 10-point resolution above still applies.
 
+**Engine features alone.** The same script compares models without ratings, with the
+same nested choice of C.
+
+| Model (nested C, 995 games) | Brier | Gain over always predicting 50% (90% interval) |
+|---|---:|---|
+| Always 50% | 0.2367 | |
+| Ratings only | 0.2362 | +0.0005 (−0.0011 to +0.0022) |
+| Engine only, both players' features | 0.2371 | −0.0005 (−0.0022 to +0.0013) |
+| Engine only, focal minus opponent | 0.2373 | −0.0006 (−0.0019 to +0.0006) |
+| Ratings plus engine | 0.2365 | +0.0001 (−0.0015 to +0.0018) |
+
+Nothing beats a coin flip here, ratings included, because matchmaking leaves almost
+nothing to predict: the median rating gap is 14 points, 90% of games are within 42,
+and the middle 90% of Elo expected scores run from 0.44 to 0.56. The engine features
+do measure skill. Across the 1,962 player histories (ratings 780 to 2149), rating
+correlates −0.25 with mean win-percentage points lost per move (about −57 rating
+points per extra point lost), −0.17 with missed tactics per move, +0.12 with
+conversion of winning positions, and −0.06 with blunders under 10% of the clock.
+From 50 blitz games they are a noisy measure of what the rating already measures
+from thousands of results, and matchmaking has used the rating to make the game even.
+
 For the accuracy gap, 991 targets had moves for both players. Adding engine
 features lowered out-of-fold R² from 0.000741 to −0.029585 for ridge and
 from −0.024083 to −0.084170 for histogram gradient boosting.

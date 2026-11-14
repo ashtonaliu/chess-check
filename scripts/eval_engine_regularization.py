@@ -2,7 +2,8 @@
 
 The study's logistic models used C = 1. Here C is chosen inside each training fold by an inner
 grouped 4-fold split on Brier score, then evaluated on the same five held-out focal-player folds,
-so the test folds never influence the choice. It needs the study's caches (sample manifest,
+so the test folds never influence the choice. It also compares engine features alone (no ratings)
+with ratings alone and with always predicting 50%, and checks how the engine features track rating. It needs the study's caches (sample manifest,
 downloads and per-game engine results) and runs no Stockfish.
 
   python scripts/eval_engine_regularization.py --source data/odds/v3
@@ -39,6 +40,7 @@ rows, jobs, exclusions = study.plan(sample, source, cache)
 assert len(rows) == 995 and len(jobs) == 70467 and exclusions == manifest['exclusions']
 folder = cache / 'games-v2-d10-4f75fb47deaa8a29'
 results = {key: json.loads((folder / f'{key}.json').read_text()) for key in jobs}
+plan_rows = rows
 rows = study.feature_rows(rows, results)
 base = np.array([[r['rating_logit']] for r in rows])
 columns = [key for key in rows[0] if key not in {'focal', 'gid', 'score', 'accuracy_gap', 'elo', 'rating_logit'}]
@@ -76,3 +78,42 @@ for method in ('original','nested'):
     for metric in (brier, log_loss):
         a, b = [metric(y,predictions[label][method]) for label in ('ratings', 'ratings_engine')]
         print(method, metric.__name__, 'ratings', a.mean(), 'engine', b.mean(), 'delta', (a-b).mean(), '90% CI', study._boot(a-b, groups, rng).tolist(), flush=True)
+
+
+# ---------- engine features alone, and whether they track strength ----------
+
+import math
+
+engine = np.array([[r[key] for key in columns] for r in rows], dtype=float)
+pairs = [k[len("focal_"):] for k in columns if k.startswith("focal_") and ("opponent_" + k[len("focal_"):]) in columns]
+diff = np.array([[float(r["focal_" + k]) - float(r["opponent_" + k]) for k in pairs] for r in rows])
+alone = {"ratings only": predictions["ratings"]["nested"], "ratings plus engine": predictions["ratings_engine"]["nested"]}
+with threadpool_limits(limits=1):
+    for label, X in [("engine only, both players' features", engine), ("engine only, focal minus opponent", diff)]:
+        out = np.zeros((n, 3)); chosen = []
+        for train, test in outer:
+            inner = [(train[a], train[b]) for a, b in GroupKFold(4).split(X[train], y[train], groups[train])]
+            c = min(cs, key=lambda c: np.concatenate([brier(y[b], predict(X, a, b, c)) for a, b in inner]).mean())
+            chosen.append(c); out[test] = predict(X, train, test, c)
+        alone[label] = out
+        print(label, 'nested C', chosen, flush=True)
+coin = (0.5 - y / 2) ** 2
+print(f"\nAlways 50%: Brier {coin.mean():.4f}")
+for label, p in alone.items():
+    b = brier(y, p); lo, hi = study._boot(coin - b, groups, rng)
+    print(f"{label}: Brier {b.mean():.4f}, gain over always 50% {(coin - b).mean():+.4f} ({lo:+.4f} to {hi:+.4f})")
+gap = np.array([r["rating_logit"] for r in rows]) * 400 / math.log(10)
+elo = np.array([r["elo"] for r in rows])
+print(f"\nRating gap: median |gap| {np.median(np.abs(gap)):.0f} points, 90% within {np.quantile(np.abs(gap), 0.9):.0f}; "
+      f"middle 90% of Elo expected scores {np.quantile(elo, 0.05):.2f} to {np.quantile(elo, 0.95):.2f}")
+per = []
+for (focal, raw, gid, ratings, past), r in zip(plan_rows, rows):
+    for who, rating in (("focal", ratings[0]), ("opponent", ratings[1])):
+        per.append((rating, r[f"{who}_loss"], r[f"{who}_missed_tactics"], r[f"{who}_low_clock_blunders"], r[f"{who}_conversion"]))
+per = np.array(per, dtype=float); per = per[np.all(np.isfinite(per), axis=1)]
+print(f"Across {len(per)} player histories (ratings {per[:, 0].min():.0f} to {per[:, 0].max():.0f}), correlation with rating:")
+for i, name in enumerate(["mean win-% lost per move", "missed tactics per move", "blunder rate under 10% clock",
+                          "conversion of winning positions"], 1):
+    print(f"  {name}: {np.corrcoef(per[:, 0], per[:, i])[0, 1]:+.2f}")
+slope = np.polyfit(per[:, 1], per[:, 0], 1)[0]
+print(f"  each +1 win-% lost per move goes with {slope:+.0f} rating points")

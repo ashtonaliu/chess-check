@@ -25,6 +25,25 @@ const HOW_DREW: Record<string, string> = { agreed: "by agreement", repetition: "
   insufficient: "with insufficient material", "50move": "by the 50-move rule", timevsinsufficient: "on time vs insufficient material" };
 
 /** How surprising a result was, from the pre-game expected score (Elo). */
+/**
+ * Pre-game expected score for the upset meter. The Elo formula is overconfident in matched online
+ * games and ignores colour, so each live time class uses expected = sigmoid(a * logit(Elo) + b * colour),
+ * fitted on Chess.com games before 2026-11-01 and checked on games from 2026-11-07
+ * (scripts/fit_expected_score.py; Brier gain over Elo: bullet +0.0032, blitz +0.0009, rapid +0.0056).
+ * Daily games and anything else keep the Elo formula.
+ */
+export const CALIBRATION: Record<string, { a: number; b: number }> = {
+  bullet: { a: 0.4092, b: 0.0580 }, blitz: { a: 0.4637, b: 0.0606 }, rapid: { a: 0.3770, b: 0.0583 },
+};
+
+export function pregameExpected(myRating: number, oppRating: number, color: "white" | "black", timeClass: string): number {
+  const elo = Math.min(Math.max(expectedScore(myRating, oppRating), 1e-4), 1 - 1e-4);
+  const c = CALIBRATION[timeClass];
+  if (!c) return elo;
+  const z = c.a * Math.log(elo / (1 - elo)) + c.b * (color === "white" ? 1 : -1);
+  return 1 / (1 + Math.exp(-z));
+}
+
 export function upset(score: number, expected: number): string {
   if (score === 1) return expected < 0.35 ? "Big upset win" : expected < 0.45 ? "Upset win" : expected > 0.65 ? "Win as the favorite" : "Win";
   if (score === 0) return expected > 0.65 ? "Upset loss" : expected > 0.55 ? "Loss as the favorite" : expected < 0.35 ? "Loss to a stronger player" : "Loss";
@@ -44,7 +63,7 @@ export function howEnded(g: Game): string {
 export function buildRecap(game: Game, analysis: GameAnalysis, blunders: BlunderRec[], history: GameRow[],
                            openings: { family: string; color: string; verdict: string }[], tactics: TacticSummary | null,
                            opponentNote: string | null = null): Recap {
-  const expected = expectedScore(game.myRating, game.oppRating);
+  const expected = pregameExpected(game.myRating, game.oppRating, game.color, game.timeClass);
   const past = history.filter(r => r.url !== game.url && r.family === game.family && r.color === game.color);
   const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
   const row = openings.find(o => o.family === game.family && o.color === game.color);

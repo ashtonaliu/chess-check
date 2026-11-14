@@ -4,6 +4,7 @@ Example: python scripts/eval_engine_features.py --source data/odds/v3
 The input collection is read-only. Downloads, feature caches and results go in data/odds/engine.
 """
 import argparse
+from bisect import bisect_left
 from collections import defaultdict, deque
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
@@ -80,6 +81,10 @@ def get(url, cache):
             with rate_lock:
                 retry_after = max(retry_after, time.monotonic() + max(wait, 2 ** attempt))
             continue
+        if response.status_code in (404, 410):
+            # Closed or renamed accounts can disappear from the public archive.
+            # Leave these uncached so a later run can retry.
+            return {}
         if response.status_code >= 500 and attempt < 5:
             time.sleep(2 ** attempt)
             continue
@@ -142,21 +147,21 @@ def month_at(timestamp):
 
 def download(task, cache):
     user, needs, cutoffs = task
-    urls = get(f"{API}/{quote(user, safe='')}/games/archives", cache)["archives"]
+    urls = get(f"{API}/{quote(user, safe='')}/games/archives", cache).get("archives", [])
     games = {}
     for url in sorted(urls, reverse=True):
         month = url.rstrip("/")[-7:]
         if month > month_at(max(end for end, _ in needs)):
             continue
-        for raw in get(url, cache)["games"]:
+        for raw in get(url, cache).get("games", []):
             if raw.get("rules") == "chess" and raw.get("time_class") == "blitz" and raw.get("pgn"):
                 games[game_id(raw["url"])] = raw
         # All target months must be loaded, even when there is already enough history.
         if month <= month_at(min(end for end, _ in needs)):
-            ordered = sorted(games.values(), key=lambda game: (game["end_time"], game_id(game["url"])))
+            ends = sorted(game["end_time"] for game in games.values() if game["end_time"] > 0)
             if all(
                 (start := cutoffs.get(gid) or (game_start(games[gid]) if gid in games else None)) is not None
-                and sum(0 < game["end_time"] < start for game in ordered) >= HISTORY
+                and bisect_left(ends, start) >= HISTORY
                 for _, gid in needs
             ):
                 break
@@ -473,12 +478,21 @@ def main():
               "targets_sha256": hashlib.sha256(targets_bytes).hexdigest(),
               "exclusions": exclusions, "eligible": len(rows),
               "eligible_focal_players": len({row[0] for row in rows})}
+    run_id = f"{output['targets_sha256'][:12]}-{args.count}"
+    write_json(cache / f"sample-{run_id}.json", {
+        **output, "sample_ids": [game_id(target["url"]) for target in targets],
+        "eligible_targets": [
+            {"id": gid, "focal": focal, "start": game_start(raw), "ratings": ratings,
+             "histories": past}
+            for focal, raw, gid, ratings, past in rows
+        ],
+    })
     print(json.dumps(output), flush=True)
     if output["eligible_focal_players"] < 5:
         parser.error("Fewer than five eligible focal players after checking history coverage")
     results, output["engine"] = evaluate_games(jobs, binary, cache, args.workers)
     output.update(evaluate(feature_rows(rows, results)))
-    path = cache / f"results-{output['targets_sha256'][:12]}-{args.count}.json"
+    path = cache / f"results-{run_id}.json"
     write_json(path, output)
     print(json.dumps(output, indent=2))
     print(f"Saved {path}")

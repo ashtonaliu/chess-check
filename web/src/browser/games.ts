@@ -108,14 +108,30 @@ interface ArchiveRequest {
 }
 const inFlight = new Map<string, ArchiveRequest>();
 
+const TIMEOUT_MS = 20_000, TRIES = 3;
+
+/** One archive request that cannot hang: each try times out after 20 s, and a timeout, network
+ *  error, rate limit (429) or server error is retried twice with a short wait. */
+async function getWithRetry(url: string, signal: AbortSignal): Promise<ArchiveResponse> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const r = await fetch(url, { signal: AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)]) });
+      if ((r.status === 429 || r.status >= 500) && attempt < TRIES) { await new Promise(res => setTimeout(res, 1000 * attempt)); continue; }
+      return { status: r.status, ok: r.ok, data: r.ok ? await r.json() : undefined };
+    } catch (e) {
+      if (signal.aborted) throw e;
+      if (attempt >= TRIES) throw new Error("Chess.com did not answer in time. Try again in a minute.");
+      await new Promise(res => setTimeout(res, 1000 * attempt));
+    }
+  }
+}
+
 async function fetchArchive(url: string, signal?: AbortSignal): Promise<ArchiveResponse> {
   signal?.throwIfAborted();
   let request = inFlight.get(url);
   if (!request) {
     const controller = new AbortController();
-    const pending: Promise<ArchiveResponse> = fetch(url, { signal: controller.signal }).then(async response => ({
-      status: response.status, ok: response.ok, data: response.ok ? await response.json() : undefined,
-    })).finally(() => {
+    const pending: Promise<ArchiveResponse> = getWithRetry(url, controller.signal).finally(() => {
       if (inFlight.get(url)?.controller === controller) inFlight.delete(url);
     });
     request = { controller, pending, readers: 0 };

@@ -10,6 +10,7 @@ import { classifyGame, type TacticSummary } from "./tactics";
 export interface Profile {
   username: string; timeClass: string | null;
   rows: GameRow[]; openings: { family: string; color: string; verdict: string }[]; tactics: TacticSummary | null;
+  games?: Game[];        // the games behind the profile (used to name openings for endpoint games)
 }
 
 export const POLL_MS = 45_000;

@@ -244,7 +244,7 @@ export const DEEP_DEPTH_BROWSER = 14;
 /** Screen cheap, confirm expensive: re-search only the positions flagged as blunders, deeper.
  * Adds deep_* fields to those move rows (in place). Cached in IndexedDB per game and depth. */
 export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: number; engineUrl: string;
-  workers?: number; onProgress?: (done: number, total: number) => void }): Promise<void> {
+  workers?: number; onProgress?: (done: number, total: number) => void; signal?: AbortSignal }): Promise<void> {
   const depth = opts.depth ?? DEEP_DEPTH_BROWSER;
   const db = await openDb();
   const key = (a: GameAnalysis) => `deep_v1_${a.url.split("/").pop()}_d${depth}`;
@@ -263,6 +263,7 @@ export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: 
         const i = todo[next++], a = analyses[i], out: Deep = {};
         for (const m of a.moves) {
           if (m.wp_loss < BLUNDER_DROP) continue;
+          if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
           const c = new Chess(m.fen);
           const r1 = await eng.analyse(m.fen, depth);
           const before = r1.cp;   // the mover is the side to move

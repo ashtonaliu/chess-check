@@ -274,7 +274,9 @@ after their previous blitz game. It excludes targets whose start time or full
 history is unavailable. Stockfish runs at depth 10 and reuses the evaluation
 after each move as the next move's starting evaluation. The target's engine
 output is used only for the accuracy label, the difference between the two
-players' mean win-percentage-point loss per move.
+players' mean win-percentage-point loss per move. Sharpness is the standard
+deviation of per-move changes after clipping each evaluation to ±1,000 cp, so
+mate scores do not dominate it.
 
 The result model compares ratings alone with ratings plus engine features
 using grouped five-fold cross-validation by focal player. It reports expected
@@ -283,17 +285,13 @@ same interval-width sensitivity estimate as the odds experiment. The
 accuracy-gap comparison reports out-of-fold R² for ridge and histogram
 gradient boosting.
 
-**Run status.** The available v3 input contains 20 distinct targets from two
-focal players, so the 1,000-game study and five-fold evaluation are pending.
-A smoke test downloaded both players' histories for one target and verified
-the two 50-game cutoffs. Stockfish 19 analyzed three games in 2.052 summed
-engine seconds (1.256 seconds wall time with two workers). Repeating that
-batch ran zero engine searches. Both model families ran on synthetic data.
-No real-data Brier, log loss, interval, sensitivity estimate, or R² is
-available yet.
+**Run status.** The seed-0 draw sampled 1,000 targets from 250 focal players.
+Five targets lacked 50 pre-start blitz games for both players. The remaining
+995 targets require Stockfish analysis of 70,467 distinct games, including
+the histories. The full engine run is in progress.
 
 ```sh
-python scripts/eval_engine_features.py --source /path/to/data/odds/v3
+python scripts/eval_engine_features.py --source /path/to/data/odds/v3 --workers 18
 ```
 
 ## Cross-language parity

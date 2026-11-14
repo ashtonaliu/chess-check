@@ -111,7 +111,7 @@ Embeddings understand rewording ("got flagged" finds games lost on time) but con
 | Ratings, fitted | 0.239 |
 | Ratings plus history | 0.241 |
 
-History made predictions slightly worse, and the 90% interval for the change (0.0006 to 0.0035 worse) never crossed zero. Chess.com pairs you with someone of about your rating, so most games really are close to a coin flip, and the rating already captures what history knows. The app does not show pre-game odds, both for that reason and because of the fair-play rules below.
+With this sample, history did not measurably improve on ratings. The small loss (0.0006 to 0.0035 worse, 90% interval) comes from fitting 14 extra features to 1,780 games. That is not the same as showing history is useless. Chess.com pairs you with someone of about your rating, so most games start close to a coin flip, and an edge of 3 percentage points per game would only change the Brier score by about 0.001, three times smaller than this test could see. The app does not show pre-game odds anyway because of the fair-play rules below.
 
 ## What I learned
 

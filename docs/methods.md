@@ -307,6 +307,15 @@ a half-width of 0.010162, the experiment's approximate minimum detectable
 Brier effect by its interval-width rule. Its square root corresponds to about
 10.08 percentage points of expected score under the same heuristic.
 
+How to read this: the sample is too small to settle the question. It can only
+detect an engine effect of about 10 points of expected score per game, five
+times coarser than the 14,830-game tests above (about 2 points). The losses are
+about what fitting 23 extra features to roughly 800 games per fold costs
+(p/n × variance ≈ 0.007 Brier), and even the fitted ratings-only model scored
+worse than the plain Elo formula. So this rules out large engine effects, not
+small ones. Reaching 2-point resolution would take about 25 times more games,
+roughly 1.8 million game analyses, which is weeks of CPU on one machine.
+
 For the accuracy gap, 991 targets had moves for both players. Adding engine
 features lowered out-of-fold R² from 0.000741 to −0.029585 for ridge and
 from −0.024083 to −0.084170 for histogram gradient boosting.

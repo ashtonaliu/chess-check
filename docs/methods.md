@@ -238,6 +238,29 @@ Each target game gets features built only from games that ended before it: the E
 
 The widest interval is 0.0008, so the test could detect a history effect that shifts a typical game's expected score by about 2 percentage points (0.02² ≈ 0.0004). Targeted checks on the games where a matchup applies (mean of score minus Elo expected score) found nothing outside noise in openings. For clock habits, the top 10% of games where the time matchup favored the focal player came out +0.015 (−0.006 to +0.036), and the bottom 10% came out −0.019 (−0.041 to +0.003).
 
+**Rating quality and tilt.** A third collection (data/odds/v3, the same 250 focal players and their latest 60 games, 12,233 opponents) also keeps every player's bullet and rapid ratings over the same two months, the date they joined and whether the account was later closed. New features, each for both players and only from games that ended before the target: rapid and bullet rating minus blitz rating going into the game, rating trend over the last 100 blitz games (points per game), best rating in the last 200 games minus the current one, number of blitz games in the window, account age and the length of the last break, and tilt (the player's shrunk residual in games started within 20 minutes of a loss minus the same after a win, and that number times whether they just lost).
+
+| Model (v3 data, 14,828 games) | Brier | Change vs ratings only (90% interval) |
+|---|---:|---|
+| Ratings only, logistic | 0.2388 | |
+| Ratings plus rating quality, logistic | 0.2387 | +0.0001 (−0.0003 to +0.0005) |
+| Ratings plus rating quality, gradient boosting | 0.2392 | −0.0004 (−0.0007 to −0.0000) |
+| Ratings plus tilt, logistic | 0.2388 | −0.0000 (−0.0002 to +0.0001) |
+| Ratings plus everything, gradient boosting | 0.2392 | −0.0004 (−0.0008 to −0.0001) |
+
+Only 21 games involved an account later closed for fair-play violations; the focal player scored 0.137 below the Elo expectation in them, which fits playing a cheater, but there are too few to matter. In subgroups where a feature should matter most, one of ten checks reached the 90% level: when the opponent's bullet rating was at least 150 above their blitz rating (268 games), the focal player scored 0.055 below expectation (−0.108 to −0.005). With ten checks, one is expected by chance, so it is a lead, not a finding. The rapid-rating version pointed the same way (−0.006 for the opponent's gap, +0.011 for the focal player's) without reaching it.
+
+**Learned playstyles.** `scripts/eval_embeddings.py` gives each player k numbers and models a game as sigmoid(β × rating logit + b + x_iᵀ A x_j) with A antisymmetric, so a style edge for one player is exactly the other's disadvantage. It optionally adds a per-player offset (how much stronger than rated they play). It trains on every game in the cached histories that ended before a cutoff (the median target game, 6,506,300 games, 65,166 players with at least 30), chooses the size and L2 strength on the last week before the cutoff, and tests once on the 7,479 target games after it. Splitting by time matters: the histories contain the target games, so a random split would leak them.
+
+| Model (chosen on validation) | Test Brier | Change vs ratings only (90% interval) |
+|---|---:|---|
+| Ratings only | 0.2389 | |
+| Styles, size 2 | 0.2388 | +0.0001 (+0.0000 to +0.0002) |
+| Per-player offsets | 0.2395 | −0.0006 (−0.0009 to −0.0003) |
+| Offsets plus styles | 0.2388 | +0.0001 (−0.0003 to +0.0004) |
+
+The model does learn: with weak regularization, size-8 styles fit the training games far better than ratings (Brier 0.2208 against 0.2371) and did worse on later games, and on validation every model got closer to ratings-only as regularization grew. On the earlier v2 data the result was the same (styles −0.0001, offsets −0.0003).
+
 **A leak I caught.** The first run of this version measured "games in the last hour" and "minutes since the last game" from the target game's end time. That end time includes how long the target game lasted, and game length gives away how it ended. Gradient boosting combined those features with the clock habits and showed a gain of +0.0044 (0.0034 to 0.0053) over ratings, while no feature group helped on its own. Dropping the two features removed the gain (+0.0003, −0.0001 to +0.0006). They are now measured from the end of the player's previous game, and the table above is the corrected run.
 
 **Post-game ratings.** The `rating` field in Chess.com's game archive is the rating after the game. Across 980,711 consecutive game pairs, a player's rating change agreed with the result of that same game 99.6% of the time and with the previous game's result 50.2% of the time. The first run used those ratings and reported a Brier score of 0.163 for the fitted ratings model against 0.218 for the Elo formula, because the fitted model had learned to read the result from the rating change. The script now uses each player's rating after their previous game in the same time class. For past games in a player's history, the opponent's pre-game rating is estimated as their post-game rating plus the player's own rating change. On these games, post-game ratings move the expected score by 2.2 percentage points on average, almost always toward the actual result.

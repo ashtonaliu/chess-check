@@ -50,7 +50,7 @@ sys.path.insert(0, str(ROOT))
 
 from wf.fetch import DRAW_RESULTS, HEADERS, opening_names  # noqa: E402
 
-DATA = ROOT / "data" / "odds" / "v2"
+DATA = ROOT / "data" / "odds" / "v3"      # v2 (no other time controls or account info) stays on disk
 V1_PLAYERS = ROOT / "data" / "odds" / "players"     # first, smaller run: used only to pick focal players
 API = "https://api.chess.com/pub/player/{u}/games/archives"
 _local = threading.local()
@@ -92,17 +92,25 @@ def _clocks(pgn: str) -> tuple[list[float], list[float]]:
     return secs[0::2], secs[1::2]          # white's clocks, black's clocks
 
 
-def _raw_games(user: str, months: int = 2) -> list[dict]:
-    """A player's blitz games from the last `months` archives, compact and cached."""
+def _raw_player(user: str, months: int = 2) -> dict:
+    """A player's blitz games from the last `months` archives, their ratings in the other time
+    controls over the same months, and when they joined and whether the account was closed.
+    Compact and cached."""
     path = DATA / "players" / f"{user.lower()}.json"
     if path.exists():
         return json.loads(path.read_text())
+    profile = _get(f"https://api.chess.com/pub/player/{user.lower()}") or {}
     arch = _get(API.format(u=user.lower())) or {}
-    out = []
+    out, others = [], []
     u = user.lower()
     for url in (arch.get("archives") or [])[-months:]:
         for g in (_get(url) or {}).get("games", []):
-            if g.get("rules") != "chess" or g.get("time_class") != "blitz":
+            if g.get("rules") != "chess":
+                continue
+            if g.get("time_class") != "blitz":
+                side = g["white"] if g["white"]["username"].lower() == u else g["black"] if g["black"]["username"].lower() == u else None
+                if side and g.get("time_class") in ("bullet", "rapid"):
+                    others.append({"end": g.get("end_time", 0), "tc": g["time_class"], "my": side["rating"]})
                 continue
             if g["white"]["username"].lower() == u:
                 me, opp, color = g["white"], g["black"], "white"
@@ -120,9 +128,19 @@ def _raw_games(user: str, months: int = 2) -> list[dict]:
                         "plies": len(wc) + len(bc), "my_clk": mine[-1] if mine else None,
                         "opp_clk": theirs[-1] if theirs else None, "base": base})
     out.sort(key=lambda x: x["end"])
+    others.sort(key=lambda x: x["end"])
+    data = {"games": out, "others": others, "joined": profile.get("joined"), "status": profile.get("status")}
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(out, separators=(",", ":")))
-    return out
+    path.write_text(json.dumps(data, separators=(",", ":")))
+    return data
+
+
+def _raw_games(user: str, months: int = 2) -> list[dict]:
+    return _raw_player(user, months)["games"]
+
+
+def player_meta(user: str) -> dict:
+    return _raw_player(user)
 
 
 _HIST: dict[str, list[dict]] = {}
@@ -163,7 +181,7 @@ def _parallel(names: list[str], threads: int, label: str):
     print(f"{label}: {len(names)} players, {len(todo)} to fetch", flush=True)
     t0 = time.time()
     with ThreadPoolExecutor(threads) as ex:
-        futs = [ex.submit(_raw_games, n) for n in todo]
+        futs = [ex.submit(_raw_player, n) for n in todo]
         for i, f in enumerate(as_completed(futs), 1):
             try:
                 f.result()
@@ -251,6 +269,48 @@ def vs_repertoire(hist: list[dict], repertoire: dict[str, float], color: str, t:
     return sum(p * _shrunk_mean(by_fam.get(f, [])) for f, p in repertoire.items())
 
 
+def quality_features(user: str, hist: list[dict], pre: float, t: int) -> dict:
+    """Where the blitz rating may be wrong, from games that ended before t: the player's ratings in
+    other time controls, their rating trend and distance from their recent peak, how active and how
+    new the account is, and how much this player in particular tends to tilt after a loss."""
+    meta = player_meta(user)
+    h = _before(hist, t)
+    other = {tc: None for tc in ("bullet", "rapid")}
+    for o in meta.get("others", []):
+        if o["end"] < t:
+            other[o["tc"]] = o["my"]
+    last100 = [g["my_pre"] for g in h[-100:]]
+    trend = 0.0
+    if len(last100) >= 20:
+        x = np.arange(len(last100)); trend = float(np.polyfit(x, last100, 1)[0])   # points per game
+    peak = max([g["my"] for g in h[-200:]] or [pre])
+    joined = meta.get("joined")
+    # tilt: this player's results right after a loss vs right after a win (next game within 30 min)
+    after_loss, after_win = [], []
+    for prev, g in zip(h, h[1:]):
+        if g["end"] - prev["end"] > 1800 + 1200:     # games are at most ~20 min; a longer gap is a new session
+            continue
+        (after_loss if prev["score"] == 0 else after_win if prev["score"] == 1 else []).append(_resid(g))
+    tilt = _shrunk_mean(after_loss) - _shrunk_mean(after_win)
+    lost_last = 1.0 if h and h[-1]["score"] == 0 else 0.0
+    return {
+        "bullet_gap": (other["bullet"] - pre) if other["bullet"] else 0.0, "has_bullet": 1.0 if other["bullet"] else 0.0,
+        "rapid_gap": (other["rapid"] - pre) if other["rapid"] else 0.0, "has_rapid": 1.0 if other["rapid"] else 0.0,
+        "trend": trend, "below_peak": peak - pre,
+        "log_games": math.log1p(len(h)),
+        "log_age_days": math.log1p(max((t - joined) / 86400, 0)) if joined else math.log1p(365),
+        "log_break_days": math.log1p((h[-1]["end"] - h[-2]["end"]) / 86400) if len(h) >= 2 else 0.0,
+        "tilt": tilt, "tilt_now": tilt * lost_last,
+        "banned": str(meta.get("status", "")).startswith("closed:fair_play"),
+    }
+
+
+QUALITY_KEYS = ["bullet_gap", "has_bullet", "rapid_gap", "has_rapid", "trend", "below_peak",
+                "log_games", "log_age_days", "log_break_days"]
+TILT_KEYS = ["tilt", "tilt_now"]
+QUALITY = [f"{k}_{side}" for k in QUALITY_KEYS for side in ("me", "opp")]
+TILT = [f"{k}_{side}" for k in TILT_KEYS for side in ("me", "opp")]
+
 BASE = ["rating_logit"]
 V1 = BASE + ["form_me", "form_opp", "color_me", "color_opp",
              "open_me_in_mine", "open_opp_in_mine", "open_me_in_theirs", "open_opp_in_theirs",
@@ -275,7 +335,10 @@ def build_rows():
         if my_pre is None or opp_pre is None:
             continue
         e = min(max(expected(my_pre, opp_pre), 1e-4), 1 - 1e-4)
+        qa, qb = quality_features(g["focal"], me_hist, my_pre, t), quality_features(g["opp_name"], opp_hist, opp_pre, t)
         rows.append({
+            **{f"{k}_me": qa[k] for k in QUALITY_KEYS + TILT_KEYS}, **{f"{k}_opp": qb[k] for k in QUALITY_KEYS + TILT_KEYS},
+            "banned": qa["banned"] or qb["banned"],
             "focal": g["focal"], "y": {1.0: 2, 0.5: 1, 0.0: 0}[g["score"]], "score": g["score"], "expected": e,
             "family": g["family"], "a": a, "b": b,
             "rating_logit": math.log(e / (1 - e)),
@@ -310,7 +373,7 @@ def _boot(d: np.ndarray, groups: np.ndarray, rng, n: int = 2000) -> np.ndarray:
     return np.percentile(stats, [5, 95])
 
 
-def evaluate():
+def evaluate(clean: bool = False):
     from sklearn.ensemble import HistGradientBoostingClassifier
     from sklearn.linear_model import LogisticRegression
     from sklearn.model_selection import GroupKFold
@@ -318,6 +381,14 @@ def evaluate():
     from sklearn.preprocessing import StandardScaler
 
     rows = build_rows()
+    banned = np.array([r["banned"] for r in rows])
+    if banned.any():
+        res = np.array([r["score"] - r["expected"] for r in rows])
+        print(f"{banned.sum()} games involve an account later closed for fair-play violations "
+              f"(mean score minus Elo expected for the focal player in them: {res[banned].mean():+.3f})")
+    if clean:
+        rows = [r for r, b in zip(rows, banned) if not b]
+        print("Evaluating without those games.")
     y = np.array([r["y"] for r in rows])
     score = np.array([r["score"] for r in rows])
     expect = np.array([r["expected"] for r in rows])
@@ -353,6 +424,10 @@ def evaluate():
         "Ratings + first-run history (logistic)": oof(lr, X(V1)),
         "Ratings + all history and matchups (logistic)": oof(lr, X(FEATURES)),
         "Ratings + all history and matchups (gradient boosting)": oof(gbm, X(FEATURES)),
+        "Ratings + rating quality (logistic)": oof(lr, X(BASE + QUALITY)),
+        "Ratings + rating quality (gradient boosting)": oof(gbm, X(BASE + QUALITY)),
+        "Ratings + tilt (logistic)": oof(lr, X(BASE + TILT)),
+        "Ratings + everything (gradient boosting)": oof(gbm, X(FEATURES + QUALITY + TILT)),
     }
     base = models["Ratings only (logistic)"]
     print("\n| Model | Log loss | Brier | Brier change vs ratings only, positive = better (90% interval) |")
@@ -372,10 +447,15 @@ def evaluate():
           f"score by s improves the Brier score by about s^2, so this sample can detect shifts of about "
           f"{math.sqrt(w / 2):.3f} or more.")
 
+    q = lr().fit(X(BASE + QUALITY + TILT), y)
+    qc = q[-1].coef_[2] - q[-1].coef_[0]
+    print("\nRating quality and tilt, win-vs-loss weight per standardized feature (logistic, full data):")
+    for f, c in sorted(zip(BASE + QUALITY + TILT, qc), key=lambda x: -abs(x[1]))[:12]:
+        print(f"  {f:20s} {c:+.3f}")
     m = lr().fit(X(FEATURES), y)
     coef = m[-1].coef_[2] - m[-1].coef_[0]
     print("\nWin-vs-loss weight per standardized feature (logistic, full data):")
-    for f, c in sorted(zip(FEATURES, coef), key=lambda x: -abs(x[1]))[:12]:
+    for f, c in sorted(zip(FEATURES, coef), key=lambda x: -abs(x[1]))[:8]:
         print(f"  {f:20s} {c:+.3f}")
 
     targeted(rows, score, expect, groups, rng)
@@ -418,11 +498,12 @@ def main():
     ap.add_argument("--focal", type=int, default=200)
     ap.add_argument("--per", type=int, default=60)
     ap.add_argument("--threads", type=int, default=4)
+    ap.add_argument("--clean", action="store_true", help="leave out games against accounts later closed for cheating")
     args = ap.parse_args()
     if args.cmd == "collect":
         collect(args.focal, args.per, args.threads)
     else:
-        evaluate()
+        evaluate(args.clean)
 
 
 if __name__ == "__main__":

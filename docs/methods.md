@@ -369,6 +369,54 @@ games. The model rerun reused all 70,467 engine results.
 python scripts/eval_engine_features.py --source /path/to/data/odds/v3 --workers 18
 ```
 
+### Beating raw ratings on a large holdout
+
+`scripts/eval_session_effects.py` uses every game in the v3 player histories (12,233 players),
+each seen from the view of the player whose history it is in, with features from that player's
+earlier games only. It fits on games before 2026-11-01 (4,437,393 player-games) and tests on games
+from 2026-11-07 (1,537,434), with a six-day gap, bootstrapping the test gain over players. The
+baseline is the Elo expected score recalibrated on the training period plus colour (+1 White,
+−1 Black), fitted by multinomial logistic regression.
+
+Two checks before it. In the 14,807 target games (excluding the 21 against later-banned accounts),
+White scored 0.0153 above the Elo expectation (+0.0058 to +0.0247) and Black 0.0144 below, and
+the Elo curve was overconfident: games Elo gave 0.338 on average ended 0.423, and games it gave
+0.690 ended 0.549. Cross-validated over the 250 focal players, recalibration gained +0.00110
+(+0.00061 to +0.00162) over Elo and colour +0.00015 more (−0.00006 to +0.00034). Rating swing
+(a proxy for Glicko's uncertainty: median 7.7 points per game, 90th percentile 8.0), abandonment
+rate and draw rate added nothing.
+
+| Added to recalibrated ratings + colour (test) | Brier gain (90% interval) |
+|---|---|
+| Session stage for everyone (games 2–5, 6–15, 16+) | −0.000001 (−0.000003 to +0.000002) |
+| The player's own session curve | −0.000005 (−0.000007 to −0.000003) |
+| Games in the 24 hours before their previous game ended | −0.000000 (−0.000001 to −0.000000) |
+| Games so far in the current run | +0.000000 (−0.000002 to +0.000003) |
+| Break before the run, first run after 3+ days | +0.000001 (−0.000000 to +0.000001) |
+| Own tilt (after-loss minus after-win residual) + lost last game | +0.000018 (+0.000012 to +0.000022) |
+| Rating minus own 200-game average | +0.000049 (+0.000026 to +0.000072) |
+| Hours from the player's usual hour | +0.000002 (−0.000000 to +0.000004) |
+| Own colour split | +0.000001 (+0.000001 to +0.000002) |
+| Lost an upset last game (Elo gave them 70%+), and mid-session | +0.000001 (−0.000001 to +0.000003) |
+| Distance below the best rating in the last 200 games | +0.000083 (+0.000068 to +0.000099) |
+| Losses in a row | +0.000015 (+0.000011 to +0.000020) |
+| All of the above | +0.000152 (+0.000133 to +0.000167) |
+
+The recalibrated ratings + colour model itself gains +0.00083 (+0.00077 to +0.00087) over the Elo
+formula on the same test games, so the full model is about +0.00098 over Elo. Mean score minus
+Elo expected in the test games, directly: 10% furthest below their 200-game average (62+ points)
++0.0238 (+0.0217 to +0.0258), middle 80% +0.0018, 10% furthest above (78+) −0.0068 (−0.0094 to
+−0.0040); after a loss +0.0001, after a win or draw +0.0058; after an upset loss −0.0789
+(−0.0944 to −0.0644, 3,845 games), and about the same whether that loss was a resignation
+(−0.075), checkmate (−0.072), timeout (−0.093) or abandonment (−0.085), so it is not only
+connection trouble; some of it may be players whose rating was too high at the time. By session
+stage: games 2–5 +0.0023, 6–15 +0.0038, 16+ +0.0041.
+
+Leak rules: every feature uses earlier games only. Whether this game starts a new session cannot
+be read from its end time, which includes its length, so session features describe the player's
+state at their previous game, and "game 1 of a session" is not a category. Opponents' pre-game
+ratings in history games are estimated as their post-game rating plus the player's own change.
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

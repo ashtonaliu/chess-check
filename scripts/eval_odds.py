@@ -293,7 +293,14 @@ def quality_features(user: str, hist: list[dict], pre: float, t: int) -> dict:
         (after_loss if prev["score"] == 0 else after_win if prev["score"] == 1 else []).append(_resid(g))
     tilt = _shrunk_mean(after_loss) - _shrunk_mean(after_win)
     lost_last = 1.0 if h and h[-1]["score"] == 0 else 0.0
+    last50 = h[-50:]
+    # Glicko moves a rating more when it is less sure of it, so the typical size of recent rating
+    # changes stands in for the rating's uncertainty (Chess.com does not publish it per game)
+    swing = float(np.mean([abs(g["my"] - g["my_pre"]) for g in h[-20:]])) if len(h) >= 5 else 8.0
     return {
+        "swing": swing,
+        "abandon": _rate(sum(g["my_res"] == "abandoned" for g in last50), len(last50), 0.01, 20),
+        "draws": _rate(sum(g["score"] == 0.5 for g in last50), len(last50), 0.04, 20),
         "bullet_gap": (other["bullet"] - pre) if other["bullet"] else 0.0, "has_bullet": 1.0 if other["bullet"] else 0.0,
         "rapid_gap": (other["rapid"] - pre) if other["rapid"] else 0.0, "has_rapid": 1.0 if other["rapid"] else 0.0,
         "trend": trend, "below_peak": peak - pre,
@@ -305,6 +312,7 @@ def quality_features(user: str, hist: list[dict], pre: float, t: int) -> dict:
     }
 
 
+EXTRA_KEYS = ["swing", "abandon", "draws"]
 QUALITY_KEYS = ["bullet_gap", "has_bullet", "rapid_gap", "has_rapid", "trend", "below_peak",
                 "log_games", "log_age_days", "log_break_days"]
 TILT_KEYS = ["tilt", "tilt_now"]
@@ -337,7 +345,12 @@ def build_rows():
         e = min(max(expected(my_pre, opp_pre), 1e-4), 1 - 1e-4)
         qa, qb = quality_features(g["focal"], me_hist, my_pre, t), quality_features(g["opp_name"], opp_hist, opp_pre, t)
         rows.append({
-            **{f"{k}_me": qa[k] for k in QUALITY_KEYS + TILT_KEYS}, **{f"{k}_opp": qb[k] for k in QUALITY_KEYS + TILT_KEYS},
+            **{f"{k}_me": qa[k] for k in QUALITY_KEYS + TILT_KEYS + EXTRA_KEYS},
+            **{f"{k}_opp": qb[k] for k in QUALITY_KEYS + TILT_KEYS + EXTRA_KEYS},
+            # White's first-move advantage: the Elo formula ignores colour entirely
+            "white": 1.0 if g["color"] == "white" else -1.0,
+            # a less certain rating should pull the Elo prediction toward 50%
+            "swing_x_rating": (qa["swing"] + qb["swing"]) * math.log(e / (1 - e)),
             "banned": qa["banned"] or qb["banned"],
             "focal": g["focal"], "y": {1.0: 2, 0.5: 1, 0.0: 0}[g["score"]], "score": g["score"], "expected": e,
             "family": g["family"], "a": a, "b": b,

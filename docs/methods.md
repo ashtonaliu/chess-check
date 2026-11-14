@@ -273,8 +273,8 @@ games that finished before the target's PGN start time and the rating recorded
 after their previous blitz game. It excludes targets whose start time or full
 history is unavailable. Stockfish runs at depth 10 and reuses the evaluation
 after each move as the next move's starting evaluation. The target's engine
-output is used only for the accuracy label, the difference between the two
-players' mean win-percentage-point loss per move. Sharpness is the standard
+output is used only for the accuracy label, the focal player's mean
+win-percentage-point loss per move minus the opponent's. Sharpness is the standard
 deviation of per-move changes after clipping each evaluation to ±1,000 cp, so
 mate scores do not dominate it.
 
@@ -285,10 +285,36 @@ same interval-width sensitivity estimate as the odds experiment. The
 accuracy-gap comparison reports out-of-fold R² for ridge and histogram
 gradient boosting.
 
-**Run status.** The seed-0 draw sampled 1,000 targets from 250 focal players.
-Five targets lacked 50 pre-start blitz games for both players. The remaining
-995 targets require Stockfish analysis of 70,467 distinct games, including
-the histories. The full engine run is in progress.
+**Results.** The seed-0 sample drew 1,000 targets from 250 focal players.
+Five lacked 50 pre-start blitz games for at least one player. The 995 eligible
+targets included 455 losses, 53 draws, and 487 wins for the focal player.
+
+Adding Stockfish history worsened held-out predictions for both classifiers.
+The changes below subtract the engine model's loss from the ratings-only
+model's loss, so negative values favor ratings alone. Intervals resample
+focal players 2,000 times.
+
+- **Multinomial logistic regression.** Expected-score Brier rose from 0.236165
+  to 0.243307, a change of −0.007143 (90% interval −0.011891 to −0.002324).
+  Log loss rose from 0.865516 to 0.889617, a change of −0.024101
+  (−0.039205 to −0.008939).
+- **Histogram gradient boosting.** Brier rose from 0.242674 to 0.271777,
+  a change of −0.029104 (−0.039280 to −0.018956). Log loss rose from
+  0.891071 to 1.001532, a change of −0.110461 (−0.147737 to −0.076304).
+
+The raw Elo formula scored 0.234814 Brier. The widest Brier interval had
+a half-width of 0.010162, the experiment's approximate minimum detectable
+Brier effect by its interval-width rule. Its square root corresponds to about
+10.08 percentage points of expected score under the same heuristic.
+
+For the accuracy gap, 991 targets had moves for both players. Adding engine
+features lowered out-of-fold R² from 0.000741 to −0.029585 for ridge and
+from −0.024083 to −0.084170 for histogram gradient boosting.
+
+Stockfish 19 analyzed 70,467 distinct games, including histories. Summed
+per-game analysis time was 75,625.608 seconds across workers. The final
+18-worker engine pass took 4,144.936 wall seconds and reused 1,522 cached
+games. The model rerun reused all 70,467 engine results.
 
 ```sh
 python scripts/eval_engine_features.py --source /path/to/data/odds/v3 --workers 18

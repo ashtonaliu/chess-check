@@ -1,10 +1,11 @@
 # Plan: the big engine study
 
-Status: not running. The gate failed on 2026-11-14: a player's tactic profile from their previous
-50 games did not predict their own tactical mistakes in the next game (correlations −0.03 to
-+0.10, out-of-sample R² at most +0.001 over 728 games; `scripts/eval_tactic_gate.py`, see the
-methods). The tactics study itself (PR #27) found no gain over calibrated ratings plus colour. The
-design below stays here in case a different question makes a large engine run worth it.
+Status: being run as a dataset, not as a prediction study. Both gates failed on 2026-11-14: a
+player's 50-game tactic profile did not predict their own next-game tactical mistakes
+(`scripts/eval_tactic_gate.py`), and their 50-game accuracy profile barely predicted next-game
+accuracy (correlation 0.10) or who outplayed whom (0.04; `scripts/eval_accuracy_gate.py`). The run
+still goes ahead to store every raw result once, so future questions (only moves, criticality,
+time use, opening preparation) are queries instead of new engine runs.
 
 ## Goal
 
@@ -36,20 +37,24 @@ draw tendency, opening preparation, style) should be a query on the stored data.
 - Before the run, a 5-minute timing pass on a few hundred games: depth 8 vs 10, a fixed node
   budget (e.g. 100,000 nodes) vs depth 10, and 6 / 12 / 17 / 18 workers. Pick by speed and by how
   steady the per-player numbers are.
-- Workers: 17 or 18 on this 18-core Mac (6 performance + 12 efficiency cores), one Stockfish
-  process per worker. About 12 if the Mac is in use. More than 18 is slower.
+- Workers: 17 on this 18-core Mac (6 performance + 12 efficiency cores), one Stockfish process
+  per worker; 18 measured no faster. About 12 if the Mac is in use.
 
-## Estimated time (to be replaced by the timing pass)
+## Measured time
 
-Codex measured 16.6 games per second at depth 10, one line, 18 workers. MultiPV 2 and WDL make it
-about 1.5 to 1.7 times slower; the depth-14 re-check adds about a third.
+`scripts/engine_dataset.py benchmark` on 170 games (short batches slightly understate speed):
 
-| Stage | Estimate |
-|---|---:|
-| Downloads (overlaps with the engine run) | 2 to 3 h |
-| Depth 10, MultiPV 2, WDL | 20 to 22 h |
-| Depth-14 re-check | +7 h |
-| Total | about 28 h, over two or three nights |
+| Setting | Games per second | About 780,000 games |
+|---|---:|---:|
+| Depth 10, MultiPV 2, 17 workers (chosen) | 4.9 | 40 to 44 h |
+| Depth 8, MultiPV 2, 17 workers | 8.5 | 25 h |
+| Depth 10, MultiPV 1, 17 workers | 7.4 | 29 h |
+| Depth 10, MultiPV 2, 12 workers | 3.7 | 58 h |
+| Depth 10, MultiPV 2, 18 workers | 4.7 | 46 h |
+
+One worker took about 2 seconds per game with the depth-14 re-check. The earlier 28-hour estimate
+was too low: MultiPV 2 and the re-check cost more than assumed. The run is resumable, so it is
+spread over three or four nights.
 
 GPU: not useful for Stockfish. Leela (lc0) on the Apple GPU could do value-only evaluations faster
 but misses short tactics; not used here. Cloud (AWS c7a.24xlarge spot, about $1.30 to $2.30/h)
@@ -57,7 +62,7 @@ would take 2.5 to 3 h for under $10; decided to use the Mac.
 
 ## Storage
 
-Parquet shards queried with DuckDB, under `data/engine/v1/` (gitignored). Chosen over JSON per
+Parquet shards written and queried with DuckDB (no pyarrow needed), under `data/engine/v1/` (gitignored). The script is `scripts/engine_dataset.py` (`select`, `benchmark`, `analyze`). Chosen over JSON per
 game (too many files, slow), SQLite (slow scans), MySQL/Postgres (server, slower scans) and a
 single DuckDB file (one writer only). Parquet also loads straight into BigQuery if wanted (the
 BigQuery sandbox's free 10 GB would hold it).

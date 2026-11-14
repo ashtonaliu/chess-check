@@ -357,6 +357,7 @@ def history_features(history):
         return [value for game in history for value in game[key]]
 
     losses = joined("losses")
+    wins = [game for game in history if game["score"] == 1]
     return {
         "loss": mean(losses),
         **{f"loss_{phase}": mean([loss for game in history for loss in game["phase_losses"][phase]])
@@ -366,7 +367,7 @@ def history_features(history):
         "conversion": mean([game["score"] == 1 for game in history if game["reached_winning"]]),
         "resilience": mean([game["score"] > 0 for game in history if game["reached_losing"]]),
         "sharpness": float(np.std(joined("changes"))) if losses else math.nan,
-        "won_on_time": mean([game["won_on_time"] for game in history]),
+        "won_on_time": mean([game["won_on_time"] for game in wins]),
         "missed_tactics": sum(game["missed"] for game in history) / len(losses) if losses else math.nan,
         "allowed_tactics": sum(game["allowed"] for game in history) / len(losses) if losses else math.nan,
     }

@@ -24,8 +24,8 @@ ORDER BY mean_resid
 SCHEMA_DOC = """\
 games(url, color, my_rating, opp_rating, score, expected, residual,
       time_class, eco, opening, family, end_time, moves)
-  -- one row per game; score is 1/0.5/0 for the user; expected is the Elo
-  -- expected score; residual = score - expected; family e.g. 'Sicilian Defense'
+  -- one row per game; score is 1/0.5/0 for the user; expected uses ratings
+  -- and, where calibrated, color and time class; residual = score - expected; family e.g. 'Sicilian Defense'
 moves(url, ply, move_no, san, best, mover, is_me, phase, cp_before, cp_after,
       wp_loss, clock, clock_frac, time_spent, legal_moves, in_check,
       captures_available, material_balance, non_pawn_material, is_capture)

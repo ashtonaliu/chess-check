@@ -7,9 +7,28 @@ export interface GameRow extends Game { expected: number; residual: number; }
 
 export const expectedScore = (my: number, opp: number) => 1 / (1 + 10 ** ((opp - my) / 400));
 
+// Fitted on Chess.com games by scripts/fit_expected_score.py.
+const CALIBRATION = new Map([
+  ["bullet", { a: 0.4092, b: 0.0580 }],
+  ["blitz", { a: 0.4637, b: 0.0606 }],
+  ["rapid", { a: 0.3770, b: 0.0583 }],
+]);
+const ELO_LOGIT_LIMIT = Math.log(9999);  // Elo probability clipped to [0.0001, 0.9999]
+
+export function pregameExpected(myRating: number, oppRating: number, color: Game["color"], timeClass: string): number {
+  const c = CALIBRATION.get(timeClass);
+  if (!c) return expectedScore(myRating, oppRating);
+  const eloLogit = (myRating - oppRating) / 400 * Math.log(10);
+  const clipped = Math.min(Math.max(eloLogit, -ELO_LOGIT_LIMIT), ELO_LOGIT_LIMIT);
+  const z = c.a * clipped + c.b * (color === "white" ? 1 : -1);
+  // Compute both sides from the same probability so they are exact complements.
+  const upper = 1 / (1 + Math.exp(-Math.abs(z)));
+  return z >= 0 ? upper : 1 - upper;
+}
+
 export function withExpected(games: Game[]): GameRow[] {
   return games.map(g => {
-    const expected = expectedScore(g.myRating, g.oppRating);
+    const expected = pregameExpected(g.myRating, g.oppRating, g.color, g.timeClass);
     return { ...g, expected, residual: g.score - expected };
   });
 }

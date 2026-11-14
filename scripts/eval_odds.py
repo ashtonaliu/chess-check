@@ -222,8 +222,11 @@ def side_features(hist: list[dict], color: str, t: int) -> dict:
         "color": _shrunk_mean([_resid(g) for g in col]), "top_family": top,
         "repertoire": {f: c / len(col) for f, c in fams.items()} if col else {},
         "streak": sum(g["score"] for g in h[-3:]) / 3 if len(h) >= 3 else 0.5,
-        "hour": sum(1 for g in h if t - g["end"] < 3600),
-        "gap": min((t - last["end"]) / 60, 600) if last else 600,
+        # Session features are measured from the end of the player's previous game, not from the
+        # target game's end: that end time includes how long the target game lasted, which gives
+        # away how it ended (a first version leaked the result this way; see evaluate's notes).
+        "hour": sum(1 for g in h if last and last["end"] - g["end"] < 3600),
+        "gap": min((last["end"] - h[-2]["end"]) / 60, 600) if len(h) >= 2 else 600,
         # share of losses that were on time, and share of wins where the opponent ran out of time
         "lose_time": _rate(sum(g["my_res"] == "timeout" for g in losses), len(losses), 0.3),
         "win_time": _rate(sum(g["opp_res"] == "timeout" for g in wins), len(wins), 0.3),

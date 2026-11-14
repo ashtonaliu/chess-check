@@ -38,7 +38,7 @@ export async function analyzeInBrowser(o: BrowserOptions) {
   });
   const t1 = performance.now();
   report(2, 0, "Double-checking blunders with a deeper search…");
-  await recheckBlunders(analyses, { engineUrl: o.engineUrl, onProgress: (done, total) =>
+  await recheckBlunders(analyses, { engineUrl: o.engineUrl, signal: o.signal, onProgress: (done, total) =>
     report(2, done / total, `Double-checking blunders at depth ${DEEP_DEPTH_BROWSER}: ${done} of ${total}${eta(t1, done, total)}`) });
   report(3, null, "Finding patterns: tactics, pieces, openings and time pressure…");
   await new Promise(r => setTimeout(r, 0));   // let the status paint
@@ -64,7 +64,7 @@ export async function analyzeInBrowser(o: BrowserOptions) {
     username: o.username, time_class: o.timeClass, generated_at: new Date().toISOString(),
     overall: overall(rows), openings, phases: phaseSummary(analyses), blunders,
     risk, facts: buildFacts(rows, analyses, risk, tactics), engine: true, analyses, tactics,
-    gameRows: rows, moveRows,
+    gameRows: rows, moveRows, games,
     get summaries() {
       return summaries ??= games.map((game, i) => [game.url, summarize(game, analyses[i])]);
     },

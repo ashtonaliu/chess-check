@@ -1,4 +1,4 @@
-// The coach's tools, running in the browser (wf/coach.py ToolBox). Every
+// The coach's tools, running in the browser (chesscheck/coach.py ToolBox). Every
 // result is registered as a citable fact [T#] so the verifier can check it.
 import type { Fact } from "./facts";
 import { formatMoves, type GameRow } from "./stats";

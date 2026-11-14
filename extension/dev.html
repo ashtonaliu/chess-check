@@ -11,16 +11,16 @@
   <script>
     const tab = new URLSearchParams(location.search).get("tab") || "https://www.chess.com/home";
     document.getElementById("sim").textContent = tab;
-    window.__wfPageUrl = tab;
+    window.__ccPageUrl = tab;
     const q = new URLSearchParams(location.search);
-    window.__wfCallback = async () => q.get("callback") ? (await fetch(q.get("callback"))).json() : null;
-    window.__wfSignedIn = q.get("me") ?? "";
+    window.__ccCallback = async () => q.get("callback") ? (await fetch(q.get("callback"))).json() : null;
+    window.__ccSignedIn = q.get("me") ?? "";
     window.chrome = {
       runtime: { getURL: p => new URL(p, location.href).href,
-                 sendMessage: async msg => { while (!window.__wfHandle) await new Promise(r => setTimeout(r, 50)); return window.__wfHandle(msg); },
+                 sendMessage: async msg => { while (!window.__ccHandle) await new Promise(r => setTimeout(r, 50)); return window.__ccHandle(msg); },
                  onMessage: { addListener() {} } },
-      storage: { local: { get: async keys => Object.fromEntries(keys.map(k => [k, JSON.parse(localStorage.getItem("wf:" + k) ?? "null") ?? undefined])),
-                          set: async o => { for (const [k, v] of Object.entries(o)) localStorage.setItem("wf:" + k, JSON.stringify(v)); } } },
+      storage: { local: { get: async keys => Object.fromEntries(keys.map(k => [k, JSON.parse(localStorage.getItem("cc:" + k) ?? "null") ?? undefined])),
+                          set: async o => { for (const [k, v] of Object.entries(o)) localStorage.setItem("cc:" + k, JSON.stringify(v)); } } },
     };
   </script>
   <script type="module">

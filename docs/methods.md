@@ -21,7 +21,7 @@ Chess.com API -> parse games (python-chess) -> DuckDB tables: games, moves
   checker: citations, moves, numbers, links -> one repair turn if needed
 ```
 
-The same pipeline exists twice: in Python (`wf/`), which is the reference, and in TypeScript (`web/src/browser/`), which runs it in the browser for the live demo. Tests in `web/test/` check that both give the same answers.
+The same pipeline exists twice: in Python (`chesscheck/`), which is the reference, and in TypeScript (`web/src/browser/`), which runs it in the browser for the live demo. Tests in `web/test/` check that both give the same answers.
 
 ## Openings
 
@@ -51,7 +51,7 @@ In the browser, the lite build of Stockfish 19 runs as WebAssembly in one worker
 
 **Deep re-check.** The fast pass (depth 8 to 10) flags blunders. Every flagged position is then searched again at depth 16 (depth 14 in the browser, where the engine is slower): once before the move, for the best move, and once after it, for the opponent's best reply. A blunder only counts if the deeper search still shows a loss of 20 percentage points or more. On my 300 games, 974 of 1,118 flagged moves were confirmed (87%), and the re-check took 54 seconds for both players. This is about 4% of all positions, so it adds little compute.
 
-**Tactic detection** (`wf/tactics.py`, ported to `web/src/browser/tactics.ts`). For each confirmed blunder, two moves are classified from the board geometry:
+**Tactic detection** (`chesscheck/tactics.py`, ported to `web/src/browser/tactics.ts`). For each confirmed blunder, two moves are classified from the board geometry:
 
 - **Allowed:** the opponent's best reply after your blunder.
 - **Missed:** the engine's best move before your blunder.
@@ -123,12 +123,12 @@ The coach never sees raw game files. It gets a numbered list of computed facts a
 
 Every tool result becomes a citable fact. The prompt requires every number, move and link to come from a cited fact.
 
-**Checker.** `wf/verify.py` (and its TypeScript port) extracts every number, chess move and URL from the report. A move or link must appear in some fact. A number must appear in the fact its sentence cites, so a correct number cited to the wrong fact still fails. If anything fails, the checker's findings go back to the coach for one rewrite. Reading real reports turned up three bugs in the checker itself: it ignored tool-result citations, it accepted "15 minutes a day" because an unrelated interval ended at +15, and it rejected real game links followed by a colon. All three now have regression tests.
+**Checker.** `chesscheck/verify.py` (and its TypeScript port) extracts every number, chess move and URL from the report. A move or link must appear in some fact. A number must appear in the fact its sentence cites, so a correct number cited to the wrong fact still fails. If anything fails, the checker's findings go back to the coach for one rewrite. Reading real reports turned up three bugs in the checker itself: it ignored tool-result citations, it accepted "15 minutes a day" because an unrelated interval ended at +15, and it rejected real game links followed by a colon. All three now have regression tests.
 
 **Three ways to run it.**
 
-1. **Claude API** (`wf/coach.py`): with `ANTHROPIC_API_KEY` set. Claude Haiku 5.5 by default (see "Choosing the model"), medium effort; server-side refusal fallbacks when the model supports them.
-2. **Claude Code** (`wf/coach_cli.py`): without a key, the local `claude -p` CLI runs the same prompt on a Claude subscription. The tools are served by a small MCP server (`wf/mcp_server.py`), built-in tools are disabled, and the repair turn resumes the same session.
+1. **Claude API** (`chesscheck/coach.py`): with `ANTHROPIC_API_KEY` set. Claude Haiku 5.5 by default (see "Choosing the model"), medium effort; server-side refusal fallbacks when the model supports them.
+2. **Claude Code** (`chesscheck/coach_cli.py`): without a key, the local `claude -p` CLI runs the same prompt on a Claude subscription. The tools are served by a small MCP server (`chesscheck/mcp_server.py`), built-in tools are disabled, and the repair turn resumes the same session.
 3. **Browser** (`web/src/browser/coach.ts`): the visitor pastes their own key and the page calls the API directly. The site has no server, and the key stays in the tab's memory. The SQL tool runs on DuckDB-WASM with writes refused and external access disabled. The SDK, DuckDB and the embedding model only load when the coach runs.
 
 ### Choosing the model
@@ -154,7 +154,7 @@ Sonnet's four unclean reports all had correct numbers but put the citation on th
 | Opus 5.5 | 30 / 256 (11.7%) | 5 / 5 | 84% | 4 / 4 | $0.15 | 29 s |
 | Haiku 5.5 | 8 / 231 (3.5%) | 4 / 5 | 84% | 4 / 4 | $0.0045 | 24 s |
 
-The one unclean Haiku report repeated a clock band label ("the 10-30% band") in an advice sentence without a citation, which the strict checker counts. The coach now uses Haiku 5.5 by default (`WF_COACH_MODEL` overrides it). Haiku 5.5 has no server-side refusal fallback, so that parameter is only sent for models that support it. With 5 players, differences of a few points in coverage are within noise; the accuracy and cost gaps are not.
+The one unclean Haiku report repeated a clock band label ("the 10-30% band") in an advice sentence without a citation, which the strict checker counts. The coach now uses Haiku 5.5 by default (`CHESS_CHECK_COACH_MODEL` overrides it). Haiku 5.5 has no server-side refusal fallback, so that parameter is only sent for models that support it. With 5 players, differences of a few points in coverage are within noise; the accuracy and cost gaps are not.
 
 ### Hallucination eval
 
@@ -189,10 +189,10 @@ Embeddings did well on rewording ("got flagged": 0.48 vs 0.00 for BM25) and badl
 
 DuckDB is embedded and columnar. It runs the statistics in-process and is the only SQL engine here that also runs in the browser, so the live demo uses it.
 
-MySQL is the persistent store for the full app when `WF_SQL_BACKEND=mysql` is set:
+MySQL is the persistent store for the full app when `CHESS_CHECK_SQL_BACKEND=mysql` is set:
 
-- Each analysis is written to its own schema (`wf_<hash>`) with `games` and `moves` tables.
-- The coach connects as `wf_reader`, which MySQL itself limits to `SELECT` on `wf_%` schemas (`deploy/mysql/init.sh`). The session also uses read-only transactions and a 5-second statement timeout.
+- Each analysis is written to its own schema (`chesscheck_<hash>`) with `games` and `moves` tables.
+- The coach connects as `chesscheck_reader`, which MySQL itself limits to `SELECT` on `chesscheck_%` schemas (`deploy/mysql/init.sh`). The session also uses read-only transactions and a 5-second statement timeout.
 - `tests/test_mysql.py` checks that DuckDB and MySQL give the same answers on typical coach queries, that `INSERT`, `DROP`, `CREATE DATABASE` and `SELECT ... INTO OUTFILE` fail even when the tool's own check is bypassed, and that a runaway query is stopped.
 - The `run_sql` description names the dialect. On MySQL, the coach wrote MySQL-specific SQL such as `SUM(wp_loss >= 20)` and `FIELD()` correctly.
 - Limit: schemas are isolated by unguessable names rather than permissions. A multi-tenant production setup would give each tenant its own database user.

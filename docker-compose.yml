@@ -8,8 +8,8 @@ services:
     image: mysql:8.4
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD in .env}
-      WF_WRITER_PASSWORD: ${WF_WRITER_PASSWORD:?set WF_WRITER_PASSWORD in .env}
-      WF_READER_PASSWORD: ${WF_READER_PASSWORD:?set WF_READER_PASSWORD in .env}
+      CHESS_CHECK_WRITER_PASSWORD: ${CHESS_CHECK_WRITER_PASSWORD:?set CHESS_CHECK_WRITER_PASSWORD in .env}
+      CHESS_CHECK_READER_PASSWORD: ${CHESS_CHECK_READER_PASSWORD:?set CHESS_CHECK_READER_PASSWORD in .env}
     volumes:
       - ./deploy/mysql/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
       - mysql-data:/var/lib/mysql
@@ -23,9 +23,9 @@ services:
   app:
     build: .
     environment:
-      WF_SQL_BACKEND: mysql
-      WF_MYSQL_WRITER_URL: mysql://wf_writer:${WF_WRITER_PASSWORD}@mysql:3306
-      WF_MYSQL_READER_URL: mysql://wf_reader:${WF_READER_PASSWORD}@mysql:3306
+      CHESS_CHECK_SQL_BACKEND: mysql
+      CHESS_CHECK_MYSQL_WRITER_URL: mysql://chesscheck_writer:${CHESS_CHECK_WRITER_PASSWORD}@mysql:3306
+      CHESS_CHECK_MYSQL_READER_URL: mysql://chesscheck_reader:${CHESS_CHECK_READER_PASSWORD}@mysql:3306
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     depends_on:
       mysql:

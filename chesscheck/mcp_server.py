@@ -1,6 +1,6 @@
 """MCP server exposing the coach's tools to Claude Code.
 
-    python -m wf.mcp_server STATE_DIR
+    python -m chesscheck.mcp_server STATE_DIR
 
 STATE_DIR holds the analysis written by coach_cli (games.pkl, moves.pkl,
 facts.json). Every tool result is registered as a citable fact [T#] and

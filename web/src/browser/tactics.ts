@@ -1,4 +1,4 @@
-// Tactic and piece analysis of blunders: a port of wf/tactics.py. Board
+// Tactic and piece analysis of blunders: a port of chesscheck/tactics.py. Board
 // geometry (which squares a piece attacks) is computed here, mirroring
 // python-chess, and parity is tested on Lichess puzzle positions.
 import { Chess, type Move } from "chess.js";
@@ -144,7 +144,7 @@ export function motifs(fen: string, move: { from: string; to: string; promotion?
   return out;
 }
 
-// ---------- per-blunder classification (wf/tactics.py classify_game) ----------
+// ---------- per-blunder classification (chesscheck/tactics.py classify_game) ----------
 
 export interface DeepFields { deep_best?: string | null; deep_refutation?: string | null; deep_cp_before?: number; deep_cp_after?: number; deep_loss?: number; }
 export interface BlunderRec {
@@ -204,7 +204,7 @@ export function classifyGame(pgn: string, a: GameAnalysis): BlunderRec[] {
   return out;
 }
 
-// ---------- summary with verdicts (wf/tactics.py summarize) ----------
+// ---------- summary with verdicts (chesscheck/tactics.py summarize) ----------
 
 /** Inverse standard normal CDF (Acklam's rational approximation, |error| < 1.2e-9 after one refinement). */
 export function normPpf(p: number): number {

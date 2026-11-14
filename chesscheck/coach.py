@@ -23,8 +23,8 @@ from .verify import feedback, verify
 
 # Haiku 5.5 won the model-choice eval (scripts/eval_models.py): fewest unsupported
 # claims in first drafts, clean after repair on every player, about 30x cheaper than
-# Opus 5.5. Override with WF_COACH_MODEL.
-MODEL = os.environ.get("WF_COACH_MODEL", "claude-haiku-5-5")
+# Opus 5.5. Override with CHESS_CHECK_COACH_MODEL.
+MODEL = os.environ.get("CHESS_CHECK_COACH_MODEL", "claude-haiku-5-5")
 # Server-side refusal fallbacks exist for these models only (not Haiku 5.5).
 FALLBACK_MODELS = {"claude-opus-5-5", "claude-sonnet-5-5", "claude-fable-5-2", "claude-fable-5-1",
                    "claude-opus-5"}

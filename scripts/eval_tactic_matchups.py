@@ -17,7 +17,7 @@ import chess.pgn
 import numpy as np
 
 import eval_engine_features as study
-from wf import engine, tactics
+from chesscheck import engine, tactics
 
 MOTIFS = tuple(tactics.MOTIFS)
 FIELDS = ('opportunities', 'missed', 'allowed', 'played')

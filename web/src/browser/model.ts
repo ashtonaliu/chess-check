@@ -1,4 +1,4 @@
-// Blunder-risk model in the browser: a port of wf/model.py player_risk with
+// Blunder-risk model in the browser: a port of chesscheck/model.py player_risk with
 // model="logreg". Logistic regression (L2, C=1, intercept unpenalized, on
 // standardized features) is fitted exactly by Newton's method, so it reaches
 // the same optimum as scikit-learn's solver; folds reproduce GroupKFold.
@@ -21,7 +21,7 @@ function median(xs: number[]): number {
   return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
 }
 
-/** Feature matrix, labels and game ids (wf/model.py features). */
+/** Feature matrix, labels and game ids (chesscheck/model.py features). */
 export function features(rows: Row[]): { X: number[][]; y: number[]; groups: string[] } {
   const clocks = rows.map(r => r.clock).filter((c): c is number => c !== null && Number.isFinite(c));
   const clockFill = clocks.length ? median(clocks) : 0;

@@ -16,9 +16,9 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from wf.coach_cli import available as claude_code_available, run_coach_auto
-from wf.env import load_env
-from wf.pipeline import Analysis, analyze, to_payload
+from chesscheck.coach_cli import available as claude_code_available, run_coach_auto
+from chesscheck.env import load_env
+from chesscheck.pipeline import Analysis, analyze, to_payload
 
 load_env()
 
@@ -28,8 +28,8 @@ USER_RE = re.compile(r"^[A-Za-z0-9_-]{3,25}$")
 _cache: dict[tuple, tuple[float, Analysis]] = {}
 CACHE_TTL = 3600
 # Small hosts (e.g. Render's free tier) set these to keep requests fast.
-MAX_GAMES = int(os.environ.get("WF_MAX_GAMES", 400))
-ENGINE_DEPTH = int(os.environ.get("WF_ENGINE_DEPTH", 10))
+MAX_GAMES = int(os.environ.get("CHESS_CHECK_MAX_GAMES", 400))
+ENGINE_DEPTH = int(os.environ.get("CHESS_CHECK_ENGINE_DEPTH", 10))
 
 
 class AnalyzeReq(BaseModel):
@@ -69,7 +69,7 @@ EXAMPLE = WEB / "example_report.json"
 def _backend() -> str | None:
     if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"):
         return "api"
-    if claude_code_available() and os.environ.get("WF_DISABLE_CLAUDE_CODE") != "1":
+    if claude_code_available() and os.environ.get("CHESS_CHECK_DISABLE_CLAUDE_CODE") != "1":
         return "claude-code"
     return None
 

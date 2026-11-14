@@ -1,4 +1,4 @@
-// Rating-adjusted opening statistics. A line-by-line port of wf/stats.py
+// Rating-adjusted opening statistics. A line-by-line port of chesscheck/stats.py
 // (same grids, same prior, same verdict rules); parity is tested against the
 // Python output in test/parity.test.ts.
 import type { Game } from "./games";
@@ -41,7 +41,7 @@ export interface OpeningRow {
   raw_z: number; n_openings: number; verdict: string;
 }
 
-/** Hierarchical normal model with the between-opening SD integrated out (see wf/stats.py). */
+/** Hierarchical normal model with the between-opening SD integrated out (see chesscheck/stats.py). */
 function shrink(groups: { n: number; mean_resid: number }[], sigma2: number, mu: number) {
   const G = groups.length;
   const noise = groups.map(g => sigma2 / g.n);
@@ -121,7 +121,7 @@ export function openingTable(rows: GameRow[], minGames = 3): OpeningRow[] {
 
 export interface Branch { moves: string; ply: number; n: number; score: number; expected: number; mean_resid: number; gap: number; }
 
-/** The longest, worst-scoring move prefix inside one opening (wf/stats.py worst_branch). */
+/** The longest, worst-scoring move prefix inside one opening (chesscheck/stats.py worst_branch). */
 export function worstBranch(rows: GameRow[], color: string, family: string, minGames = 3, maxPly = 12): Branch | null {
   const sub = rows.filter(r => r.color === color && r.family === family);
   if (sub.length < minGames) return null;

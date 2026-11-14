@@ -129,5 +129,5 @@ if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
   });
 } else {
   // development harness (extension/dev.html): the cube calls this directly
-  (window as unknown as { __wfHandle: typeof handle }).__wfHandle = handle;
+  (window as unknown as { __ccHandle: typeof handle }).__ccHandle = handle;
 }

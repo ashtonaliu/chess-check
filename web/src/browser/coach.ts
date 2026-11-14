@@ -1,5 +1,5 @@
 // The AI coach in the browser, with the visitor's own Anthropic API key.
-// A port of wf/coach.py: same prompt, tools, verifier and repair turn. The key
+// A port of chesscheck/coach.py: same prompt, tools, verifier and repair turn. The key
 // goes from this page straight to api.anthropic.com and nowhere else; the
 // page has no server.
 import { factsText, feedback, verify, type Fact, type Verification } from "./facts";

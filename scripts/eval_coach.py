@@ -34,10 +34,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from wf import coach_cli  # noqa: E402
-from wf.env import load_env  # noqa: E402
-from wf.pipeline import analyze  # noqa: E402
-from wf.verify import verify  # noqa: E402
+from chesscheck import coach_cli  # noqa: E402
+from chesscheck.env import load_env  # noqa: E402
+from chesscheck.pipeline import analyze  # noqa: E402
+from chesscheck.verify import verify  # noqa: E402
 
 RAW_PROMPT = """You are a chess coach. Below are {n} recent blitz games by the \
 Chess.com player {user}. The player had {colors}. Write a short report (under \
@@ -58,7 +58,7 @@ def strip_pgn(pgn: str) -> str:
 
 
 def raw_report(user: str, a) -> tuple[str, str]:
-    from wf.fetch import fetch_games
+    from chesscheck.fetch import fetch_games
     want = list(a.games.head(30).url)
     by_url = {g.url: g for g in fetch_games(user, max_games=max(200, len(a.games)))}
     games = [by_url[u] for u in want if u in by_url]
@@ -67,7 +67,7 @@ def raw_report(user: str, a) -> tuple[str, str]:
     prompt = RAW_PROMPT.format(n=len(games), user=user, colors=colors, pgns=pgns)
     if os.environ.get("ANTHROPIC_API_KEY"):
         import anthropic
-        from wf.coach import MODEL
+        from chesscheck.coach import MODEL
         resp = anthropic.Anthropic().messages.create(
             model=MODEL, max_tokens=16000, output_config={"effort": "medium"},
             messages=[{"role": "user", "content": prompt}])

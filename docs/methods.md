@@ -514,6 +514,41 @@ makes the out-of-sample prediction worse (R² +0.002 to −0.008). Accuracy is a
 players (−0.25 with rating), but a single game varies far more than the profiles do. So the big
 engine run is not a prediction study any more: it is run only to store a reusable dataset.
 
+## Engine dataset
+
+`chesscheck.dataset.EngineDataset` exposes `player_games`, `player_features`, and
+`pregame_rating`. `register_views` installs their DuckDB table macros
+(`dataset_player_games`, `dataset_player_features`, and `dataset_pregame_rating`)
+on an existing connection. Pass the target's PGN start as an exclusive cutoff
+in UTC Unix seconds. Game history and the rating lookup only use completed games
+whose end is earlier than that cutoff. Each historical game's own pre-game
+rating uses the same rule at its start, within the same time class. Ratings can
+be missing when the previous game is outside the dataset.
+
+The reader scans `games/part-*.parquet` and `positions/part-*.parquet` in place.
+It pairs shards by filename and uses the games shard as the completion marker.
+It ignores temporary files and does not depend on the sampling manifest. Pass a
+username to limit the position aggregation to that player's history. Pass
+`None` in Python or `NULL` in SQL to summarize all players.
+
+Win-percentage-point loss is the nonnegative difference between consecutive
+evaluations from the mover's perspective, using the engine's centipawn curve
+and opening, middlegame, and endgame rules. Forced mates use ±3,000 cp and
+terminal draws use zero. A move is critical when the best and second-best
+lines differ by at least 20 points. Easy moves have two scored lines and a
+smaller gap. Positions without a second line are excluded from both groups.
+The views report best-move rate and mean seconds spent in each group, plus
+mean loss when the clock before the move is below 10% of the base time.
+
+Conversion is the share of games won after reaching +300 cp. Resilience is
+the share drawn or won after reaching −300 cp. Depth-10 blunders lose at
+least 20 points. Counts distinguish blunders confirmed by the depth-14
+re-check, blunders that fall below the threshold at depth 14, and those with
+missing deep evaluations. The confirmation rate uses re-checked blunders as
+its denominator. Player summaries pool the underlying moves or eligible games.
+Each rate includes its denominator in a matching `_n` column and is null when
+that denominator is zero.
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

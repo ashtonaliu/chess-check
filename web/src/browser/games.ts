@@ -163,3 +163,18 @@ export async function fetchGames(user: string, maxGames: number, timeClass: stri
   }
   return games;
 }
+
+/** A finished game by its Chess.com ID, if it is in the player's last few monthly archives (finished games only). */
+export async function findGame(user: string, gameId: string, months = 3, signal?: AbortSignal): Promise<Game | null> {
+  const r = await fetchArchive(`${API}/${encodeURIComponent(user.toLowerCase())}/games/archives`, signal);
+  if (r.status === 404) throw new Error(`No Chess.com player named "${user}".`);
+  if (!r.ok) throw new Error(`Chess.com API error ${r.status}.`);
+  const archives: string[] = r.data?.archives ?? [];
+  for (const month of archives.slice(-months).reverse()) {
+    const m = await fetchArchive(month, signal);
+    if (!m.ok) throw new Error(`Chess.com API error ${m.status}.`);
+    const rg = (m.data?.games ?? []).find(g => g.url.match(/\/(\d+)$/)?.[1] === gameId);
+    if (rg) return parseGame(rg, user);
+  }
+  return null;
+}

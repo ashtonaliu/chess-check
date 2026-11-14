@@ -16,7 +16,7 @@ export function gameIdFromPage(pageUrl: string | undefined | null): string | nul
   let u: URL;
   try { u = new URL(pageUrl); } catch { return null; }
   if (u.hostname !== "www.chess.com" && u.hostname !== "chess.com") return null;
-  const m = u.pathname.match(/^\/(?:analysis\/)?game\/(?:(?:live|daily)\/)?(\d+)(?:\/|$)/);
+  const m = u.pathname.match(/^\/(?:analysis\/)?(?:(?:live|daily)\/)?game\/(?:(?:live|daily)\/)?(\d+)(?:\/|$)/);
   return m ? m[1] : null;
 }
 

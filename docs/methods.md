@@ -228,7 +228,7 @@ Browser notifications are optional (the "Notify me" button asks for permission),
 | Ratings only, fitted | 0.8253 | 0.2392 |
 | Ratings plus history | 0.8307 | 0.2412 |
 
-History is worse by 0.0055 in log loss (90% interval 0.0008 to 0.0100) and 0.0020 in Brier (0.0006 to 0.0035). The largest history weights were games in the last hour for each player, and they did not hold up on unseen players.
+History is worse by 0.0055 in log loss (90% interval 0.0008 to 0.0100) and 0.0020 in Brier (0.0006 to 0.0035). The largest history weights were games in the last hour for each player, and they did not hold up on unseen players. The test has little power: if history shifted each game's expected score by a typical 3 percentage points, the Brier score would improve by about 0.03² = 0.0009, while the interval above is about 0.003 wide. So it rules out large effects only.
 
 **Post-game ratings.** The `rating` field in Chess.com's game archive is the rating after the game. Across 980,711 consecutive game pairs, a player's rating change agreed with the result of that same game 99.6% of the time and with the previous game's result 50.2% of the time. The first run used those ratings and reported a Brier score of 0.163 for the fitted ratings model against 0.218 for the Elo formula, because the fitted model had learned to read the result from the rating change. The script now uses each player's rating after their previous game in the same time class. For past games in a player's history, the opponent's pre-game rating is estimated as their post-game rating plus the player's own rating change. On these games, post-game ratings move the expected score by 2.2 percentage points on average, almost always toward the actual result.
 

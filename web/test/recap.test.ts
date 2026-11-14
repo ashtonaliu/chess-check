@@ -5,13 +5,26 @@ import { test } from "node:test";
 
 import type { GameAnalysis } from "../src/browser/engine";
 import type { Game } from "../src/browser/games";
-import { buildRecap, opponentNote, upset } from "../src/browser/recap";
+import { buildRecap, opponentNote, pregameExpected, upset } from "../src/browser/recap";
 import { withExpected } from "../src/browser/stats";
 import { classifyGame, summarize } from "../src/browser/tactics";
 
 const fx = JSON.parse(readFileSync(new URL("./fixtures/tactics.json", import.meta.url), "utf8"));
 const games = fx.games as Game[];
 const analyses = fx.analyses as GameAnalysis[];
+
+test("the pre-game expected score is recalibrated per time class and counts colour", () => {
+  // equal ratings: White is a little ahead, Black a little behind, and the two add up to 1
+  const w = pregameExpected(1500, 1500, "white", "blitz"), b = pregameExpected(1500, 1500, "black", "blitz");
+  assert.ok(w > 0.51 && w < 0.52, String(w));
+  assert.ok(Math.abs(w + b - 1) < 1e-12);
+  // a 200-point favourite: Elo says 76%, the recalibrated formula much less, and bullet shrinks more than blitz
+  const elo = 1 / (1 + 10 ** (-200 / 400));
+  const blitz = pregameExpected(1700, 1500, "white", "blitz"), bullet = pregameExpected(1700, 1500, "white", "bullet");
+  assert.ok(elo > 0.75 && blitz < 0.65 && bullet < blitz, `${elo} ${blitz} ${bullet}`);
+  // daily (no fitted formula) keeps Elo
+  assert.equal(pregameExpected(1700, 1500, "white", "daily"), elo);
+});
 
 test("upset labels follow the pre-game expected score", () => {
   assert.equal(upset(1, 0.30), "Big upset win");
@@ -29,7 +42,7 @@ test("recap of a real game: expected score, opening history without the game its
   const i = analyses.findIndex(a => a.moves.some(m => m.is_me && ((m as any).deep_loss ?? m.wp_loss) >= 20));
   const g = games[i], a = analyses[i];
   const r = buildRecap(g, a, classifyGame(g.pgn, a), history, [], tactics);
-  const exp = 1 / (1 + 10 ** ((g.oppRating - g.myRating) / 400));
+  const exp = pregameExpected(g.myRating, g.oppRating, g.color, g.timeClass);   // recalibrated, with colour
   assert.ok(Math.abs(r.expected - exp) < 1e-12);
   assert.ok(Math.abs(r.surprise - (g.score - exp)) < 1e-12);
   // history counts only *other* games in the same opening and color

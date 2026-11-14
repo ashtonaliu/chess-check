@@ -242,6 +242,37 @@ The widest interval is 0.0008, so the test could detect a history effect that sh
 
 **Post-game ratings.** The `rating` field in Chess.com's game archive is the rating after the game. Across 980,711 consecutive game pairs, a player's rating change agreed with the result of that same game 99.6% of the time and with the previous game's result 50.2% of the time. The first run used those ratings and reported a Brier score of 0.163 for the fitted ratings model against 0.218 for the Elo formula, because the fitted model had learned to read the result from the rating change. The script now uses each player's rating after their previous game in the same time class. For past games in a player's history, the opponent's pre-game rating is estimated as their post-game rating plus the player's own rating change. On these games, post-game ratings move the expected score by 2.2 percentage points on average, almost always toward the actual result.
 
+### Stockfish history features
+
+`scripts/eval_engine_features.py` samples 1,000 distinct targets with seed 0,
+round-robin across focal players. For each player it uses their latest 50 blitz
+games that finished before the target's PGN start time and the rating recorded
+after their previous blitz game. It excludes targets whose start time or full
+history is unavailable. Stockfish runs at depth 10 and reuses the evaluation
+after each move as the next move's starting evaluation. The target's engine
+output is used only for the accuracy label, the difference between the two
+players' mean win-percentage-point loss per move.
+
+The result model compares ratings alone with ratings plus engine features
+using grouped five-fold cross-validation by focal player. It reports expected
+score Brier, log loss, paired 90% focal-player bootstrap intervals, and the
+same interval-width sensitivity estimate as the odds experiment. The
+accuracy-gap comparison reports out-of-fold R² for ridge and histogram
+gradient boosting.
+
+**Run status.** The available v3 input contains 20 distinct targets from two
+focal players, so the 1,000-game study and five-fold evaluation are pending.
+A smoke test downloaded both players' histories for one target and verified
+the two 50-game cutoffs. Stockfish 19 analyzed three games in 2.052 summed
+engine seconds (1.256 seconds wall time with two workers). Repeating that
+batch ran zero engine searches. Both model families ran on synthetic data.
+No real-data Brier, log loss, interval, sensitivity estimate, or R² is
+available yet.
+
+```sh
+python scripts/eval_engine_features.py --source /path/to/data/odds/v3
+```
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

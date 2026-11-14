@@ -103,6 +103,16 @@ The smallest model was the most accurate and about 34 times cheaper than Opus, s
 
 Embeddings understand rewording ("got flagged" finds games lost on time) but confuse who did what ("my king got mated" also finds games where I mated someone). Keywords handle that case, so the coach uses both.
 
+**Does a player's history predict the result?** I wanted to know whether a pre-game "odds" number could beat plain ratings, so I tested it on 1,780 blitz games from 30 players, using only games that ended before each one. History meant recent form, results with each color, each player's main opening, win streaks and how many games they had played in the last hour. I scored both models on players they had not seen (Brier score: 0.25 is a coin flip, lower is better).
+
+| Model | Brier score |
+|---|---:|
+| Elo formula from the two ratings | 0.239 |
+| Ratings, fitted | 0.239 |
+| Ratings plus history | 0.241 |
+
+History made predictions slightly worse, and the 90% interval for the change (0.0006 to 0.0035 worse) never crossed zero. Chess.com pairs you with someone of about your rating, so most games really are close to a coin flip, and the rating already captures what history knows. The app does not show pre-game odds, both for that reason and because of the fair-play rules below.
+
 ## What I learned
 
 - **Small samples lie.** My Scotch Game as Black looked terrible at 21% over 12 games. The model only marked it "worth watching" because with 34 openings, one bad result is expected by luck. Sixteen games later it was 38%, which is normal.
@@ -111,6 +121,7 @@ Embeddings understand rewording ("got flagged" finds games lost on time) but con
 - **Check the checker.** My claim checker had three bugs of its own. One rejected correct game links, so the coach deleted good information to make it happy.
 - **Measure before trusting the hype.** AI embeddings alone did worse than plain keyword search. Combining them did best.
 - **The biggest model is not always the best one.** Haiku beat Opus on accuracy at a thirtieth of the price. Measuring it took an hour; guessing would have cost 30 times more per report.
+- **Check where the numbers come from.** My first run of the odds test said a fitted model beat the Elo formula by a wide margin. The reason was that Chess.com's archive stores each player's rating after the game, so the winner's rating already included the points they won. Using each player's rating from their previous game removed the gap.
 - **Two versions keep each other honest.** I wrote the analysis in Python and again in TypeScript for the browser. Testing that both give the same answers caught a rounding difference and a solver that stopped too early.
 
 ## Tech used

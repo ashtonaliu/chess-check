@@ -218,6 +218,20 @@ The fair-play guard (`web/src/extension/guard.ts`, tested in `web/test/guard.tes
 
 Browser notifications are optional (the "Notify me" button asks for permission), and the tab title shows a count of unread recaps.
 
+## Odds experiment
+
+`scripts/eval_odds.py` asks whether account history predicts a game's result better than ratings alone. `collect` takes the 30 opponents I have played most who have at least 110 blitz games in the last two months, uses each one's last 60 games as targets, and caches the target opponents' histories too (data/odds/, about 1,100 players). `evaluate` builds features for each target game from games that ended before it: the Elo expected score, each player's mean residual over their last 20 games and with this game's color over their last 50, both players' residuals in each side's most-played opening with that color (shrunk toward zero with k = 10), the share of the last three games won, games in the last hour and minutes since the last game. A multinomial logistic regression over win, draw and loss is scored with grouped 5-fold cross-validation by focal player, and the 90% interval comes from resampling focal players 2,000 times.
+
+| Model | Log loss | Brier (expected score) |
+|---|---:|---:|
+| Elo formula | n/a | 0.2394 |
+| Ratings only, fitted | 0.8253 | 0.2392 |
+| Ratings plus history | 0.8307 | 0.2412 |
+
+History is worse by 0.0055 in log loss (90% interval 0.0008 to 0.0100) and 0.0020 in Brier (0.0006 to 0.0035). The largest history weights were games in the last hour for each player, and they did not hold up on unseen players.
+
+**Post-game ratings.** The `rating` field in Chess.com's game archive is the rating after the game. Across 980,711 consecutive game pairs, a player's rating change agreed with the result of that same game 99.6% of the time and with the previous game's result 50.2% of the time. The first run used those ratings and reported a Brier score of 0.163 for the fitted ratings model against 0.218 for the Elo formula, because the fitted model had learned to read the result from the rating change. The script now uses each player's rating after their previous game in the same time class. For past games in a player's history, the opponent's pre-game rating is estimated as their post-game rating plus the player's own rating change. On these games, post-game ratings move the expected score by 2.2 percentage points on average, almost always toward the actual result.
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

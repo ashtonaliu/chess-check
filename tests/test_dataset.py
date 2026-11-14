@@ -8,10 +8,11 @@ import chess.pgn
 import duckdb
 import pytest
 
-from chesscheck.dataset import DEFAULT_ROOT, EngineDataset
+from chesscheck.dataset import EngineDataset
 from chesscheck.engine import BLUNDER_DROP, phase, win_pct
 from chesscheck.fetch import DRAW_RESULTS
 
+SAMPLE_ROOT = Path(__file__).resolve().parent / "fixtures" / "engine-v1"
 SAMPLE_SHARDS = ("part-00000.parquet", "part-00001.parquet")
 
 
@@ -21,17 +22,14 @@ def records(relation):
 
 @pytest.fixture(scope="module")
 def stored_sample(tmp_path_factory):
-    source = Path(os.environ.get("CHESSCHECK_TEST_DATASET", DEFAULT_ROOT))
-    if not all((source / table / name).is_file()
-               for table in ("games", "positions") for name in SAMPLE_SHARDS):
-        pytest.skip("Set CHESSCHECK_TEST_DATASET to the original v1 dataset with its 50-game sample")
-    # Isolate the original two committed batches while the writer appends more.
+    source = Path(os.environ.get("CHESSCHECK_TEST_DATASET", SAMPLE_ROOT))
+    # Use only the original two batches, even when pointed at a live dataset.
     sample = tmp_path_factory.mktemp("engine-sample")
     for table in ("games", "positions"):
         folder = sample / table
         folder.mkdir()
         for name in SAMPLE_SHARDS:
-            (folder / name).symlink_to((source / table / name).resolve())
+            (folder / name).symlink_to((source / table / name).resolve(strict=True))
         (folder / "part-99999.parquet.tmp").touch()
     # A valid positions shard without a games completion marker must be ignored.
     (sample / "positions" / "part-99998.parquet").symlink_to(

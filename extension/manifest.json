@@ -2,10 +2,11 @@
   "manifest_version": 3,
   "name": "Chess Check: post-game recaps",
   "short_name": "Chess Check",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "A small cube on Chess.com that recaps each game you finish, with no setup: the upset meter, the turning point, your patterns and your opponent's openings. Never during a game.",
   "permissions": [
     "storage",
+    "unlimitedStorage",
     "offscreen"
   ],
   "host_permissions": [

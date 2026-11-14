@@ -119,6 +119,7 @@ let players: Players | null = null;       // the game in the tab
 let served: Served | null = null;
 let viewer = "";                          // whose recap to show for this game
 let recap: Recap | null = null;
+let basis = 150;                          // how many of your past games the recap's profile used
 let message = "";
 let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -130,7 +131,12 @@ function setState(s: State, msg = "") {
 }
 
 function renderPanel() {
-  if (state === "ready" && recap) { body.replaceChildren(recapCard(recap, false)); return; }
+  if (state === "ready" && recap) {
+    body.replaceChildren(recapCard(recap, false));
+    if (basis < 150) body.insertAdjacentHTML("beforeend",
+      `<p class="fine">Based on your last ${basis} games so far. The rest are added between games.</p>`);
+    return;
+  }
   if (state === "choose" && players) {
     const names = [players.white, players.black];
     const me = signedInUser();
@@ -262,7 +268,7 @@ async function requestRecap() {
   switch (reply.status) {
     case "building": setState("building", reply.progress); timer = setTimeout(requestRecap, 1000); break;
     case "pending": setState("pending"); break;
-    case "recap": recap = reply.recap; setState("ready"); break;
+    case "recap": recap = reply.recap; basis = reply.games; setState("ready"); break;
     case "error": setState("error", reply.message); break;
     case "ready": break;
   }

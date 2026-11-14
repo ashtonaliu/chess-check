@@ -369,6 +369,36 @@ games. The model rerun reused all 70,467 engine results.
 python scripts/eval_engine_features.py --source /path/to/data/odds/v3 --workers 18
 ```
 
+### Tactical matchups
+
+`scripts/eval_tactic_matchups.py` uses the same sampled targets, previous-game
+ratings, and 50 strictly pre-start blitz games per player as the Stockfish
+history study. It reads the downloaded PGNs offline and stores separate
+depth-10 motif counts. The original cache pooled motifs across types.
+
+The detector tags the engine's best move and the move actually played. A
+missed motif is present in the best move, absent in the played move, and
+accompanied by a drop of at least 20 win-percentage points. An allowed motif
+appears on the best reply to a move with that drop. The model uses missed
+events per tagged best-move opportunity, and opportunities, allowed events,
+and played motifs per move. Played motifs count only on moves below the drop
+threshold. Fixed pseudo-counts shrink sparse rates toward zero. Played motifs
+estimate how often a player uses a motif, including opportunities gifted by an
+opponent. Single-move tags also miss combinations that unfold over several
+moves, and pin and back-rank tags were less precise in puzzle validation.
+
+The baseline calibrates the pre-game Elo gap and color with multinomial
+logistic regression. The first extension adds the difference between players'
+motif rates. The second adds two matchup terms per motif, combining one
+player's played rate with the other's missed or allowed rate and subtracting
+the reverse matchup. The three models use the same five held-out focal-player
+folds. Each selects regularization by Brier score inside a grouped four-fold
+split of its training data. Paired 90% intervals resample focal players.
+
+```sh
+python scripts/eval_tactic_matchups.py --source /path/to/data/odds/v3 --workers 14
+```
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

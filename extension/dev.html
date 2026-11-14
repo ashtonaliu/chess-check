@@ -1,8 +1,9 @@
 <!doctype html>
 <!-- Development harness (not packaged): runs the cube and the analysis page in one
      normal tab, with stand-ins for the Chrome APIs. ?tab=<chess.com URL> simulates
-     the page the cube is on, and ?white=&black= stand in for Chess.com's game
-     endpoint, which a page on localhost cannot call. -->
+     the page the cube is on, ?callback=<path to a saved game endpoint response>
+     stands in for Chess.com's game endpoint (which a page on localhost cannot call;
+     leave it out to simulate a game in progress), and ?me= is the signed-in user. -->
 <html lang="en"><head><meta charset="utf-8"><title>Chess Check cube (dev)</title>
 <style>body { margin: 0; height: 100vh; background: #302e2b; color: #ddd; font: 14px system-ui; padding: 16px; }</style></head>
 <body>
@@ -12,7 +13,8 @@
     document.getElementById("sim").textContent = tab;
     window.__wfPageUrl = tab;
     const q = new URLSearchParams(location.search);
-    window.__wfPlayers = async () => ({ white: q.get("white") || "ashton-iwnl", black: q.get("black") || "dallen6" });
+    window.__wfCallback = async () => q.get("callback") ? (await fetch(q.get("callback"))).json() : null;
+    window.__wfSignedIn = q.get("me") ?? "";
     window.chrome = {
       runtime: { getURL: p => new URL(p, location.href).href,
                  sendMessage: async msg => { while (!window.__wfHandle) await new Promise(r => setTimeout(r, 50)); return window.__wfHandle(msg); },

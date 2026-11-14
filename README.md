@@ -42,7 +42,9 @@ Everything is compared with your opponents in the same games. A typical result, 
 2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and choose the `extension` folder.
 3. Reload your Chess.com tab and open a finished game. The first recap analyzes your last 150 games in that time control, which takes a minute or two.
 
-The cube knows who you are from the Chess.com account you are signed in to, and it gets both players from the game itself. If you are signed out, it asks once which of the two players you are. It reads nothing else from the page, and it runs no analysis until Chess.com lists the game as finished, so Stockfish never runs during a game. Clicking the toolbar icon hides or shows the cube.
+The cube knows who you are from the Chess.com account you are signed in to, and it gets both players from the game itself. If you are signed out, it asks once which of the two players you are. It reads nothing else from the page.
+
+It is fast because the slow part happens before you play. On Chess.com pages that are not a game or the play page, it analyzes your recent games in the time control you play most. During a game it only checks every 5 seconds whether Chess.com has published the finished game, and it stops any analysis still running. Chess.com does not publish a live game until it is over, so nothing about the game is known, shown or analyzed while you play. With your profile ready, the recap is ready about 2 seconds after the game is published. Clicking the toolbar icon hides or shows the cube.
 
 **On the website,** press **Follow my games** and keep the tab open; a recap appears after each game you finish.
 

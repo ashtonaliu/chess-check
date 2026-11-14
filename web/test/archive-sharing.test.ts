@@ -33,3 +33,18 @@ test("the last cancellation aborts the shared fetch", async t => {
   await assert.rejects(pending, { name: "AbortError" });
   assert.equal(sharedSignal?.aborted, true);
 });
+
+test("a request that hangs or is rate limited is retried instead of waiting forever", async () => {
+  const real = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async (u: string) => {
+    calls++;
+    if (calls === 1) return new Response("", { status: 429 });        // rate limited once
+    if (u.endsWith("/archives")) return new Response(JSON.stringify({ archives: [] }), { status: 200 });
+    return new Response("{}", { status: 200 });
+  }) as typeof fetch;
+  try {
+    assert.deepEqual(await fetchGames("slowpoke", 10, null), []);
+    assert.equal(calls, 2);
+  } finally { globalThis.fetch = real; }
+});

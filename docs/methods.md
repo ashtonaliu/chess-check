@@ -505,6 +505,15 @@ Only allowing tactics shows a faint trait. A single game has few tactical chance
 mostly noise, and a 50-game profile does not predict it. The gate failed, so the big engine run is
 not being done for tactics.
 
+**Accuracy gate** (`scripts/eval_accuracy_gate.py`, same design as the tactics gate, no new engine
+work). On 726 target games from all 250 players, a player's 50-game accuracy profile barely
+predicts their next game: correlation 0.10 with their mean win-percentage points lost per move,
+out-of-sample R² from −0.008 (rating alone) to −0.006. For who outplayed whom (the accuracy gap
+between the two players in that game), the two players' profile gap correlates 0.04 and adding it
+makes the out-of-sample prediction worse (R² +0.002 to −0.008). Accuracy is a real trait across
+players (−0.25 with rating), but a single game varies far more than the profiles do. So the big
+engine run is not a prediction study any more: it is run only to store a reusable dataset.
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

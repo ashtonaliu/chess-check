@@ -265,6 +265,70 @@ The model does learn: with weak regularization, size-8 styles fit the training g
 
 **Post-game ratings.** The `rating` field in Chess.com's game archive is the rating after the game. Across 980,711 consecutive game pairs, a player's rating change agreed with the result of that same game 99.6% of the time and with the previous game's result 50.2% of the time. The first run used those ratings and reported a Brier score of 0.163 for the fitted ratings model against 0.218 for the Elo formula, because the fitted model had learned to read the result from the rating change. The script now uses each player's rating after their previous game in the same time class. For past games in a player's history, the opponent's pre-game rating is estimated as their post-game rating plus the player's own rating change. On these games, post-game ratings move the expected score by 2.2 percentage points on average, almost always toward the actual result.
 
+### Stockfish history features
+
+`scripts/eval_engine_features.py` samples 1,000 distinct targets with seed 0,
+round-robin across focal players. For each player it uses their latest 50 blitz
+games that finished before the target's PGN start time and the rating recorded
+after their previous blitz game. It excludes targets whose start time or full
+history is unavailable. Stockfish runs at depth 10 and reuses the evaluation
+after each move as the next move's starting evaluation. The target's engine
+output is used only for the accuracy label, the focal player's mean
+win-percentage-point loss per move minus the opponent's. Sharpness is the standard
+deviation of per-move changes after clipping each evaluation to ±1,000 cp, so
+mate scores do not dominate it.
+
+The result model compares ratings alone with ratings plus engine features
+using grouped five-fold cross-validation by focal player. It reports expected
+score Brier, log loss, paired 90% focal-player bootstrap intervals, and the
+same interval-width sensitivity estimate as the odds experiment. The
+accuracy-gap comparison reports out-of-fold R² for ridge and histogram
+gradient boosting.
+
+**Results.** The seed-0 sample drew 1,000 targets from 250 focal players.
+Five lacked 50 pre-start blitz games for at least one player. The 995 eligible
+targets included 455 losses, 53 draws, and 487 wins for the focal player.
+
+Adding Stockfish history worsened held-out predictions for both classifiers.
+The changes below subtract the engine model's loss from the ratings-only
+model's loss, so negative values favor ratings alone. Intervals resample
+focal players 2,000 times.
+
+- **Multinomial logistic regression.** Expected-score Brier rose from 0.236165
+  to 0.243307, a change of −0.007143 (90% interval −0.011891 to −0.002324).
+  Log loss rose from 0.865516 to 0.889617, a change of −0.024101
+  (−0.039205 to −0.008939).
+- **Histogram gradient boosting.** Brier rose from 0.242674 to 0.271777,
+  a change of −0.029104 (−0.039280 to −0.018956). Log loss rose from
+  0.891071 to 1.001532, a change of −0.110461 (−0.147737 to −0.076304).
+
+The raw Elo formula scored 0.234814 Brier. The widest Brier interval had
+a half-width of 0.010162, the experiment's approximate minimum detectable
+Brier effect by its interval-width rule. Its square root corresponds to about
+10.08 percentage points of expected score under the same heuristic.
+
+How to read this: the sample is too small to settle the question. It can only
+detect an engine effect of about 10 points of expected score per game, five
+times coarser than the 14,830-game tests above (about 2 points). The losses are
+about what fitting 23 extra features to roughly 800 games per fold costs
+(p/n × variance ≈ 0.007 Brier), and even the fitted ratings-only model scored
+worse than the plain Elo formula. So this rules out large engine effects, not
+small ones. Reaching 2-point resolution would take about 25 times more games,
+roughly 1.8 million game analyses, which is weeks of CPU on one machine.
+
+For the accuracy gap, 991 targets had moves for both players. Adding engine
+features lowered out-of-fold R² from 0.000741 to −0.029585 for ridge and
+from −0.024083 to −0.084170 for histogram gradient boosting.
+
+Stockfish 19 analyzed 70,467 distinct games, including histories. Summed
+per-game analysis time was 75,625.608 seconds across workers. The final
+18-worker engine pass took 4,144.936 wall seconds and reused 1,522 cached
+games. The model rerun reused all 70,467 engine results.
+
+```sh
+python scripts/eval_engine_features.py --source /path/to/data/odds/v3 --workers 18
+```
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

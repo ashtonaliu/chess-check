@@ -215,3 +215,12 @@ button.small { padding: 5px 12px; font-size: 13px; border-radius: 8px; }
 .dlg-keys { margin: 10px 0 0; font-size: 12px; color: var(--muted); text-align: center; }
 @media (hover: none) { .dlg-keys { display: none; } }
 .examples-dialog .board-wrap { width: 100%; max-width: max(220px, calc(100dvh - 330px)); margin: 0 auto; }
+/* ---------- recap: find the better move, then reveal it ---------- */
+.quiz-q { display: block; margin-top: 4px; color: var(--muted); }
+.quiz-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 8px; }
+.quiz-actions .quiz-board, .quiz-actions .quiz-reveal { font-size: 13px; font-weight: 650; padding: 6px 12px; border-radius: 8px; text-decoration: none; }
+.quiz-actions .quiz-board { background: var(--accent); color: var(--accent-ink); }
+.quiz-actions .quiz-reveal { background: var(--accent-soft); color: var(--accent); }
+.quiz-answer { display: none; outline: none; }
+.recap.revealed .quiz-answer { display: block; }
+.recap.revealed .quiz-actions .quiz-reveal { display: none; }

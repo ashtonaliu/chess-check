@@ -66,26 +66,66 @@ export const ago = (t: number) => {
 };
 const VERDICT_CLASS = (r: Recap) => r.surprise >= 0.4 ? "good" : r.surprise <= -0.4 ? "weak" : r.score === 1 ? "good" : "";
 
-/** The recap card as a DOM element (no side effects). */
-export function recapCard(r: Recap, isNew: boolean): HTMLElement {
+/** Link to a game on Chess.com, opened at the position before move `ply` (0-based half-moves). */
+export function moveLink(url: string, ply: number): string {
+  try { const u = new URL(url); u.searchParams.set("move", String(ply)); return u.toString(); } catch { return url; }
+}
+
+// Whether the player has revealed a recap's answer, per tab, so it survives the page reload that
+// "Find it on the board" causes on Chess.com.
+const revealKey = (r: Recap) => `chess-check-revealed:${r.url}:${r.turning?.ply ?? ""}`;
+const wasRevealed = (r: Recap) => { try { return sessionStorage.getItem(revealKey(r)) === "1"; } catch { return false; } };
+const rememberReveal = (r: Recap) => { try { sessionStorage.setItem(revealKey(r), "1"); } catch { /* not remembered */ } };
+
+export interface RecapOptions {
+  /** Draw the turning point on a small board (the website). The extension leaves the board to
+   *  Chess.com, whose own board is on the page. */
+  board?: boolean;
+  /** Open "Find it on the board" in this tab (the extension, on the game's own page). */
+  sameTab?: boolean;
+}
+
+/** The recap card as a DOM element. Its only side effect is remembering a revealed answer. */
+export function recapCard(r: Recap, isNew: boolean, opts: RecapOptions = {}): HTMLElement {
+  const showBoard = opts.board ?? true;
 
   const col = r.color === "white" ? "White" : "Black";
   const resultPos = r.score * 100, expPos = r.expected * 100;
   const resultColor = r.score === 1 ? "var(--good)" : r.score === 0 ? "var(--weak)" : "var(--neutral)";
   const t = r.turning;
-  const board = t ? (() => {
+  // A real blunder with a better move becomes a question: find the move, then reveal it.
+  const quiz = !!(t && t.loss >= 20 && t.best && t.best !== t.san);
+  let revealed = !quiz || wasRevealed(r);
+  const boardFor = (withAnswer: boolean) => {
+    if (!t || !showBoard) return "";
     const flip = t.ply % 2 === 1;
-    const played = moveSquares(t.fen, t.san), best = t.best && t.best !== t.san ? moveSquares(t.fen, t.best) : null;
+    const played = moveSquares(t.fen, t.san), best = withAnswer && t.best && t.best !== t.san ? moveSquares(t.fen, t.best) : null;
     return boardSvg(t.fen, flip, [...(played ? [{ ...played, color: "#d0452f" }] : []), ...(best ? [{ ...best, color: "#2f9a5a" }] : [])]);
-  })() : "";
+  };
+  const board = boardFor(revealed);
   const clock = t?.clockFrac !== null && t?.clockFrac !== undefined
     ? (t.clockFrac <= 0.1 ? ", in time trouble" : t.clockFrac <= 0.3 ? ", low on time" : "") : "";
   const tags = t?.tactics.length ? ` You ${t.tactics.map(x => motifName(x.kind, x.motif)).join(" and ")}.` : "";
+  // Before the reveal: what went wrong with your move ("allowed") and a hint ("missed").
+  const allowed = t?.tactics.filter(x => x.kind === "allowed").map(x => MOTIF_SINGULAR[x.motif] ?? x.motif) ?? [];
+  const missed = t?.tactics.filter(x => x.kind === "missed").map(x => MOTIF_SINGULAR[x.motif] ?? x.motif) ?? [];
+  const article = (w: string) => (/^[aeiou]/.test(w) ? "an " : "a ") + w;
+  const why = allowed.length ? ` It allowed ${allowed.map(article).join(" and ")}.` : "";
+  const hint = missed.length ? ` Hint: look for ${missed.map(article).join(" or ")}.` : "";
+  const link = t ? moveLink(r.url, t.ply) : r.url;
   const turning = !t ? `<p>Clean game: no mistakes worth noting.</p>`
-    : t.loss >= 20
-      ? `<p><span class="lbl">Turning point</span><span class="moves">${esc(t.label)}</span> lost <strong class="weak">${Math.round(t.loss)}%</strong>
-         winning chances (${esc(t.phase)}${clock}).${t.best ? ` Better was <span class="moves">${esc(t.best)}</span>.` : ""}${esc(tags)}</p>`
-      : `<p><span class="lbl">Turning point</span>No blunders. Your biggest slip, <span class="moves">${esc(t.label)}</span>, cost ${Math.round(t.loss)}%.</p>`;
+    : quiz
+      ? `<div class="quiz"><p><span class="lbl">Turning point</span><span class="moves">${esc(t.label)}</span> lost <strong class="weak">${Math.round(t.loss)}%</strong>
+           winning chances (${esc(t.phase)}${clock}). There was a much better move.<span class="quiz-q">${esc(why + hint)}</span></p>
+         <div class="quiz-actions">
+           <a class="quiz-board" href="${esc(link)}"${opts.sameTab ? "" : ` target="_blank" rel="noopener"`}>Find it on the board</a>
+           <button type="button" class="quiz-reveal">Reveal the move</button>
+         </div>
+         <p class="quiz-answer"><span class="lbl">Answer</span>Better was <span class="moves">${esc(t.best!)}</span>.${esc(tags)}</p></div>`
+      : t.loss >= 20
+        ? `<p><span class="lbl">Turning point</span><span class="moves">${esc(t.label)}</span> lost <strong class="weak">${Math.round(t.loss)}%</strong>
+           winning chances (${esc(t.phase)}${clock}).${esc(tags)}</p>`
+        : `<p><span class="lbl">Turning point</span>No blunders. Your biggest slip, <span class="moves">${esc(t.label)}</span>, cost ${Math.round(t.loss)}%.</p>`;
   const h = r.opening.history;
   const variation = r.opening.name.toLowerCase().replace(/[^a-z]/g, "") !== r.opening.family.toLowerCase().replace(/[^a-z]/g, "")
     ? ` <span class="ci">(${esc(r.opening.name)})</span>` : "";
@@ -107,9 +147,20 @@ export function recapCard(r: Recap, isNew: boolean): HTMLElement {
       <div class="track"><span class="mark" style="left:${expPos.toFixed(1)}%"></span>
         <span class="result" style="left:${resultPos}%;background:${resultColor}"></span></div>
       <div class="labels"><span>loss</span><span>Before the game you had a ${Math.round(expPos)}% expected score</span><span>win</span></div></div>
-    <div class="recap-grid${t ? "" : " noboard"}">${board ? `<div>${board}</div>` : ""}
+    <div class="recap-grid${board ? "" : " noboard"}">${board ? `<div class="recap-board">${board}</div>` : ""}
       <div class="recap-lines">${turning}${pat}${opening}${opp}</div></div>`;
-  if (!t) (card.querySelector(".recap-grid") as HTMLElement).style.gridTemplateColumns = "1fr";
+  if (!board) (card.querySelector(".recap-grid") as HTMLElement).style.gridTemplateColumns = "1fr";
+  const show = () => {
+    card.classList.toggle("revealed", revealed);
+    const b = card.querySelector<HTMLElement>(".recap-board");
+    if (b) b.innerHTML = boardFor(revealed);
+  };
+  card.querySelector(".quiz-reveal")?.addEventListener("click", () => {
+    revealed = true; rememberReveal(r); show();
+    card.querySelector<HTMLElement>(".quiz-answer")?.focus();
+  });
+  card.querySelector<HTMLElement>(".quiz-answer")?.setAttribute("tabindex", "-1");
+  show();
   return card;
 }
 

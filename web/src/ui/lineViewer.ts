@@ -4,7 +4,7 @@
 // viewer never blocks: the rest of the line fills in when the engine answers.
 import { Chess } from "chess.js";
 import { Engine } from "../browser/engine";
-import { boardSvg, esc, moveSquares } from "./recapCard";
+import { boardSvg, esc, moveLink, moveSquares } from "./recapCard";
 
 export interface ExampleData { fen: string; ply: number; move_no: number; san: string; wp_loss: number; best: string | null; url: string; }
 interface Step { san: string; fen: string; from: string; to: string; }
@@ -21,10 +21,6 @@ let queue: Promise<unknown> = Promise.resolve();
 const memo = new Map<string, Promise<Step[]>>();
 const states = new WeakMap<HTMLElement, State>();
 
-/** Link to the game on Chess.com, opened at the position before this move. */
-export function moveLink(url: string, ply: number): string {
-  try { const u = new URL(url); u.searchParams.set("move", String(ply)); return u.toString(); } catch { return url; }
-}
 
 const moveName = (ply: number, san: string, first: boolean) =>
   ply % 2 === 0 ? `${Math.floor(ply / 2) + 1}.${san}` : first ? `${Math.floor(ply / 2) + 1}...${san}` : san;

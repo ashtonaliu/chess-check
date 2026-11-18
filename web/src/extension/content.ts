@@ -90,7 +90,7 @@ root.innerHTML = `<style>${siteCss.replace(/:root/g, ":host")}
   .cube.ready::after, .cube.choose::after { content: ""; position: absolute; top: -3px; right: -3px; width: 12px; height: 12px;
     border-radius: 50%; background: #f2c14e; border: 2px solid #1b201d; }
   .cube:active { cursor: grabbing; }
-  .panel { position: fixed; width: 340px; overflow: auto; background: var(--bg); color: var(--ink);
+  .panel { position: fixed; width: 340px; max-width: calc(100vw - 16px); box-sizing: border-box; overflow: auto; background: var(--bg); color: var(--ink);
     border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.45); border: 1px solid var(--line); padding: 12px 14px; }
   .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: 700; }
   .head button { background: none; color: var(--muted); padding: 2px 6px; font-weight: 600; }
@@ -103,8 +103,8 @@ root.innerHTML = `<style>${siteCss.replace(/:root/g, ":host")}
   .fine { font-size: 11px; color: var(--muted); margin: 10px 0 0; }
   .hidden { display: none !important; }
 </style>
-<button class="cube" title="Chess Check: post-game recap" aria-label="Chess Check">${KNIGHT}</button>
-<div class="panel hidden" role="dialog" aria-label="Chess Check recap">
+<button class="cube" title="Chess Check: post-game recap" aria-label="Chess Check" aria-expanded="false" aria-controls="cc-panel">${KNIGHT}</button>
+<div class="panel hidden" id="cc-panel" role="dialog" aria-label="Chess Check recap">
   <div class="head"><span>Chess Check</span><span><button data-act="reset" title="Forget which player you are">Reset</button><button data-act="close" aria-label="Close">✕</button></span></div>
   <div class="body"></div>
   <p class="fine">Recaps appear only after Chess.com lists a game as finished. Nothing is shown or analyzed during a game.</p>
@@ -132,7 +132,8 @@ function setState(s: State, msg = "") {
 
 function renderPanel() {
   if (state === "ready" && recap) {
-    body.replaceChildren(recapCard(recap, false));
+    // Chess.com's own board is on the page, so the recap points at it instead of drawing one.
+    body.replaceChildren(recapCard(recap, false, { board: false, sameTab: true }));
     if (basis < 150) body.insertAdjacentHTML("beforeend",
       `<p class="fine">Based on your last ${basis} games so far. The rest are added between games.</p>`);
     return;
@@ -172,9 +173,12 @@ function place() {
   pos.right = Math.min(Math.max(pos.right, 4), window.innerWidth - 48);
   pos.bottom = Math.min(Math.max(pos.bottom, 4), window.innerHeight - 48);
   cube.style.right = `${pos.right}px`; cube.style.bottom = `${pos.bottom}px`;
-  // open the panel on whichever side has room
-  const left = window.innerWidth - pos.right - 44 > 360;
-  panel.style.right = left ? `${pos.right + 52}px` : ""; panel.style.left = left ? "" : `${window.innerWidth - pos.right + 8}px`;
+  // open the panel on whichever side of the cube has room, or centered when neither does (narrow windows)
+  const width = Math.min(340, window.innerWidth - 16);
+  const cubeLeft = window.innerWidth - pos.right - 44, cubeRight = window.innerWidth - pos.right;
+  if (cubeLeft - 8 >= width) { panel.style.right = `${pos.right + 52}px`; panel.style.left = ""; }
+  else if (window.innerWidth - cubeRight - 8 >= width) { panel.style.left = `${cubeRight + 8}px`; panel.style.right = ""; }
+  else { panel.style.left = `${Math.round((window.innerWidth - width) / 2)}px`; panel.style.right = ""; }
   // and grow downward from a cube in the top half, upward from one in the bottom half
   const cubeTop = window.innerHeight - pos.bottom - 44;
   if (cubeTop < window.innerHeight / 2) {
@@ -196,19 +200,44 @@ cube.addEventListener("pointermove", e => {
   if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
   if (drag.moved) { pos = { right: drag.right - dx, bottom: drag.bottom - dy }; place(); }
 });
+let dragged = false;
 cube.addEventListener("pointerup", () => {
-  if (drag && !drag.moved) togglePanel();
-  else if (drag) void save("position", pos);
+  dragged = !!drag?.moved;
+  if (dragged) void save("position", pos);
   drag = null;
+});
+// A click (or Enter or Space on the focused cube) opens the panel, unless it ended a drag.
+cube.addEventListener("click", () => {
+  if (dragged) { dragged = false; return; }
+  togglePanel();
 });
 window.addEventListener("resize", place);
 
 function togglePanel(force?: boolean) {
   const open = force ?? panel.classList.contains("hidden");
+  const wasOpen = !panel.classList.contains("hidden");
   panel.classList.toggle("hidden", !open);
+  cube.setAttribute("aria-expanded", String(open));
   if (open) renderPanel();
+  else if (wasOpen) cube.focus();
 }
 root.querySelector('[data-act="close"]')!.addEventListener("click", () => togglePanel(false));
+panel.addEventListener("keydown", e => { if (e.key === "Escape") { e.stopPropagation(); togglePanel(false); } });
+
+// "Find it on the board" reloads this page at the move; reopen the recap when it is back.
+const REOPEN = "chess-check-reopen";
+panel.addEventListener("click", e => {
+  if ((e.target as HTMLElement).closest(".quiz-board") && lastId) {
+    try { sessionStorage.setItem(REOPEN, lastId); } catch { /* the panel stays closed */ }
+  }
+});
+function takeReopen(id: string | null): boolean {
+  try {
+    if (!id || sessionStorage.getItem(REOPEN) !== id) return false;
+    sessionStorage.removeItem(REOPEN);
+    return true;
+  } catch { return false; }
+}
 root.querySelector('[data-act="reset"]')!.addEventListener("click", () => {
   accounts = []; void save("accounts", accounts); lastId = null; void check();
 });
@@ -268,7 +297,10 @@ async function requestRecap() {
   switch (reply.status) {
     case "building": setState("building", reply.progress); timer = setTimeout(requestRecap, 1000); break;
     case "pending": setState("pending"); break;
-    case "recap": recap = reply.recap; basis = reply.games; setState("ready"); break;
+    case "recap":
+      recap = reply.recap; basis = reply.games; setState("ready");
+      if (takeReopen(id)) togglePanel(true);
+      break;
     case "error": setState("error", reply.message); break;
     case "ready": break;
   }

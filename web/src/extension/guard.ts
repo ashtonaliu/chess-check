@@ -27,3 +27,12 @@ export const gameIdFromApiUrl = (url: string) => url.match(/\/(\d+)$/)?.[1] ?? n
 export function canShowRecap(gameId: string | null, finishedIds: Set<string>): boolean {
   return gameId !== null && finishedIds.has(gameId);
 }
+
+/** The review queue is never shown on the page games are played from, or on a game page until
+ *  Chess.com has confirmed that game is over. Other pages (home, profiles, puzzles) are fine. */
+export function canReview(pageUrl: string, gameConfirmedOver: boolean): boolean {
+  let u: URL;
+  try { u = new URL(pageUrl); } catch { return false; }
+  if (/^\/play(\/|$)/.test(u.pathname)) return false;
+  return !gameIdFromPage(pageUrl) || gameConfirmedOver;
+}

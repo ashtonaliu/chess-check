@@ -77,6 +77,13 @@ export function tacticSentence(tactics: { kind: "allowed" | "missed"; motif: str
   return did.length ? ` You ${did.join(" and ")}.` : "";
 }
 
+/** The question's hint: what your move allowed, and what kind of move you missed. */
+export function quizHint(tactics: { kind: "allowed" | "missed"; motif: string }[]): string {
+  const names = (kind: string) => tactics.filter(x => x.kind === kind).map(x => article(MOTIF_SINGULAR[x.motif] ?? x.motif));
+  const allowed = names("allowed"), missed = names("missed");
+  return (allowed.length ? ` It allowed ${allowed.join(" and ")}.` : "") + (missed.length ? ` Hint: look for ${missed.join(" or ")}.` : "");
+}
+
 export function moveLink(url: string, ply: number): string {
   try { const u = new URL(url); u.searchParams.set("move", String(ply)); return u.toString(); } catch { return url; }
 }
@@ -116,11 +123,8 @@ export function recapCard(r: Recap, isNew: boolean, opts: RecapOptions = {}): HT
   const clock = t?.clockFrac !== null && t?.clockFrac !== undefined
     ? (t.clockFrac <= 0.1 ? ", in time trouble" : t.clockFrac <= 0.3 ? ", low on time" : "") : "";
   // Before the reveal: what went wrong with your move ("allowed") and a hint ("missed").
-  const allowed = t?.tactics.filter(x => x.kind === "allowed").map(x => MOTIF_SINGULAR[x.motif] ?? x.motif) ?? [];
-  const missed = t?.tactics.filter(x => x.kind === "missed").map(x => MOTIF_SINGULAR[x.motif] ?? x.motif) ?? [];
   const tags = t ? tacticSentence(t.tactics) : "";
-  const why = allowed.length ? ` It allowed ${allowed.map(article).join(" and ")}.` : "";
-  const hint = missed.length ? ` Hint: look for ${missed.map(article).join(" or ")}.` : "";
+  const question = t ? quizHint(t.tactics) : "";
   const link = t ? moveLink(r.url, t.ply) : r.url;
   const turning = r.turningError
     ? `<p><span class="lbl">Turning point</span>Unavailable: Stockfish could not analyze this game.</p>`
@@ -129,7 +133,7 @@ export function recapCard(r: Recap, isNew: boolean, opts: RecapOptions = {}): HT
     : !t ? `<p>Clean game: no mistakes worth noting.</p>`
     : quiz
       ? `<div class="quiz"><p><span class="lbl">Turning point</span><span class="moves">${esc(t.label)}</span> lost <strong class="weak">${Math.round(t.loss)}%</strong>
-           winning chances (${esc(t.phase)}${clock}). There was a much better move.<span class="quiz-q">${esc(why + hint)}</span></p>
+           winning chances (${esc(t.phase)}${clock}). There was a much better move.<span class="quiz-q">${esc(question)}</span></p>
          <div class="quiz-actions">
            <a class="quiz-board" href="${esc(link)}"${opts.sameTab ? "" : ` target="_blank" rel="noopener"`}>Find it on the board</a>
            <button type="button" class="quiz-reveal">Reveal the move</button>

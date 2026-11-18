@@ -15,9 +15,9 @@ Type in a Chess.com username and find out what that player is actually bad at.
 4. Checks each opening against what your rating predicted, so a bad result against stronger players does not count against you.
 5. Estimates whether you blunder more than similar players would in the same positions, and whether time pressure is the cause.
 6. Has an AI coach write a short report, then checks every number and move in it against the real data before showing it.
-7. Shows a short recap after each game you finish, in a Chrome extension on Chess.com or on the website.
+7. Shows a short recap after each game you finish, in a Chrome extension on Chess.com or on the website, and asks you to find the move you missed.
 
-Everything is compared with your opponents in the same games. A typical result, from my own games: *"You miss discovered attacks: 17 times in positions where you blundered, against 4 for your opponents."*
+Everything is compared with your opponents in the same games. A typical result, from my own games: *"You miss discovered attacks: 18 times in positions where you blundered, against 4 for your opponents."*
 
 ## Try it
 
@@ -25,7 +25,9 @@ Everything is compared with your opponents in the same games. A typical result, 
 2. Enter any Chess.com username and press Analyze. 150 games take about 30 seconds.
 3. For the AI coaching report, paste your own [Anthropic API key](https://console.anthropic.com/settings/keys). The key only goes from your browser to Anthropic, and a report costs under one cent.
 
-**The Chrome extension** puts a small cube on Chess.com that you can drag anywhere. Open a finished game and the cube turns green; click it for the recap. It knows who you are from your signed-in account and needs no setup. Chess.com's fair-play rules forbid outside help during a game, so the extension computes and shows nothing about a game until it is over, and the recap appears about 2 seconds after it ends. To install it before it is in the Chrome Web Store:
+**The Chrome extension** puts a small cube on Chess.com that you can drag anywhere, so you can study between games without leaving the site. It knows who you are from your signed-in account and needs no setup. When a game ends, the cube turns green and the recap fills in as each part is ready: the result and the upset meter at once, the turning point a few seconds later, then your patterns and your opponent's openings. With a saved history, the whole recap took about 3 seconds in my tests.
+
+The turning point is a question. The recap says which move cost you the most and asks you to find the better one. "Find it on the board" opens the game at that move on Chess.com's own board, where you can try moves, and "Reveal the move" shows the answer. Chess.com's fair-play rules forbid outside help during a game, so the extension computes and shows nothing about a game until it is over. To install it before it is in the Chrome Web Store:
 
 1. Run `scripts/build_extension.sh`.
 2. Open `chrome://extensions` and turn on Developer mode.

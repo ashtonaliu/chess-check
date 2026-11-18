@@ -11,19 +11,18 @@
 // is known, shown or analyzed while it is being played, and any profile build
 // still running is stopped.
 import siteCss from "../../style.css";
-import { gameId, type Recap } from "../browser/recap";
+import type { Recap } from "../browser/recap";
 import { findRate } from "../browser/findRate";
-import { addItems, dueItems, grade, itemFromRecap, nextDue, patchItems, type ReviewItem } from "../browser/reviewQueue";
+import { addItems, grade, itemFromRecap, patchItems, type ReviewItem } from "../browser/reviewQueue";
 import { esc, moveLink, quizHint, recapCard, tacticSentence } from "../ui/recapCard";
 import type { Callback } from "../browser/callbackGame";
-import { canReview, gameIdFromPage } from "./guard";
+import { gameIdFromPage } from "./guard";
+import {
+  afterLookup, cubeLook, daysAgo, dueNow, markFind, markSeen, panelView, reviewAllowed, reviewCard, takeReopen,
+  takeReview, wasSeen, whenNext, type State, type View,
+} from "./panelModel";
 import type { Reply, Request } from "./offscreen";
 
-// "finished": a finished game opened from the review queue, whose own recap is not asked for
-// unless you want it (so reviewing does not run Stockfish on every old game).
-type State = "idle" | "loading" | "choose" | "pending" | "building" | "ready" | "finished" | "error";
-const LIVE_POLL_MS = 5_000;     // how often to ask whether a live game has ended
-const DAILY_POLL_MS = 60_000;
 const KNIGHT = `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><path fill="currentColor"
   d="M7 21h11v-2.2c0-1.6-.6-3-1.6-4.2l-1-1.2c.9-.8 1.4-2 1.2-3.3-.3-2.3-2.1-4.4-4.6-5.3L11 3l-1 1.6C7.4 6 5.5 8.6 5.6 11.2l2.8-.6c.6.6.6 1.6 0 2.2l-1.3 1.4C6.4 15.1 6 16.3 6 17.5V19H7v2z"/></svg>`;
 
@@ -148,7 +147,7 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 
 // ---------- review queue ----------
 
-let view: "game" | "review" = "game";
+let view: View = "game";
 let queue: ReviewItem[] = [];
 let queueOwner = "";                      // whose queue is loaded (lowercase)
 let current: string | null = null;        // the position being asked
@@ -162,10 +161,11 @@ async function loadQueue(user: string | null) {
 }
 function saveQueue() { if (queueOwner) void save(queueKey(queueOwner), queue); }
 
-/** Fair play: the queue is never shown on the page games are played from, or on a game page until
- *  Chess.com has confirmed that game is over. */
-const reviewAllowed = () => canReview(pageUrl(), state === "ready" || state === "finished" || state === "choose");
-const due = () => (reviewAllowed() && queueOwner ? dueItems(queue, Date.now()) : []);
+const due = () => (queueOwner ? dueNow(queue, pageUrl(), state, Date.now()) : []);
+const nextText = () => whenNext(queue, Date.now(), reviewAllowed(pageUrl(), state));
+let session: Storage | null = null;      // this tab's sessionStorage, when the page allows it
+try { session = sessionStorage; } catch { /* markers are not kept */ }
+const store = session ?? { getItem: () => null, setItem: () => {}, removeItem: () => {} };
 
 // Tallies for this sitting, kept across the page loads that "Find it on the board" causes.
 const TALLY = "chess-check-review-tally";
@@ -183,24 +183,12 @@ function addTally(found: boolean) {
   try { sessionStorage.setItem(TALLY, JSON.stringify(t)); } catch { /* not counted */ }
 }
 
-/** The count on the cube: positions due, shown only away from games and the play page. */
+/** Draw the cube from the model: its color, dot, count and title. */
 function decorateCube() {
-  const n = gameIdFromPage(pageUrl()) ? 0 : due().length;
-  cube.classList.toggle("due", n > 0 && state === "idle");
-  cube.dataset.count = n > 9 ? "9+" : String(n);
-  if (n > 0 && state === "idle") cube.title = `Chess Check: ${n} position${n === 1 ? "" : "s"} to review`;
-}
-
-function daysAgo(t: number): string {
-  const d = Math.floor((Date.now() / 1000 - t) / 86_400);
-  return d < 1 ? "today" : d === 1 ? "yesterday" : `${d} days ago`;
-}
-
-function whenNext(): string {
-  const t = nextDue(queue);
-  if (t === null || t <= Date.now() || !reviewAllowed()) return "";
-  const days = Math.ceil((t - Date.now()) / 86_400_000);
-  return days <= 1 ? "Next review tomorrow." : `Next review in ${days} days.`;
+  const look = cubeLook(state, pageUrl(), due().length, wasSeen(store, lastId));
+  cube.className = ["cube", ...look.classes].join(" ");
+  cube.dataset.count = look.count;
+  cube.title = look.title;
 }
 
 function openReview(id: string | null = null) {
@@ -209,30 +197,23 @@ function openReview(id: string | null = null) {
 }
 
 function renderReview() {
-  const list = due();
-  const it = list.find(q => q.id === current) ?? list[0] ?? null;
-  // "Back" returns to a recap you came from; "Show" offers the recap of the game on screen only
-  // while its own card (or nothing) is showing, so it is not mistaken for the card's game.
-  const onScreen = gameIdFromPage(pageUrl());
-  const back = state === "ready" && recap ? `<button class="linkish" data-act="back">Back to this game's recap</button>`
-    : state === "finished" && (!it || gameId(it.url) === onScreen) ? `<button class="linkish" data-act="recap">Show this game's recap</button>` : "";
-  if (!it) {
-    const t = tally();
-    const summary = t.found + t.missed ? `That's all for now: ${t.found} found, ${t.missed} missed.` : "Nothing to review right now.";
-    body.innerHTML = `<div class="review"><p>${summary} ${esc(whenNext())}</p>${back ? `<p>${back}</p>` : ""}</div>`;
+  const card = reviewCard(due(), current, state, !!recap, pageUrl(), tally(), nextText());
+  const back = card.back === "back" ? `<button class="linkish" data-act="back">Back to this game's recap</button>`
+    : card.back === "show" ? `<button class="linkish" data-act="recap">Show this game's recap</button>` : "";
+  if (card.kind === "done") {
+    body.innerHTML = `<div class="review"><p>${esc(card.summary)}</p>${back ? `<p>${back}</p>` : ""}</div>`;
     current = null;
     return;
   }
+  const { item: it, position: pos, total, here } = card;
   current = it.id;
-  const pos = list.indexOf(it) + 1;
-  const here = gameIdFromPage(pageUrl()) === gameId(it.url) && new URL(pageUrl()).searchParams.get("move") === String(it.ply);
   const tags = tacticSentence(it.tactics.filter(x => x.kind === "missed"));   // the hint already said what it allowed
   // how hard it was: from the find-rate model trained on the engine dataset, at your rating then
   const rate = it.fen && it.rating ? findRate(it.fen, it.best, it.rating) : null;
   const odds = rate === null ? "" : ` Players near ${Math.round(it.rating! / 50) * 50} find it about ${Math.round(rate * 20) * 5}% of the time.`;
   body.innerHTML = `<div class="review">
-    <p class="count">Review · ${pos} of ${list.length}</p>
-    <p>From your game vs ${esc(it.opponent)} ${esc(daysAgo(it.endTime))}.
+    <p class="count">Review · ${pos} of ${total}</p>
+    <p>From your game vs ${esc(it.opponent)} ${esc(daysAgo(it.endTime, Date.now()))}.
       You played <span class="moves">${esc(it.label)}</span> and lost <strong class="weak">${Math.round(it.loss)}%</strong>.
       Find the better move.<span class="quiz-q">${esc(quizHint(it.tactics))}</span></p>
     ${reviewRevealed
@@ -249,6 +230,7 @@ panel.addEventListener("click", e => {
     if (el.closest('[data-act="review"]')) openReview();
     return;
   }
+  if (el.closest(".quiz-board")) return;   // marked by the listener below; the link loads the game
   if (el.closest(".quiz-reveal")) { reviewRevealed = true; renderPanel(); body.querySelector<HTMLButtonElement>("[data-grade]")?.focus(); return; }
   const g = el.closest<HTMLElement>("[data-grade]");
   if (g && current) {
@@ -257,8 +239,6 @@ panel.addEventListener("click", e => {
     current = null; reviewRevealed = false; renderPanel(); decorateCube();
     return;
   }
-  const link = el.closest<HTMLElement>("[data-review]");
-  if (link) { try { sessionStorage.setItem(REVIEW, link.dataset.review!); } catch { /* the panel stays closed */ } return; }
   if (el.closest('[data-act="back"]')) { view = "game"; renderPanel(); return; }
   if (el.closest('[data-act="recap"]')) { view = "game"; void requestRecap(); }
 });
@@ -287,19 +267,14 @@ async function collect(r: Recap | null, user: string) {
 
 function setState(s: State, msg = "") {
   state = s; message = msg;
-  cube.className = "cube" + (s === "ready" ? " ready" : s === "building" ? " building" : s === "choose" ? " choose" : "");
-  if (s === "ready" && !panel.classList.contains("hidden")) markSeen(lastId);   // arrived while open
-  cube.classList.toggle("seen", s === "ready" && wasSeen(lastId));
-  cube.title = s === "ready" ? "Chess Check: your recap is ready" : s === "choose" ? "Chess Check: which player are you?" : "Chess Check";
+  if (s === "ready" && !panel.classList.contains("hidden")) markSeen(store, lastId);   // arrived while open
   decorateCube();
   if (!panel.classList.contains("hidden")) renderPanel();
 }
 
 function renderPanel() {
-  // with nothing else to show, the panel opens on the review
-  if (view === "game" && state === "idle" && due().length) view = "review";
-  if (view === "review" && reviewAllowed()) { shown = ""; renderReview(); return; }
-  view = "game";
+  view = panelView(view, state, pageUrl(), due().length);
+  if (view === "review") { shown = ""; renderReview(); return; }
   if (state === "ready" && recap) {
     // Redraw only when the recap itself changed; while it fills in, just update the progress line,
     // so focus, scrolling and a revealed answer are not disturbed every second.
@@ -336,7 +311,7 @@ function renderPanel() {
   }
   const text: Record<State, string> = {
     choose: "", ready: "",
-    idle: `Open a finished game and its recap appears here.${queue.length ? ` ${whenNext()}` : ""}`,
+    idle: `Open a finished game and its recap appears here.${queue.length && nextText() ? ` ${nextText()}` : ""}`,
     loading: "Looking up this game…",
     finished: "",
     building: `Setting up for ${viewer}: ${message}`,
@@ -393,22 +368,12 @@ cube.addEventListener("click", () => {
 });
 window.addEventListener("resize", place);
 
-// The dot on the cube means a recap you have not opened yet; it goes once you open it.
-const SEEN = "chess-check-seen";
-function wasSeen(id: string | null): boolean {
-  try { return !!id && (sessionStorage.getItem(SEEN) ?? "").split(",").includes(id); } catch { return false; }
-}
-function markSeen(id: string | null) {
-  if (!id || wasSeen(id)) return;
-  try { sessionStorage.setItem(SEEN, [...(sessionStorage.getItem(SEEN) ?? "").split(",").filter(Boolean).slice(-20), id].join(",")); }
-  catch { /* the dot stays */ }
-}
 
 function togglePanel(force?: boolean) {
   const open = force ?? panel.classList.contains("hidden");
   const wasOpen = !panel.classList.contains("hidden");
   panel.classList.toggle("hidden", !open);
-  if (open && state === "ready") { markSeen(lastId); cube.classList.add("seen"); }
+  if (open && state === "ready") { markSeen(store, lastId); decorateCube(); }
   if (open && state === "idle" && (!queue.length || queue.some(q => !q.fen)) && whoAmI()) void collect(null, whoAmI()!).then(() => renderPanel());
   cube.setAttribute("aria-expanded", String(open));
   if (open) renderPanel();
@@ -420,29 +385,11 @@ for (const el of [panel, cube]) el.addEventListener("keydown", e => {
   if (e.key === "Escape" && !panel.classList.contains("hidden")) { e.stopPropagation(); togglePanel(false); }
 });
 
-// "Find it on the board" reloads this page at the move; reopen the recap when it is back.
-const REOPEN = "chess-check-reopen";
-const REVIEW = "chess-check-review";      // the review position the page was opened at
-function takeReview(id: string | null): string | null {
-  try {
-    const item = sessionStorage.getItem(REVIEW);
-    if (!id || !item || !item.startsWith(`${id}:`)) return null;
-    sessionStorage.removeItem(REVIEW);
-    return item;
-  } catch { return null; }
-}
+// "Find it on the board" loads the game at the move; remember what to reopen once it is back.
 panel.addEventListener("click", e => {
-  if (view === "game" && (e.target as HTMLElement).closest(".quiz-board") && lastId) {
-    try { sessionStorage.setItem(REOPEN, lastId); } catch { /* the panel stays closed */ }
-  }
+  const link = (e.target as HTMLElement).closest<HTMLElement>(".quiz-board");
+  if (link) markFind(store, view, lastId, link.dataset.review ?? null);
 });
-function takeReopen(id: string | null): boolean {
-  try {
-    if (!id || sessionStorage.getItem(REOPEN) !== id) return false;
-    sessionStorage.removeItem(REOPEN);
-    return true;
-  } catch { return false; }
-}
 root.querySelector('[data-act="reset"]')!.addEventListener("click", () => {
   accounts = []; void save("accounts", accounts); lastId = null; void check();
 });
@@ -479,23 +426,21 @@ async function check() {
   try {
     const g = await fetchGame(id, url);
     if (gameIdFromPage(pageUrl()) !== id) return;          // the page changed while we waited
-    if (!g || !g.callback.game.isFinished) {
+    const step = afterLookup(g && { finished: !!g.callback.game.isFinished, ...g.players }, url, signedInUser(), accounts,
+                             g?.callback.game.isFinished ? takeReview(store, id) : null);
+    if (step.next === "pending") {
       // still being played: make sure no analysis is running, and ask again shortly
       void ask({ type: "stop" }).catch(() => {});
       setState("pending");
-      // a live game is checked often even when Chess.com already serves it unfinished
-      timer = setTimeout(check, /\/daily\//.test(new URL(url).pathname) ? DAILY_POLL_MS : LIVE_POLL_MS);
+      timer = setTimeout(check, step.delay);
       return;
     }
-    served = g; players = g.players;
+    served = g; players = g!.players;
+    if (step.next === "choose") { setState("choose"); return; }
+    viewer = step.viewer;
+    if (queueOwner !== viewer.toLowerCase()) await loadQueue(viewer);
+    if (step.next === "review") { setState("finished"); openReview(step.item); return; }
   } catch (e) { setState("error", (e as Error).message); return; }
-  const me = signedInUser()?.toLowerCase();
-  const mine = [players.white, players.black].find(n => me ? n.toLowerCase() === me : accounts.includes(n.toLowerCase()));
-  if (!mine) { setState("choose"); return; }
-  viewer = mine;
-  if (queueOwner !== mine.toLowerCase()) await loadQueue(mine);
-  const reviewing = takeReview(id);
-  if (reviewing) { setState("finished"); openReview(reviewing); return; }
   view = "game";
   await requestRecap();
 }
@@ -515,7 +460,7 @@ async function requestRecap() {
       recap = reply.recap; basis = reply.games; partial = reply.partial ?? "";
       if (!reply.partial) void collect(recap, viewer);     // complete, so the profile exists too
       if (state !== "ready" || !panel.classList.contains("hidden")) setState("ready");
-      if (takeReopen(id)) togglePanel(true);
+      if (takeReopen(store, id)) togglePanel(true);
       if (reply.partial && reply.retry !== false) timer = setTimeout(requestRecap, 1000);
       break;
     case "error": setState("error", reply.message); break;

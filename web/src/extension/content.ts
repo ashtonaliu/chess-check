@@ -294,7 +294,8 @@ async function check() {
       // still being played: make sure no analysis is running, and ask again shortly
       void ask({ type: "stop" }).catch(() => {});
       setState("pending");
-      timer = setTimeout(check, g ? DAILY_POLL_MS : LIVE_POLL_MS);
+      // a live game is checked often even when Chess.com already serves it unfinished
+      timer = setTimeout(check, /\/daily\//.test(new URL(url).pathname) ? DAILY_POLL_MS : LIVE_POLL_MS);
       return;
     }
     served = g; players = g.players;

@@ -24,7 +24,11 @@ Everything is compared with your opponents in the same games. A typical result, 
 2. Enter any Chess.com username and press Analyze. 150 games take about 30 seconds.
 3. For the AI coaching report, paste your own [Anthropic API key](https://console.anthropic.com/settings/keys). The key only goes from your browser to Anthropic, and a report costs under one cent.
 
-**The Chrome extension** puts a small cube on Chess.com that you can drag anywhere. Open a finished game and the cube turns green; click it for the recap. It knows who you are from your signed-in account and needs no setup. Chess.com's fair-play rules forbid outside help during a game, so the extension computes and shows nothing about a game until it is over, and the recap appears about 2 seconds after it ends. To install it before it is in the Chrome Web Store, run `scripts/build_extension.sh`, open `chrome://extensions`, turn on Developer mode, click Load unpacked and choose the `extension` folder.
+**The Chrome extension** puts a small cube on Chess.com that you can drag anywhere. Open a finished game and the cube turns green; click it for the recap. It knows who you are from your signed-in account and needs no setup. Chess.com's fair-play rules forbid outside help during a game, so the extension computes and shows nothing about a game until it is over, and the recap appears about 2 seconds after it ends. To install it before it is in the Chrome Web Store:
+
+1. Run `scripts/build_extension.sh`.
+2. Open `chrome://extensions` and turn on Developer mode.
+3. Click Load unpacked and choose the `extension` folder.
 
 ## Results
 
@@ -85,7 +89,7 @@ Embeddings understand rewording but confuse who did what, and keywords cover tha
 |---|---:|
 | Elo formula | 0.23765 |
 | Elo recalibrated, plus color | 0.23683 |
-| ...plus the player's recent history | 0.23667 |
+| Recalibrated, plus color and recent history | 0.23667 |
 
 Most of the gain comes from fixing the formula. In matched games a rating gap matters about half as much as Elo assumes, and White scores 51.7% while Elo ignores color. History adds a little: players far below their recent average beat their rating by 2.4 points, and players score worse right after a loss. Openings, clock habits, session length, playstyles learned from 6.5 million games, and Stockfish profiles of both players' last 50 games added nothing measurable. The extension's upset meter and the report's opening tables now use the recalibrated formula.
 

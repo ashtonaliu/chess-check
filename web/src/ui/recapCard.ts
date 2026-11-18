@@ -113,7 +113,9 @@ export function recapCard(r: Recap, isNew: boolean, opts: RecapOptions = {}): HT
   const why = allowed.length ? ` It allowed ${allowed.map(article).join(" and ")}.` : "";
   const hint = missed.length ? ` Hint: look for ${missed.map(article).join(" or ")}.` : "";
   const link = t ? moveLink(r.url, t.ply) : r.url;
-  const turning = !t ? `<p>Clean game: no mistakes worth noting.</p>`
+  const turning = r.pending?.turning
+    ? `<p><span class="lbl">Turning point</span><span class="pending">Finding the turning point</span></p>`
+    : !t ? `<p>Clean game: no mistakes worth noting.</p>`
     : quiz
       ? `<div class="quiz"><p><span class="lbl">Turning point</span><span class="moves">${esc(t.label)}</span> lost <strong class="weak">${Math.round(t.loss)}%</strong>
            winning chances (${esc(t.phase)}${clock}). There was a much better move.<span class="quiz-q">${esc(why + hint)}</span></p>
@@ -129,7 +131,11 @@ export function recapCard(r: Recap, isNew: boolean, opts: RecapOptions = {}): HT
   const h = r.opening.history;
   const variation = r.opening.name.toLowerCase().replace(/[^a-z]/g, "") !== r.opening.family.toLowerCase().replace(/[^a-z]/g, "")
     ? ` <span class="ci">(${esc(r.opening.name)})</span>` : "";
-  const opening = `<p><span class="lbl">Opening</span>${esc(r.opening.family)} as ${col}${variation}. ` + (h
+  // Until the player's history is in, the record is unknown, and without it the opening may only
+  // have an ECO code for a name (Chess.com's game endpoint gives no opening name).
+  const opening = r.pending?.history
+    ? (r.opening.family.startsWith("ECO ") ? "" : `<p><span class="lbl">Opening</span>${esc(r.opening.family)} as ${col}${variation}.</p>`)
+    : `<p><span class="lbl">Opening</span>${esc(r.opening.family)} as ${col}${variation}. ` + (h
     ? `Your record before this game: ${Math.round(100 * h.score)}% in ${h.n} game${h.n === 1 ? "" : "s"} (${Math.round(100 * h.expected)}% expected).`
     : "First time in this opening in your recent games.") +
     (r.opening.flag ? ` <span class="chip ${r.opening.flag.includes("weakness") || r.opening.flag === "worth watching" ? "watch" : "good"}">${esc(r.opening.flag)}</span>` : "") + `</p>`;

@@ -120,6 +120,8 @@ let served: Served | null = null;
 let viewer = "";                          // whose recap to show for this game
 let recap: Recap | null = null;
 let basis = 150;                          // how many of your past games the recap's profile used
+let partial = "";                         // what the recap is still waiting for ("" when complete)
+let shown = "";                           // which version of the recap the panel shows
 let message = "";
 let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -132,12 +134,20 @@ function setState(s: State, msg = "") {
 
 function renderPanel() {
   if (state === "ready" && recap) {
+    // Redraw only when the recap itself changed; while it fills in, just update the progress line,
+    // so focus, scrolling and a revealed answer are not disturbed every second.
+    const version = JSON.stringify([recap.url, recap.pending ?? null, basis, recap.turning?.ply ?? null, !!recap.opponentNote, !!recap.pattern]);
+    const progress = body.querySelector<HTMLElement>(".progress");
+    if (version === shown && progress && body.contains(progress)) { progress.textContent = partial; return; }
+    shown = version;
     // Chess.com's own board is on the page, so the recap points at it instead of drawing one.
     body.replaceChildren(recapCard(recap, false, { board: false, sameTab: true }));
-    if (basis < 150) body.insertAdjacentHTML("beforeend",
+    if (partial) body.insertAdjacentHTML("beforeend", `<p class="fine progress" role="status">${esc(partial)}</p>`);
+    else if (basis < 150) body.insertAdjacentHTML("beforeend",
       `<p class="fine">Based on your last ${basis} games so far. The rest are added between games.</p>`);
     return;
   }
+  shown = "";
   if (state === "choose" && players) {
     const names = [players.white, players.black];
     const me = signedInUser();
@@ -258,7 +268,7 @@ async function check() {
   // Pages that are not games always run, to warm up or stop.
   if (id && id === lastId && state !== "error" && state !== "pending") return;
   if (timer) { clearTimeout(timer); timer = null; }
-  lastId = id; players = null; served = null; viewer = ""; recap = null;
+  lastId = id; players = null; served = null; viewer = ""; recap = null; partial = "";
   if (!id) {
     setState("idle");
     const me = whoAmI();
@@ -298,8 +308,10 @@ async function requestRecap() {
     case "building": setState("building", reply.progress); timer = setTimeout(requestRecap, 1000); break;
     case "pending": setState("pending"); break;
     case "recap":
-      recap = reply.recap; basis = reply.games; setState("ready");
+      recap = reply.recap; basis = reply.games; partial = reply.partial ?? "";
+      if (state !== "ready" || !panel.classList.contains("hidden")) setState("ready");
       if (takeReopen(id)) togglePanel(true);
+      if (reply.partial && reply.retry !== false) timer = setTimeout(requestRecap, 1000);
       break;
     case "error": setState("error", reply.message); break;
     case "ready": break;

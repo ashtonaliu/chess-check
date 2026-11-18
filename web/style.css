@@ -224,3 +224,7 @@ button.small { padding: 5px 12px; font-size: 13px; border-radius: 8px; }
 .quiz-answer { display: none; outline: none; }
 .recap.revealed .quiz-answer { display: block; }
 .recap.revealed .quiz-actions .quiz-reveal { display: none; }
+.pending { color: var(--muted); }
+.pending::after { content: ""; display: inline-block; width: 10px; height: 10px; margin-left: 6px; vertical-align: -1px;
+  border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: line-spin .8s linear infinite; }
+@media (prefers-reduced-motion: reduce) { .pending::after { animation: none; } }

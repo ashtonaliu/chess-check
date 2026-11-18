@@ -580,6 +580,84 @@ in. The widest interval is 0.00033 wide, so this sample rules out any engine eff
 typical game's expected score by more than about 2 points. With 15 times the data, the result
 matches the 995-game test.
 
+### Two-sided history against the odds formula
+
+I tested whether both players' recent blitz results improve the recap's
+expected score. I used the v3 histories for ratings and results, and joined
+game IDs to PGN start times in the stored game metadata. I required matching
+records for both players and counted each game once, from White's side. A
+history game had to end strictly before the target started. Each player's
+rating came from their own last completed blitz game. The calibration cache
+has no game IDs or opponent names, so I used its published blitz coefficients
+as the baseline and used v3 for the two-sided join.
+
+I used the session study's split by end date in UTC. The fit used 6,252 games
+that ended before November 1, 2026, across 4,919 players. The holdout used
+99,121 games from November 7 onward, across 12,015 players. Games without a
+verified start or enough history for both players were excluded. The metadata
+covers the archive games collected for an earlier study, with much denser
+coverage late in the snapshot. The results apply to this matched blitz sample.
+
+I kept the shipped rating and color coefficients fixed and fitted a logistic
+adjustment with no intercept, treating a draw as half a win. This scores the
+same expected score the app displays. The adjustment uses the difference
+between the two players' features, so swapping the players and color
+complements the prediction. The features are points below the highest rating,
+points above the mean rating, consecutive losses capped at six, whether the
+last game was a loss, and a shrunk tilt estimate. Tilt is the difference in
+score minus Elo expectation after a loss and after a win, using pairs of games
+that ended less than 30 minutes apart.
+Each bucket gets 20 zero-residual pseudo-games. For a history game I estimated
+the opponent's pre-game rating from the player's rating change, as in the
+one-sided study.
+
+I compared all windows on the same games. Both players needed 30 earlier games,
+and each window used up to its cap. Both sides had at least 50, 150, and 200
+games in 97,680, 86,986, and 80,002 of the test games, respectively. I used 200
+as the shipping candidate because the odds calculation can read ratings,
+results, and timestamps directly from the monthly archives, independently
+of the 150-game analysis profile. Live fetch time for 200 games remains
+unmeasured.
+
+I computed paired 90% intervals from 2,000 bootstrap resamples of player IDs.
+Each game's weight is the product of the two players' resample counts, so
+games involving the same player are resampled together whether they played
+White or Black. Decile error is the size-weighted mean absolute gap between
+predicted and observed scores in ten equally populated bins per model. Both
+log loss and Brier score use the expected-score target.
+
+| Model | Brier | Brier gain (90% interval) | Log loss | Decile error |
+|---|---:|---:|---:|---:|
+| Current formula | 0.2379700 |  | 0.6925341 | 0.0064461 |
+| 50-game history | 0.2379503 | +0.0000197 (-0.0000622 to +0.0001067) | 0.6924948 | 0.0075009 |
+| 150-game history | 0.2378877 | +0.0000823 (-0.0000121 to +0.0001753) | 0.6923692 | 0.0067229 |
+| 200-game history | 0.2378294 | +0.0001406 (+0.0000352 to +0.0002465) | 0.6922544 | 0.0068774 |
+
+Each decile cell gives the mean prediction followed by the observed score.
+
+| Decile | Current formula | 50-game history | 150-game history | 200-game history |
+|---:|---:|---:|---:|---:|
+| 1 | 0.4802 / 0.4892 | 0.4750 / 0.4877 | 0.4742 / 0.4857 | 0.4732 / 0.4854 |
+| 2 | 0.5015 / 0.5136 | 0.4969 / 0.5099 | 0.4961 / 0.5102 | 0.4953 / 0.5049 |
+| 3 | 0.5057 / 0.5119 | 0.5034 / 0.5113 | 0.5030 / 0.5094 | 0.5025 / 0.5098 |
+| 4 | 0.5095 / 0.5138 | 0.5084 / 0.5163 | 0.5082 / 0.5126 | 0.5080 / 0.5042 |
+| 5 | 0.5132 / 0.5153 | 0.5129 / 0.5106 | 0.5128 / 0.5061 | 0.5127 / 0.5088 |
+| 6 | 0.5170 / 0.5142 | 0.5171 / 0.5160 | 0.5172 / 0.5154 | 0.5173 / 0.5228 |
+| 7 | 0.5207 / 0.5152 | 0.5216 / 0.5201 | 0.5218 / 0.5217 | 0.5221 / 0.5214 |
+| 8 | 0.5245 / 0.5266 | 0.5265 / 0.5191 | 0.5270 / 0.5244 | 0.5275 / 0.5225 |
+| 9 | 0.5287 / 0.5244 | 0.5330 / 0.5293 | 0.5337 / 0.5349 | 0.5346 / 0.5384 |
+| 10 | 0.5493 / 0.5330 | 0.5542 / 0.5367 | 0.5551 / 0.5368 | 0.5561 / 0.5389 |
+
+**The gate failed.** The 200-game model improved Brier by 0.0001406, with a
+90% interval of +0.0000352 to +0.0002465. Log loss also fell. Decile error rose
+from 0.0064461 to 0.0068774. The 50- and 150-game intervals include zero, and
+both had higher decile error than the current formula. I kept the current odds
+formula in the app.
+
+```sh
+python scripts/fit_history_odds.py
+```
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

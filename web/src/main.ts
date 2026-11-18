@@ -461,11 +461,16 @@ async function startFollow() {
   $("recaps").innerHTML = "";
   $("followTitle").textContent = `Following ${run.username}`;
   followStatus("Loading your most recent game…");
-  follower = new Follower({ username: run.username, timeClass: run.time_class ?? null, rows: run.gameRows,
+  const f = follower = new Follower({ username: run.username, timeClass: run.time_class ?? null, rows: run.gameRows,
     openings: run.openings, tactics: run.tactics }, ENGINE_URL, renderRecap, followStatus);
   ($("followBtn") as HTMLButtonElement).textContent = "Following…";
   ($("followBtn") as HTMLButtonElement).disabled = true;
-  try { await follower.start(); } catch (e) { followStatus(`could not start: ${(e as Error).message}`); }
+  try { await f.start(); }
+  catch (e) {
+    if (follower === f) { stopFollow(true); followStatus(`could not start: ${(e as Error).message}`); }
+    return;
+  }
+  if (follower !== f) return;          // stopped, or replaced, while starting
   followTick = setInterval(() => { if (follower?.running) followStatus("watching"); }, 5000);
   $("follow").scrollIntoView({ behavior: "smooth", block: "start" });
 }

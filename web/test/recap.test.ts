@@ -45,18 +45,19 @@ test("recap of a real game: expected score, opening history without the game its
   const exp = pregameExpected(g.myRating, g.oppRating, g.color, g.timeClass);   // recalibrated, with colour
   assert.ok(Math.abs(r.expected - exp) < 1e-12);
   assert.ok(Math.abs(r.surprise - (g.score - exp)) < 1e-12);
-  // history counts only *other* games in the same opening and color
-  const others = games.filter(x => x.url !== g.url && x.family === g.family && x.color === g.color).length;
-  assert.equal(r.opening.history?.n ?? 0, others);
+  // history counts only *earlier* games in the same opening and color, never the game itself or later ones
+  const earlier = games.filter(x => x.url !== g.url && x.endTime < g.endTime && x.family === g.family && x.color === g.color).length;
+  assert.equal(r.opening.history?.n ?? 0, earlier);
   // turning point is the user's largest confirmed loss in that game
   const losses = a.moves.filter(m => m.is_me).map(m => (m as any).deep_loss ?? m.wp_loss);
   assert.ok(r.turning && Math.abs(r.turning.loss - Math.max(...losses)) < 1e-9);
   assert.equal(r.clean, false);
-  // a pattern match counts this game on top of the profile's count, and only for problems
+  // a pattern match is only for problems, and this profile already contains this game, so its count
+  // is not added again
   if (r.pattern) {
     const stat = tactics.motifs.find(s => s.kind === r.pattern!.kind && s.motif === r.pattern!.motif)!;
     assert.ok(stat.higher && stat.verdict !== "no difference");
-    assert.equal(r.pattern.count, stat.me + 1);
+    assert.equal(r.pattern.count, stat.me);
   }
 });
 
@@ -74,4 +75,26 @@ test("opponent note: their record in this opening as their color, from their own
   const fresh = opponentNote("rival", opp, "London System", "white")!;
   assert.match(fresh, /new territory for rival: none of their last 10 games as White\. They usually play the Scotch Game \(6 games\)/);
   assert.equal(opponentNote("rival", opp.slice(0, 3), "Scotch Game", "white"), null);   // too few games to say
+});
+
+test("pre-game ratings come from the previous game in the same time class", async () => {
+  const { withPregameRatings } = await import("../src/browser/games");
+  const g = (url: string, timeClass: string, my: number, opp: number) => ({ url, timeClass, myRating: my, oppRating: opp }) as Game;
+  // newest first; archive ratings are after each game
+  const out = withPregameRatings([
+    g("4", "blitz", 1508, 1492),    // won 8: went in at 1500 (after game 2), the opponent at 1500
+    g("3", "rapid", 1700, 1650),    // the only rapid game: nothing earlier, kept as stored
+    g("2", "blitz", 1500, 1510),    // lost 10 from 1510
+    g("1", "blitz", 1510, 1480),    // the oldest blitz game: kept as stored
+  ]);
+  assert.deepEqual(out.map(x => [x.myRating, x.oppRating]), [[1500, 1500], [1700, 1650], [1510, 1500], [1510, 1480]]);
+});
+
+test("a recap's opening record ignores later games, matched by game ID across URL forms", () => {
+  const history = withExpected(games);
+  const i = analyses.findIndex(a => a.moves.some(m => m.is_me && ((m as any).deep_loss ?? m.wp_loss) >= 20));
+  const g = { ...games[i], url: games[i].url.replace("/game/live/", "/game/") + "?move=3" };
+  const later = history.map(r => ({ ...r, endTime: r.endTime + 10 ** 9 }));   // every game "after" this one
+  const r = buildRecap(g, analyses[i], [], later, [], null);
+  assert.equal(r.opening.history, null);
 });

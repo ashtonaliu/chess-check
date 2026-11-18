@@ -222,3 +222,15 @@ def test_search_games_tool_ranks_and_registers_a_fact():
     out, err = box.run("search_games", {"query": "flagged because my clock ran out", "k": 1})
     assert not err and out.startswith("[T1]")
     assert "u1:" in out and "u2:" not in out
+
+
+def test_pregame_ratings_come_from_the_previous_game():
+    from chesscheck.fetch import Game, pregame_ratings
+
+    def g(url, tc, my, opp):
+        return Game(url=url, color="white", my_rating=my, opp_rating=opp, score=1, time_class=tc,
+                    eco="", opening="", family="", end_time=0)
+    # newest first; archive ratings are after each game (same example as web/test/recap.test.ts)
+    out = pregame_ratings([g("4", "blitz", 1508, 1492), g("3", "rapid", 1700, 1650),
+                           g("2", "blitz", 1500, 1510), g("1", "blitz", 1510, 1480)])
+    assert [(x.my_rating, x.opp_rating) for x in out] == [(1500, 1500), (1700, 1650), (1510, 1500), (1510, 1480)]

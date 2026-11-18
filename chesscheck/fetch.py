@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import io
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import chess.pgn
 import requests
@@ -122,10 +122,33 @@ def parse_game(raw: dict, user: str) -> Game | None:
     )
 
 
+def pregame_ratings(games: list[Game]) -> list[Game]:
+    """The archive's ratings are the ones after each game, which partly encode its result. Going
+    into a game, a player's rating is the one after their previous game in the same time class (the
+    next one in this newest-first list), and the opponent's is theirs after the game plus the
+    player's own change (the points move between the two). The oldest game of a time class, with
+    nothing before it in the list, keeps its stored ratings. Same as games.ts withPregameRatings."""
+    out = []
+    for i, g in enumerate(games):
+        prev = next((h for h in games[i + 1:] if h.time_class == g.time_class), None)
+        if prev is None:
+            out.append(g)
+            continue
+        change = g.my_rating - prev.my_rating
+        out.append(replace(g, my_rating=prev.my_rating, opp_rating=g.opp_rating + change))
+    return out
+
+
 def fetch_games(user: str, max_games: int = 300,
                 time_classes: set[str] | None = None,
                 session: requests.Session | None = None) -> list[Game]:
-    """Most recent games first, up to max_games."""
+    """Most recent games first, up to max_games, with pre-game ratings (one extra game is read so
+    the oldest one returned has a previous game too)."""
+    return pregame_ratings(_fetch_stored(user, max_games + 1, time_classes, session))[:max_games]
+
+
+def _fetch_stored(user: str, max_games: int, time_classes: set[str] | None,
+                  session: requests.Session | None) -> list[Game]:
     s = session or requests.Session()
     r = s.get(API.format(user=user.lower()), headers=HEADERS, timeout=20)
     if r.status_code == 404:

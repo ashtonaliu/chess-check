@@ -156,8 +156,31 @@ async function fetchArchive(url: string, signal?: AbortSignal): Promise<ArchiveR
   }
 }
 
+/** The archive's ratings are the ones after each game, which partly encode its result. Going into a
+ *  game, a player's rating is the one after their previous game in the same time class (the next
+ *  one in this newest-first list), and the opponent's is theirs after the game plus the player's own
+ *  change (the points move between the two). The oldest game of a time class, with nothing before
+ *  it in the list, keeps its stored ratings. Same as chesscheck/fetch.py pregame_ratings. */
+export function withPregameRatings(games: Game[]): Game[] {
+  return games.map((g, i) => {
+    let prev: Game | undefined;
+    for (let j = i + 1; j < games.length && !prev; j++) if (games[j].timeClass === g.timeClass) prev = games[j];
+    if (!prev) return g;
+    const change = g.myRating - prev.myRating;
+    return { ...g, myRating: prev.myRating, oppRating: g.oppRating + change };
+  });
+}
+
+/** The player's most recent games, newest first, with pre-game ratings (one extra game is read so
+ *  the oldest one returned has a previous game too). */
 export async function fetchGames(user: string, maxGames: number, timeClass: string | null,
                                  signal?: AbortSignal): Promise<Game[]> {
+  const games = await fetchStored(user, maxGames + 1, timeClass, signal);
+  return withPregameRatings(games).slice(0, maxGames);
+}
+
+async function fetchStored(user: string, maxGames: number, timeClass: string | null,
+                           signal?: AbortSignal): Promise<Game[]> {
   const r = await fetchArchive(`${API}/${encodeURIComponent(user.toLowerCase())}/games/archives`, signal);
   if (r.status === 404) throw new Error(`No Chess.com player named "${user}".`);
   if (!r.ok) throw new Error(`Chess.com API error ${r.status}.`);

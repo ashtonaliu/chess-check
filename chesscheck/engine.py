@@ -68,31 +68,62 @@ def find_stockfish() -> str | None:
                  if os.path.exists(p)), None)
 
 
-_local = threading.local()
-_all_engines: list[chess.engine.SimpleEngine] = []
-_lock = threading.Lock()
+class EnginePool:
+    """The Stockfish processes of one job: one per worker thread, all closed when the job ends.
+    Jobs never share or close each other's engines, so two requests can run at once."""
+
+    def __init__(self) -> None:
+        self.local = threading.local()
+        self.all: list[chess.engine.SimpleEngine] = []
+        self.lock = threading.Lock()
+
+    def get(self, path: str) -> chess.engine.SimpleEngine:
+        eng = getattr(self.local, "engine", None)
+        if eng is None:
+            eng = chess.engine.SimpleEngine.popen_uci(path)
+            eng.configure({"Threads": 1, "Hash": 32})
+            self.local.engine = eng
+            with self.lock:
+                self.all.append(eng)
+        return eng
+
+    def close(self) -> None:
+        with self.lock:
+            engines, self.all[:] = list(self.all), []
+        for e in engines:
+            try:
+                e.quit()
+            except Exception:
+                pass
+
+    def __enter__(self) -> "EnginePool":
+        return self
+
+    def __exit__(self, *_) -> None:
+        self.close()
 
 
-def _engine(path: str) -> chess.engine.SimpleEngine:
-    eng = getattr(_local, "engine", None)
-    if eng is None:
-        eng = chess.engine.SimpleEngine.popen_uci(path)
-        eng.configure({"Threads": 1, "Hash": 32})
-        _local.engine = eng
-        with _lock:
-            _all_engines.append(eng)
-    return eng
+# For callers that analyse games one at a time without a pool of their own (the study scripts).
+_default = EnginePool()
+_local, _all_engines = _default.local, _default.all
 
 
-def analyse_game(game: Game, path: str, depth: int = 10) -> dict:
+def _write_atomic(path: Path, text: str) -> None:
+    """Write a cache file so that a reader never sees it half written, even with two jobs at once."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
+    tmp.write_text(text)
+    os.replace(tmp, path)
+
+
+def analyse_game(game: Game, path: str, depth: int = 10, engines: EnginePool | None = None) -> dict:
     gid = game.url.rsplit("/", 1)[-1]
     key = CACHE / f"v{CACHE_VERSION}_{gid}_d{depth}.json"
     if key.exists():
         res = json.loads(key.read_text())
     else:
-        res = _analyse(game, path, depth)
-        CACHE.mkdir(parents=True, exist_ok=True)
-        key.write_text(json.dumps(res))
+        res = _analyse(game, path, depth, engines or _default)
+        _write_atomic(key, json.dumps(res))
     # the cache is per game; "is_me" depends on whose report this is
     me = game.color
     for m in res["moves"]:
@@ -104,8 +135,8 @@ def analyse_game(game: Game, path: str, depth: int = 10) -> dict:
     return res
 
 
-def _analyse(game: Game, path: str, depth: int) -> dict:
-    eng = _engine(path)
+def _analyse(game: Game, path: str, depth: int, engines: EnginePool) -> dict:
+    eng = engines.get(path)
     pg = chess.pgn.read_game(io.StringIO(game.pgn))
     board = pg.board()
     limit = chess.engine.Limit(depth=depth)
@@ -177,23 +208,13 @@ def analyse_games(games: list[Game], depth: int = 10, workers: int | None = None
     workers = workers or int(os.environ.get("CHESS_CHECK_ENGINE_WORKERS", 0)) \
         or max(1, (os.cpu_count() or 2) - 1)
     out: list[dict | None] = [None] * len(games)
-    try:
-        with ThreadPoolExecutor(workers) as pool:
-            futs = {pool.submit(analyse_game, g, path, depth): i
-                    for i, g in enumerate(games)}
-            for done, f in enumerate(as_completed(futs), 1):
-                out[futs[f]] = f.result()
-                if progress:
-                    progress(done, len(games))
-    finally:
-        with _lock:
-            for e in _all_engines:
-                try:
-                    e.quit()
-                except Exception:
-                    pass
-            _all_engines.clear()
-    _local.__dict__.clear()
+    with EnginePool() as engines, ThreadPoolExecutor(workers) as pool:
+        futs = {pool.submit(analyse_game, g, path, depth, engines): i
+                for i, g in enumerate(games)}
+        for done, f in enumerate(as_completed(futs), 1):
+            out[futs[f]] = f.result()
+            if progress:
+                progress(done, len(games))
     return out  # type: ignore[return-value]
 
 
@@ -201,13 +222,13 @@ DEEP_DEPTH = 16
 MATE_CP = 2000   # |eval| at or above this means a forced mate was found
 
 
-def _recheck_game(a: dict, path: str, depth: int) -> dict:
+def _recheck_game(a: dict, path: str, depth: int, engines: EnginePool) -> dict:
     """Deep values for every flagged blunder in one game: best move before it, the
     opponent's best reply after it, and the win% lost at this depth."""
     key = CACHE / f"deep_v1_{a['url'].rsplit('/', 1)[-1]}_d{depth}.json"
     if key.exists():
         return json.loads(key.read_text())
-    eng = _engine(path)
+    eng = engines.get(path)
     limit = chess.engine.Limit(depth=depth)
     out = {}
     for m in a["moves"]:
@@ -229,8 +250,7 @@ def _recheck_game(a: dict, path: str, depth: int) -> dict:
         out[str(m["ply"])] = {"deep_best": best, "deep_refutation": refutation,
                               "deep_cp_before": before, "deep_cp_after": after,
                               "deep_loss": round(max(win_pct(before) - win_pct(after), 0.0), 1)}
-    CACHE.mkdir(parents=True, exist_ok=True)
-    key.write_text(json.dumps(out))
+    _write_atomic(key, json.dumps(out))
     return out
 
 
@@ -241,18 +261,8 @@ def recheck_blunders(analyses: list[dict], depth: int = DEEP_DEPTH, workers: int
     if not path:
         return
     workers = workers or int(os.environ.get("CHESS_CHECK_ENGINE_WORKERS", 0)) or max(1, (os.cpu_count() or 2) - 1)
-    try:
-        with ThreadPoolExecutor(workers) as pool:
-            results = list(pool.map(lambda a: _recheck_game(a, path, depth), analyses))
-    finally:
-        with _lock:
-            for e in _all_engines:
-                try:
-                    e.quit()
-                except Exception:
-                    pass
-            _all_engines.clear()
-    _local.__dict__.clear()
+    with EnginePool() as engines, ThreadPoolExecutor(workers) as pool:
+        results = list(pool.map(lambda a: _recheck_game(a, path, depth, engines), analyses))
     for a, res in zip(analyses, results):
         for m in a["moves"]:
             m.update(res.get(str(m["ply"]), {}))

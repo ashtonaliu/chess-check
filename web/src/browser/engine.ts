@@ -43,19 +43,40 @@ function clocks(pgn: string): number[] {
 
 // ---------- one engine ----------
 
+/** How long one search may take before the engine counts as stuck (depth 14 takes a few seconds). */
+export const SEARCH_TIMEOUT_MS = 60_000;
+
 export class Engine {
   private w: Worker;
   private listeners: ((line: string) => void)[] = [];
+  private waiters = new Set<(e: Error) => void>();
+  private dead: Error | null = null;
   constructor(url: string) {
     this.w = new Worker(url);
     this.w.onmessage = e => { const line = String(e.data); this.listeners.slice().forEach(f => f(line)); };
+    // A worker that fails to load or crashes would otherwise leave every pending call waiting forever.
+    this.w.onerror = e => { e.preventDefault?.(); this.fail(new Error(`Stockfish stopped: ${e.message || "the worker failed"}`)); };
+    this.w.onmessageerror = () => this.fail(new Error("Stockfish sent a message that could not be read."));
   }
-  private until(pred: (l: string) => boolean, onLine?: (l: string) => void): Promise<string> {
-    return new Promise(resolve => {
+  private fail(err: Error) {
+    if (this.dead) return;
+    this.dead = err;
+    this.w.terminate();
+    for (const reject of [...this.waiters]) reject(err);
+    this.waiters.clear();
+    this.listeners = [];
+  }
+  private until(pred: (l: string) => boolean, onLine?: (l: string) => void, timeoutMs = SEARCH_TIMEOUT_MS): Promise<string> {
+    if (this.dead) return Promise.reject(this.dead);
+    return new Promise((resolve, reject) => {
+      const done = () => { clearTimeout(timer); this.waiters.delete(fail); this.listeners = this.listeners.filter(x => x !== f); };
+      const fail = (e: Error) => { done(); reject(e); };
+      const timer = setTimeout(() => this.fail(new Error("Stockfish did not answer in time.")), timeoutMs);
       const f = (l: string) => {
         onLine?.(l);
-        if (pred(l)) { this.listeners = this.listeners.filter(x => x !== f); resolve(l); }
+        if (pred(l)) { done(); resolve(l); }
       };
+      this.waiters.add(fail);
       this.listeners.push(f);
     });
   }
@@ -86,7 +107,11 @@ export class Engine {
     const best = bm.split(" ")[1];
     return { cp, best: pv?.[0] ?? (best && best !== "(none)" ? best : null), pv: pv ?? [] };
   }
-  terminate() { this.w.terminate(); }
+  /** Stop the worker; anything still waiting on it is rejected with `reason`. */
+  terminate(reason: Error = new DOMException("Cancelled", "AbortError")) {
+    if (this.dead) return;
+    this.fail(reason);
+  }
 }
 
 /** One Stockfish worker per core but one, up to MAX_WORKERS. */
@@ -247,7 +272,11 @@ export async function analyseGames(games: Game[], opts: PoolOptions): Promise<Ga
 
   const n = Math.max(1, Math.min(opts.workers ?? defaultWorkers(), todo.length));
   const engines: Engine[] = [];
+  // Cancelling stops the engines mid-search instead of after the game each is working on.
+  const stop = () => engines.forEach(e => e.terminate());
+  opts.signal?.addEventListener("abort", stop);
   try {
+    if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
     if (todo.length) {
       for (let i = 0; i < n; i++) engines.push(new Engine(opts.engineUrl));
       await Promise.all(engines.map(e => e.init()));
@@ -264,6 +293,7 @@ export async function analyseGames(games: Game[], opts: PoolOptions): Promise<Ga
       }
     }));
   } finally {
+    opts.signal?.removeEventListener("abort", stop);
     engines.forEach(e => e.terminate());
   }
   // "is_me" and the user's-POV opening eval depend on whose report this is
@@ -296,7 +326,10 @@ export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: 
   let done = 0;
   const n = Math.max(1, Math.min(opts.workers ?? defaultWorkers(), todo.length));
   const engines: Engine[] = [];
+  const stop = () => engines.forEach(e => e.terminate());
+  opts.signal?.addEventListener("abort", stop);
   try {
+    if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
     if (todo.length) { for (let i = 0; i < n; i++) engines.push(new Engine(opts.engineUrl)); await Promise.all(engines.map(e => e.init())); }
     let next = 0;
     await Promise.all(engines.map(async eng => {
@@ -326,6 +359,7 @@ export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: 
       }
     }));
   } finally {
+    opts.signal?.removeEventListener("abort", stop);
     engines.forEach(e => e.terminate());
   }
   analyses.forEach((a, i) => { const d = cached[i]; if (d) for (const m of a.moves) Object.assign(m, d[String(m.ply)] ?? {}); });

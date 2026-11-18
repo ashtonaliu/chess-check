@@ -243,3 +243,10 @@ button.small { padding: 5px 12px; font-size: 13px; border-radius: 8px; }
 @media (max-width: 640px) { #forest svg.forest-chart { display: none; } }
 .narrow-only { display: none; }
 @media (max-width: 640px) { .wide-only { display: none; } .narrow-only { display: inline; } }
+
+/* ---------- progress while the first results are already showing ---------- */
+.progress-actions { text-align: center; margin: 6px auto 0; }
+.progress.sticky { position: sticky; top: 0; z-index: 5; background: var(--bg); padding-top: 10px; padding-bottom: 10px;
+  border-bottom: 1px solid var(--line); margin-top: 0; }
+.progress.sticky .steps { display: none; }
+.follow-cta[hidden] { display: none; }

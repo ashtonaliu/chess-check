@@ -16,6 +16,27 @@ export interface BrowserOptions {
   onStatus?: (msg: string) => void; signal?: AbortSignal;
   /** stage = index into STAGES; frac = progress within it (null if unknown) */
   onProgress?: (stage: number, frac: number | null, text: string) => void;
+  /** Called once the games are in, before Stockfish runs, with what needs no engine: the overall
+   *  score and the opening table. The full result follows when the engine is done. */
+  onPartial?: (p: PartialResult) => void;
+}
+
+export interface PartialResult {
+  username: string; time_class: string | null; generated_at: string;
+  overall: ReturnType<typeof overall>; openings: ReturnType<typeof openingRows>;
+  phases: null; blunders: []; risk: null; facts: []; engine: false; tactics: null; pending: true;
+}
+
+/** The opening table in the payload's shape (chesscheck/pipeline.py to_payload). */
+function openingRows(rows: ReturnType<typeof withExpected>) {
+  return openingTable(rows).map(r => {
+    const flagged = r.verdict.endsWith("weakness") || r.verdict === "worth watching";
+    const b = flagged ? worstBranch(rows, r.color, r.family) : null;
+    return { color: r.color, family: r.family, n: r.n, score: r.score, expected: r.expected,
+             raw: r.mean_resid, shrunk: r.shrunk, ci_low: r.ci_low, ci_high: r.ci_high,
+             p_below: r.p_below, verdict: r.verdict,
+             branch: b ? { moves: formatMoves(b.moves), n: b.n, score: b.score, expected: b.expected } : null };
+  });
 }
 
 const eta = (t0: number, done: number, total: number, cached = 0) => {
@@ -30,6 +51,9 @@ export async function analyzeInBrowser(o: BrowserOptions) {
   const games = await fetchGames(o.username, o.games, o.timeClass, o.signal);
   if (games.length < 5) throw new Error(`Only ${games.length} standard games found for "${o.username}".`);
   const rows = withExpected(games);
+  const openings = openingRows(rows);
+  o.onPartial?.({ username: o.username, time_class: o.timeClass, generated_at: new Date().toISOString(),
+    overall: overall(rows), openings, phases: null, blunders: [], risk: null, facts: [], engine: false, tactics: null, pending: true });
   const t0 = performance.now();
   const analyses = await analyseGames(games, {
     depth: o.depth, engineUrl: o.engineUrl, signal: o.signal,
@@ -47,14 +71,6 @@ export async function analyzeInBrowser(o: BrowserOptions) {
     analyses, pgns: new Map(games.map(g => [g.url, g.pgn])), depth: DEEP_DEPTH_BROWSER,
   }, o.engineUrl, o.signal);
   const risk = playerRisk(moveRows);
-  const openings = openingTable(rows).map(r => {
-    const flagged = r.verdict.endsWith("weakness") || r.verdict === "worth watching";
-    const b = flagged ? worstBranch(rows, r.color, r.family) : null;
-    return { color: r.color, family: r.family, n: r.n, score: r.score, expected: r.expected,
-             raw: r.mean_resid, shrunk: r.shrunk, ci_low: r.ci_low, ci_high: r.ci_high,
-             p_below: r.p_below, verdict: r.verdict,
-             branch: b ? { moves: formatMoves(b.moves), n: b.n, score: b.score, expected: b.expected } : null };
-  });
   const blunders = worstBlunders(analyses, 5).filter(m => m.wp_loss >= BLUNDER_DROP)
     .map(m => ({ move: moveLabel(m), best: m.best, loss: m.wp_loss, phase: m.phase, url: m.url, fen: m.fen }));
   const tactics = await pendingTactics;

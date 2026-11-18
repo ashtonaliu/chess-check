@@ -11,7 +11,7 @@ import type { GameAnalysis } from "../browser/engine";
 import { analyzeGame, type Profile } from "../browser/follow";
 import { fetchGames, type Game } from "../browser/games";
 import { defaultWorkers } from "../browser/engine";
-import { Pace, startingWorkers } from "../browser/pace";
+import { Pace, SharedPace, startingWorkers } from "../browser/pace";
 import { analyzeInBrowser } from "../browser/pipeline";
 import { buildRecap, opponentNote, type Recap } from "../browser/recap";
 import { findRate } from "../browser/findRate";
@@ -81,7 +81,7 @@ const mainClass = new Map<string, string>();   // the time class each player pla
 // Profile builds run in the background while you use Chess.com, so their worker count adapts
 // (pace.ts) and the count that worked is remembered on this device for the next build.
 const WORKERS_KEY = "chess-check-workers";
-let pace: Pace | null = null;
+let budget: SharedPace | null = null;       // shared by every build running now
 function rememberedWorkers(): number | null {
   try { const n = Number(localStorage.getItem(WORKERS_KEY)); return n > 0 ? n : null; } catch { return null; }
 }
@@ -90,8 +90,9 @@ function build(slot: Slot, key: string, username: string, timeClass: string, gam
   slot.progress = `Analyzing ${username}'s last ${games} ${timeClass} games…`;
   const abort = slot.abort = new AbortController();
   const max = defaultWorkers();
-  const mine = pace = new Pace({ max, start: startingWorkers(max, rememberedWorkers()) });
-  slot.building = analyzeInBrowser({ username, games, timeClass, depth: 8, engineUrl: ENGINE_URL, pace: mine,
+  if (!budget) budget = new SharedPace(new Pace({ max, start: startingWorkers(max, rememberedWorkers()) }));
+  const shared = budget, share = shared.join();
+  slot.building = analyzeInBrowser({ username, games, timeClass, depth: 8, engineUrl: ENGINE_URL, pace: share,
     signal: abort.signal, onProgress: (_s, _f, text) => { slot.progress = text; } })
     .then(async run => {
       const profile: Profile = { username: run.username, timeClass, rows: run.gameRows, openings: run.openings,
@@ -102,9 +103,11 @@ function build(slot: Slot, key: string, username: string, timeClass: string, gam
     .catch(e => { if (!abort.signal.aborted && !slot.profile) slot.error = (e as Error).message; })
     .finally(() => {
       slot.building = null;
-      if (pace === mine) {
-        pace = null;
-        if (!abort.signal.aborted) { try { localStorage.setItem(WORKERS_KEY, String(mine.remember)); } catch { /* not remembered */ } }
+      share.leave();
+      if (shared.builds === 0 && budget === shared) {
+        // the last build running: remember the count for the next one on this device
+        budget = null;
+        if (!abort.signal.aborted) { try { localStorage.setItem(WORKERS_KEY, String(shared.pace.remember)); } catch { /* not remembered */ } }
       }
     });
 }
@@ -140,9 +143,9 @@ export async function handle(req: Request): Promise<Reply> {
       }
       return { status: "ready" };
     }
-    if (req.type === "stalls") { pace?.stall(); return { status: "ready" }; }
+    if (req.type === "stalls") { budget?.pace.stall(); return { status: "ready" }; }
     if (req.type === "pace") {
-      return { status: "pace", workers: pace ? pace.active() : null, max: defaultWorkers(), remembered: rememberedWorkers() };
+      return { status: "pace", workers: budget ? budget.pace.active() : null, max: defaultWorkers(), remembered: rememberedWorkers() };
     }
     if (req.type === "rate") {
       // the cube's script does without chess.js, so the find rate is worked out here

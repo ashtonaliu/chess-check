@@ -24,6 +24,7 @@ export interface ReviewItem {
   opponent: string; endTime: number;
   fen?: string; rating?: number;  // the position and your rating then
   findRate?: number | null;       // how often players near that rating find the move (null: unknown)
+  timeClass?: string;             // the game's time control: the find rate was fitted on blitz only
   step: number;                  // how many times in a row it was found
   due: number;                   // when it is next asked (ms)
   done?: boolean;                // learned: found at every step
@@ -40,11 +41,11 @@ export function itemFromRecap(r: Recap, now: number): ReviewItem | null {
   if (!t || r.pending?.turning || t.loss < MIN_LOSS || !t.best || t.best === t.san) return null;
   return { id: itemId(r.url, t.ply), url: r.url, ply: t.ply, label: t.label, san: t.san, best: t.best, loss: t.loss,
     tactics: t.tactics, opponent: r.opponent, endTime: r.endTime, fen: t.fen, rating: r.myRating,
-    findRate: t.findRate ?? null, step: 0, due: now + DAY };
+    findRate: t.findRate ?? null, timeClass: r.timeClass, step: 0, due: now + DAY };
 }
 
 /** Your worst recent blunders from an analyzed profile, due now, to start an empty queue. */
-export function itemsFromBlunders(blunders: BlunderRec[], games: { url: string; opponent?: string | null; endTime: number; myRating?: number }[],
+export function itemsFromBlunders(blunders: BlunderRec[], games: { url: string; opponent?: string | null; endTime: number; myRating?: number; timeClass?: string }[],
                                   now: number, limit = SEED_COUNT,
                                   rate: (fen: string, best: string, rating: number) => number | null = () => null): ReviewItem[] {
   const byUrl = new Map(games.map(g => [g.url, g]));
@@ -56,7 +57,7 @@ export function itemsFromBlunders(blunders: BlunderRec[], games: { url: string; 
       loss: b.wp_loss, tactics: [...b.missed.map(motif => ({ kind: "missed" as const, motif })),
                                   ...b.allowed.map(motif => ({ kind: "allowed" as const, motif }))],
       opponent: g.opponent ?? "your opponent", endTime: g.endTime, fen: b.fen, rating: g.myRating,
-      findRate: g.myRating ? rate(b.fen, b.best, g.myRating) : null, step: 0, due: now });
+      findRate: g.myRating ? rate(b.fen, b.best, g.myRating) : null, timeClass: g.timeClass, step: 0, due: now });
   }
   // one per game (its worst), newest games first
   const best = new Map<string, ReviewItem>();
@@ -67,12 +68,14 @@ export function itemsFromBlunders(blunders: BlunderRec[], games: { url: string; 
   return [...best.values()].sort((a, b) => b.endTime - a.endTime).slice(0, limit);
 }
 
-/** Fill in what older entries are missing (the position and rating) from fresh copies of them. */
+/** Fill in what older entries are missing (the position, rating and time control) from fresh copies of them. */
 export function patchItems(queue: ReviewItem[], fresh: ReviewItem[]): ReviewItem[] {
   const byId = new Map(fresh.map(f => [f.id, f]));
   return queue.map(q => {
     const f = byId.get(q.id);
-    return f && !q.fen && f.fen ? { ...q, fen: f.fen, rating: q.rating ?? f.rating, findRate: q.findRate ?? f.findRate } : q;
+    if (!f) return q;
+    const filled = !q.fen && f.fen ? { ...q, fen: f.fen, rating: q.rating ?? f.rating, findRate: q.findRate ?? f.findRate } : q;
+    return filled.timeClass === undefined && f.timeClass !== undefined ? { ...filled, timeClass: f.timeClass } : filled;
   });
 }
 

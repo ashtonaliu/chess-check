@@ -53,3 +53,25 @@ export class Pace {
 export function startingWorkers(max: number, remembered: number | null): number {
   return Math.min(Math.max(1, remembered ?? max), Math.max(1, max));
 }
+
+/**
+ * One worker budget for all background builds at once. Builds for different time classes can run
+ * together (a blitz warm-up and a rapid recap's profile), and with a count per build they could use
+ * twice the limit while only the newest heard about stutter. Each build joins with `join()`, which
+ * hands it a share of the budget (the count divided by the builds running, at least one each), and
+ * calls `leave()` when it ends. A stutter lowers the shared count, so every build eases off.
+ */
+export class SharedPace {
+  private running = 0;
+  constructor(readonly pace: Pace) {}
+  get builds(): number { return this.running; }
+  join(): { max: number; active(): number; leave(): void } {
+    this.running++;
+    let left = false;
+    return {
+      max: this.pace.max,
+      active: () => Math.max(1, Math.floor(this.pace.active() / Math.max(1, this.running))),
+      leave: () => { if (!left) { left = true; this.running--; } },
+    };
+  }
+}

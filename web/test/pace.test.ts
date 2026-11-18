@@ -53,3 +53,21 @@ test("one worker is all a one-core machine gets", () => {
   assert.equal(p.active(), 1);
   assert.equal(p.remember, 1);
 });
+
+test("builds running together share one budget, and a stutter eases all of them", async () => {
+  const { SharedPace } = await import("../src/browser/pace");
+  const clock = { t: 0 };
+  const shared = new SharedPace(new Pace({ max: 8, start: 8, now: () => clock.t }));
+  const blitz = shared.join();
+  assert.equal(blitz.active(), 8, "alone it gets the whole budget");
+  const rapid = shared.join();
+  assert.equal(blitz.active() + rapid.active(), 8, "together they stay within it, not 16");
+  shared.pace.stall();
+  assert.ok(blitz.active() + rapid.active() <= 7, "the stutter reaches both builds");
+  rapid.leave(); rapid.leave();
+  assert.equal(shared.builds, 1, "leaving twice counts once");
+  assert.equal(blitz.active(), 7);
+  // never starved: each build keeps at least one worker
+  const many = [shared.join(), shared.join(), shared.join(), shared.join(), shared.join(), shared.join(), shared.join(), shared.join()];
+  assert.ok(many.every(b => b.active() >= 1));
+});

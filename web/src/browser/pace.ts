@@ -71,12 +71,13 @@ export class SharedPace {
   /** Slots in use now, across every build. */
   get inUse(): number { return this.busy; }
 
-  join(): { max: number; acquire(signal?: AbortSignal): Promise<void>; release(): void; leave(): void } {
+  join(): { max: number; acquire(signal?: AbortSignal): Promise<void>; tryAcquire(): boolean; release(): void; leave(): void } {
     this.running++;
     let left = false;
     return {
       max: this.pace.max,
       acquire: signal => this.acquire(signal),
+      tryAcquire: () => this.tryAcquire(),
       release: () => this.release(),
       leave: () => { if (!left) { left = true; this.running--; } },
     };
@@ -96,6 +97,12 @@ export class SharedPace {
       }
       this.waiting.push(w);
     });
+  }
+
+  private tryAcquire(): boolean {
+    if (this.waiting.length || this.busy >= this.pace.active()) return false;
+    this.busy++;
+    return true;
   }
 
   private release(): void {

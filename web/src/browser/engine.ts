@@ -275,40 +275,71 @@ async function analyseOne(eng: Engine, game: Game, depth: number): Promise<Store
 }
 
 /** Worker slots shared by every background build (pace.ts). A pool takes a slot before each task
- *  and gives it back after, and starts an engine only once it holds one, so builds running together
- *  never search on more workers, or start more engines, than the budget allows. */
-export interface Pacer { readonly max: number; acquire(signal?: AbortSignal): Promise<void>; release(): void }
+ *  and gives it back after, and keeps an engine only while it holds a slot, so builds running
+ *  together never search on more workers, or keep more engines loaded, than the budget allows. */
+export interface Pacer {
+  readonly max: number;
+  acquire(signal?: AbortSignal): Promise<void>;
+  /** Take a slot only if one is free now and nobody is waiting for it. */
+  tryAcquire(): boolean;
+  release(): void;
+}
 
-/** Runs tasks 0..count-1 on up to `max` engines, each engine taking the next task when free. */
-async function runPool(count: number, o: { workers?: number; pace?: Pacer; engineUrl: string; signal?: AbortSignal },
-                       task: (eng: Engine, t: number) => Promise<void>): Promise<void> {
+interface PoolEngine { init(): Promise<void>; terminate(): void }
+
+/** Runs tasks 0..count-1 on up to `max` engines, each engine taking the next task when free.
+ *  If a task fails, or the signal aborts, every worker loop stops (one waiting for a slot stops
+ *  waiting) and all engines are shut down before this returns or throws. */
+export async function runPool<E extends PoolEngine = Engine>(count: number,
+    o: { workers?: number; pace?: Pacer; engineUrl: string; signal?: AbortSignal },
+    task: (eng: E, t: number) => Promise<void>,
+    make: () => E = () => new Engine(o.engineUrl) as unknown as E): Promise<void> {
   if (!count) return;
   const n = Math.max(1, Math.min(o.pace?.max ?? o.workers ?? defaultWorkers(), count));
-  const engines: Engine[] = [];
+  const engines = new Set<E>();
+  const quit = new AbortController();        // the pool's own stop: a failure or the caller's abort
+  let failure: unknown = null;
+  const fail = (e: unknown) => { if (!quit.signal.aborted) { failure = e; quit.abort(); } };
   const cancelled = () => new DOMException("Cancelled", "AbortError");
   // Cancelling stops the engines mid-search instead of after the task each is working on.
-  const stop = () => engines.forEach(e => e.terminate());
-  o.signal?.addEventListener("abort", stop);
+  const stopAll = () => { engines.forEach(e => e.terminate()); engines.clear(); };
+  const onAbort = () => { fail(cancelled()); stopAll(); };
+  if (o.signal?.aborted) throw cancelled();
+  o.signal?.addEventListener("abort", onAbort);
+  quit.signal.addEventListener("abort", stopAll);
+  const drop = (e: E | null) => { if (e) { e.terminate(); engines.delete(e); } return null; };
   let next = 0;
-  try {
-    await Promise.all(Array.from({ length: n }, async () => {
-      let eng: Engine | null = null;
-      while (next < count) {
-        if (o.signal?.aborted) throw cancelled();
-        await o.pace?.acquire(o.signal);
-        try {
-          if (o.signal?.aborted) throw cancelled();
-          if (next >= count) break;
-          const t = next++;
-          if (!eng) { eng = new Engine(o.engineUrl); engines.push(eng); await eng.init(); }
-          await task(eng, t);
-        } finally { o.pace?.release(); }
+  const loop = async () => {
+    let eng: E | null = null, holding = false;
+    try {
+      while (next < count && !quit.signal.aborted) {
+        if (o.pace && !holding) {
+          // waiting for a slot: an engine kept while waiting would hold memory without a slot
+          eng = drop(eng);
+          await o.pace.acquire(quit.signal);
+          holding = true;
+        }
+        if (quit.signal.aborted || next >= count) break;
+        const t = next++;
+        if (!eng) { eng = make(); engines.add(eng); await eng.init(); }
+        if (quit.signal.aborted) break;
+        await task(eng, t);
+        if (o.pace) { o.pace.release(); holding = o.pace.tryAcquire(); }
       }
-    }));
+    } catch (e) {
+      fail(e);
+    } finally {
+      if (holding) o.pace?.release();
+      drop(eng);
+    }
+  };
+  try {
+    await Promise.all(Array.from({ length: n }, loop));   // loops never reject: each records its failure
   } finally {
-    o.signal?.removeEventListener("abort", stop);
-    engines.forEach(e => e.terminate());
+    o.signal?.removeEventListener("abort", onAbort);
+    stopAll();
   }
+  if (failure) throw failure;
 }
 
 export interface PoolOptions { depth: number; workers?: number; engineUrl: string;

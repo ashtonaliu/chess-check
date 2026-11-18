@@ -11,6 +11,7 @@ Type in a Chess.com username and find out what that player is actually bad at.
 1. Downloads your recent games from Chess.com.
 2. Runs the Stockfish chess engine on every move to find your mistakes, then double-checks each mistake with a deeper search.
 3. Names the tactic behind each blunder (a fork you walked into, a discovered attack you missed, a free piece you left) and which piece you moved.
+   Each finding opens every position behind it, worst first. You can step through what happened after your move or the line Stockfish preferred, and open the exact move on Chess.com.
 4. Checks each opening against what your rating predicted, so a bad result against stronger players does not count against you.
 5. Estimates whether you blunder more than similar players would in the same positions, and whether time pressure is the cause.
 6. Has an AI coach write a short report, then checks every number and move in it against the real data before showing it.

@@ -1,9 +1,9 @@
 {
  "username": "ashton-iwnl",
- "generated_at": "2026-11-13T16:18:14+00:00",
- "report": "## Summary\n\nOver 300 games you scored 48% against 49% expected [F1], and your overall blunder count matched expectation [F2]. The main concern is a tactical pattern: you miss discovered attacks far more often than your opponents do.\n\n## Biggest weaknesses\n\n**1. Missed discovered attacks (pattern).** In positions where you blundered, the better move was a discovered attack 18 times, versus 4 for your opponents (4.50 times their rate) [F22]. Example: 29.Bd7 lost 86 win% when the engine preferred Bf5 [F23], in https://www.chess.com/game/live/187005539854.\n*Do:* Work through discovered-attack puzzles [F24]. Before each move, check whether moving a piece uncovers a line for a rook, bishop, or queen.\n\n**2. Underperformance in three openings (possible weakness, small samples).**\n- Pirc Defense as White: 0% in 4 games vs 48% expected [F6].\n- Queen's Pawn Opening as White: 27% in 11 games vs 47% expected [F7].\n- Englund Gambit as Black: 21% in 7 games vs 49% expected [F8].\n\nEach rating-adjusted interval includes zero [F6][F7][F8], so this is suggestive, not proven. Your engine evals after move 12 were roughly level in these games [F12][F13][F14].\n*Do:* Review these games from the opening onward and build a short repertoire fix for each.\n\n**3. Hanging pieces missed (worth watching).** In blunder positions, the better move was capturing or saving a hanging piece 28 times, versus 16 for opponents (1.75 times their rate), though this does not hold after correcting for multiple comparisons [F19]. Example: 43...Kh7 lost 97 win% when the engine preferred Qxf4+ [F15].\n*Do:* Practise [hanging piece puzzles](https://lichess.org/training/hangingPiece) [F21].\n\n## What's working\n\n- **Time pressure in the 10-30% band:** You made 60 blunders against 82.2 expected (0.73 times) [F4].\n- **Not letting opponents use discovered attacks:** Your blunders allowed 6 discovered attacks versus 21 for your opponents (0.29 times) [F25].\n\n## Training plan\n\n- Solve discovered-attack puzzles regularly: https://lichess.org/training/discoveredAttack [F24].\n- Before every move, ask \"what hangs after this?\" for both sides [F19][F21].\n- Review your Pirc, Queen's Pawn, and Englund games from the opening onward [F6][F7][F8].\n- Use middlegame puzzles to practise tactics after the opening: https://lichess.org/training/middlegame [F28].",
+ "generated_at": "2026-11-18T08:02:11+00:00",
+ "report": "# Summary\nAcross 300 games (average rating 1701) you scored 48% against 50% expected [F1], and your overall blunder count was close to what the opponent-trained model predicts (0.99 times expected) [F2].\n\n## Biggest weaknesses\n\n**1. Missed discovered attacks (pattern).** In positions where you blundered, the better move was a discovered attack 18 times, versus 4 for your opponents, or 4.50 times their rate [F22]. Example: 29.Bd7 lost 86 win%; the engine preferred Bf5 [F23] (https://www.chess.com/game/live/187005539854).\n*Do:* Work through discovered-attack puzzles [F24]. Before each move, check whether moving a piece unmasks a line for a piece behind it.\n\n**2. Queen's Pawn Opening as White (possible weakness).** You scored 27% in 11 games versus 50% expected, a rating-adjusted gap of -4 points with a 90% interval of -15 to +2 [F6]. In moves 13-25 of these games you lost 5.2 win% per move, versus 5.1 across all your games [F12].\n*Do:* Review these games and pick a middlegame plan you can repeat after move 12, when the median eval was +0.0 pawns [F12].\n\n**3. Hanging pieces missed (worth watching).** In positions where you blundered, the better move was a hanging piece 28 times, versus 16 for your opponents (1.75 times their rate) [F19]. Example: 43...Kh7 lost 97 win%, and the engine preferred Qxf4+ [F20] (https://www.chess.com/game/live/186801649660). This verdict is tentative because it does not hold after correcting for 18 comparisons [F19].\n\n## What's working\n- **Time pressure:** With 10-30% of the clock left you made 60 blunders versus 82.2 expected (0.73 times) [F4].\n- **Discovered attacks against you:** Your blunders allowed a discovered attack 6 times, versus 21 for your opponents [F25].\n\n## Training plan\n- Practise discovered-attack puzzles: https://lichess.org/training/discoveredAttack [F24].\n- Practise hanging-piece puzzles: https://lichess.org/training/hangingPiece [F21]. Before each move, ask which of your pieces is undefended.\n- Practise middlegame puzzles: https://lichess.org/training/middlegame [F28]. Your middlegame blunder rate is 6.6% versus 6.2% for opponents [F10].\n- Review your Queen's Pawn games as White, focusing on moves 13-25 [F6][F12].\n- Check your Englund Gambit as Black, where you scored 21% in 7 games (possible weakness) [F8].",
  "verification": {
-  "checked": 37,
+  "checked": 49,
   "unsupported": [],
   "uncited": [],
   "bad_citations": [],
@@ -11,31 +11,22 @@
   "ok": true
  },
  "first_verification": {
-  "checked": 39,
+  "checked": 50,
   "unsupported": [
    {
     "type": "miscited number",
-    "claim": 15.0,
-    "sentence": "Solve discovered-attack puzzles for 15 minutes a day: https://lichess.org/training/discoveredAttack [F24]."
-   },
-   {
-    "type": "miscited number",
-    "claim": 12.0,
-    "sentence": "Review your Pirc, Queen's Pawn, and Englund games, focusing on the first 12 moves [F6][F7][F8]."
+    "claim": 11.0,
+    "sentence": "*Do:* Review these 11 games and pick a middlegame plan you can repeat after move 12, when the median eval was +0.0 pawns [F12]."
    }
   ],
   "uncited": [
    {
-    "claim": 15.0,
-    "sentence": "Solve discovered-attack puzzles for 15 minutes a day: https://lichess.org/training/discoveredAttack [F24]."
-   },
-   {
-    "claim": 12.0,
-    "sentence": "Review your Pirc, Queen's Pawn, and Englund games, focusing on the first 12 moves [F6][F7][F8]."
+    "claim": 11.0,
+    "sentence": "*Do:* Review these 11 games and pick a middlegame plan you can repeat after move 12, when the median eval was +0.0 pawns [F12]."
    }
   ],
   "bad_citations": [],
-  "unsupported_rate": 0.05128205128205128,
+  "unsupported_rate": 0.02,
   "ok": false
  },
  "repaired": true,
@@ -44,10 +35,10 @@
   "backend": "claude-code",
   "turns": 2,
   "model": "claude-haiku-5-5",
-  "cost_usd": 0.19147699999999998,
-  "input_tokens": 16960,
-  "output_tokens": 6069,
-  "api_ms": 26654,
+  "cost_usd": 0.006130709999999999,
+  "input_tokens": 19735,
+  "output_tokens": 7770,
+  "api_ms": 32146,
   "models": [
    "claude-haiku-5-5"
   ]
@@ -55,7 +46,7 @@
  "facts": [
   {
    "id": "F1",
-   "text": "Across 300 games (average rating 1701), you scored 48% versus 49% expected from ratings (-1 points)."
+   "text": "Across 300 games (average rating 1701), you scored 48% versus 50% expected before play (-2 points)."
   },
   {
    "id": "F2",
@@ -75,15 +66,15 @@
   },
   {
    "id": "F6",
-   "text": "Pirc Defense as White: 4 games, scored 0% versus 48% expected. Rating-adjusted gap after shrinkage: -4 points (90% interval -15 to +3). Verdict: possible weakness."
+   "text": "Queen's Pawn Opening as White: 11 games, scored 27% versus 50% expected. Rating-adjusted gap after shrinkage: -4 points (90% interval -15 to +2). Verdict: possible weakness."
   },
   {
    "id": "F7",
-   "text": "Queen's Pawn Opening as White: 11 games, scored 27% versus 47% expected. Rating-adjusted gap after shrinkage: -4 points (90% interval -14 to +3). Verdict: possible weakness."
+   "text": "Pirc Defense as White: 4 games, scored 0% versus 50% expected. Rating-adjusted gap after shrinkage: -4 points (90% interval -16 to +3). Verdict: possible weakness."
   },
   {
    "id": "F8",
-   "text": "Englund Gambit as Black: 7 games, scored 21% versus 49% expected. Rating-adjusted gap after shrinkage: -4 points (90% interval -14 to +3). Verdict: possible weakness."
+   "text": "Englund Gambit as Black: 7 games, scored 21% versus 48% expected. Rating-adjusted gap after shrinkage: -4 points (90% interval -14 to +3). Verdict: possible weakness."
   },
   {
    "id": "F9",
@@ -99,11 +90,11 @@
   },
   {
    "id": "F12",
-   "text": "In your Pirc Defense games as White, the engine eval after move 12 had a median of +0.3 pawns for you; in moves 13-25 you lost 4.2 win% per move, versus 5.1 across all your games."
+   "text": "In your Queen's Pawn Opening games as White, the engine eval after move 12 had a median of +0.0 pawns for you; in moves 13-25 you lost 5.2 win% per move, versus 5.1 across all your games."
   },
   {
    "id": "F13",
-   "text": "In your Queen's Pawn Opening games as White, the engine eval after move 12 had a median of +0.0 pawns for you; in moves 13-25 you lost 5.2 win% per move, versus 5.1 across all your games."
+   "text": "In your Pirc Defense games as White, the engine eval after move 12 had a median of +0.3 pawns for you; in moves 13-25 you lost 4.2 win% per move, versus 5.1 across all your games."
   },
   {
    "id": "F14",

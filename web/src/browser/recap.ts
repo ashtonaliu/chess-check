@@ -17,6 +17,10 @@ export interface Recap {
   pattern: null | { kind: string; motif: string; count: number; verdict: string };
   clean: boolean;
   opponentNote: string | null;
+  /** Parts still being worked out, so the card can show the result first: the game's own analysis
+   *  (turning point) and the player's history (opening record, patterns, opponent note). Absent on a
+   *  complete recap. */
+  pending?: { turning?: boolean; history?: boolean };
 }
 
 const HOW_WON: Record<string, string> = { timeout: "on time", checkmated: "by checkmate", resigned: "by resignation", abandoned: "by abandonment" };

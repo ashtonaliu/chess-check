@@ -101,17 +101,26 @@ export class Follower {
   }
 }
 
-/** Analyze one finished game and read it against a player's profile. */
-export async function recapGame(g: Game, profile: Profile, engineUrl: string): Promise<Recap> {
-  const opponent = g.opponent;
-  const note = opponent
-    ? fetchGames(opponent, 100, g.timeClass || profile.timeClass)
-      .then(games => opponentNote(opponent, games.filter(game => game.url !== g.url),
-        g.family, g.color === "white" ? "black" : "white"))
-      .catch(() => null)
-    : Promise.resolve(null);
+/** Stockfish on one finished game, with its blunders confirmed deeper and classified. */
+export async function analyzeGame(g: Game, engineUrl: string) {
   const [analysis] = await analyseGames([g], { depth: 8, engineUrl, workers: 1 });
   await recheckBlunders([analysis], { engineUrl, workers: 1 });
-  const blunders = classifyGame(g.pgn, analysis);
+  return { analysis, blunders: classifyGame(g.pgn, analysis) };
+}
+
+/** The post-game line about the opponent in this opening, or null if their games cannot be read. */
+export function opponentNoteFor(g: Game, timeClass: string | null): Promise<string | null> {
+  const opponent = g.opponent;
+  if (!opponent) return Promise.resolve(null);
+  return fetchGames(opponent, 100, g.timeClass || timeClass)
+    .then(games => opponentNote(opponent, games.filter(game => game.url !== g.url),
+      g.family, g.color === "white" ? "black" : "white"))
+    .catch(() => null);
+}
+
+/** Analyze one finished game and read it against a player's profile. */
+export async function recapGame(g: Game, profile: Profile, engineUrl: string): Promise<Recap> {
+  const note = opponentNoteFor(g, profile.timeClass);
+  const { analysis, blunders } = await analyzeGame(g, engineUrl);
   return buildRecap(g, analysis, blunders, profile.rows, profile.openings, profile.tactics, await note);
 }

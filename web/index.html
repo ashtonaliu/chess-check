@@ -73,9 +73,9 @@
 
     <div class="tabs" role="tablist" aria-label="Details">
       <button role="tab" id="t-tactics" aria-controls="tab-tactics" aria-selected="true">Tactics</button>
-      <button role="tab" id="t-openings" aria-controls="tab-openings" aria-selected="false">Openings</button>
-      <button role="tab" id="t-phases" aria-controls="tab-phases" aria-selected="false">Phases &amp; clock</button>
-      <button role="tab" id="t-coach" aria-controls="tab-coach" aria-selected="false">AI coach</button>
+      <button role="tab" id="t-openings" aria-controls="tab-openings" aria-selected="false" tabindex="-1">Openings</button>
+      <button role="tab" id="t-phases" aria-controls="tab-phases" aria-selected="false" tabindex="-1">Phases &amp; clock</button>
+      <button role="tab" id="t-coach" aria-controls="tab-coach" aria-selected="false" tabindex="-1">AI coach</button>
     </div>
 
     <section id="tab-tactics" role="tabpanel" aria-labelledby="t-tactics" class="panel">
@@ -83,7 +83,7 @@
     </section>
 
     <section id="tab-openings" role="tabpanel" aria-labelledby="t-openings" class="panel" hidden>
-      <p class="note">Each dot is your score minus the score your ratings predicted, pulled toward your average when there are only a few games. The bar is the 90% range. Hollow dot: the raw number.</p>
+      <p class="note"><span class="wide-only">Each dot is your score minus the score your ratings predicted, pulled toward your average when there are only a few games. The bar is the 90% range. Hollow dot: the raw number.</span><span class="narrow-only">The number on each opening is your score minus the score your ratings predicted, in points, pulled toward your average when there are only a few games.</span></p>
       <div id="forest"></div>
       <div id="branches"></div>
     </section>

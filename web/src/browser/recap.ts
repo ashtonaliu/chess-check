@@ -28,6 +28,9 @@ const HOW_LOST: Record<string, string> = { timeout: "on time", checkmated: "by c
 const HOW_DREW: Record<string, string> = { agreed: "by agreement", repetition: "by repetition", stalemate: "by stalemate",
   insufficient: "with insufficient material", "50move": "by the 50-move rule", timevsinsufficient: "on time vs insufficient material" };
 
+/** A Chess.com game's numeric ID, so the same game matches across archive, endpoint and page URLs. */
+export const gameId = (url: string) => url.match(/\/(\d+)(?:[/?#]|$)/)?.[1] ?? url;
+
 export function upset(score: number, expected: number): string {
   if (score === 1) return expected < 0.35 ? "Big upset win" : expected < 0.45 ? "Upset win" : expected > 0.65 ? "Win as the favorite" : "Win";
   if (score === 0) return expected > 0.65 ? "Upset loss" : expected > 0.55 ? "Loss as the favorite" : expected < 0.35 ? "Loss to a stronger player" : "Loss";
@@ -48,7 +51,10 @@ export function buildRecap(game: Game, analysis: GameAnalysis, blunders: Blunder
                            openings: { family: string; color: string; verdict: string }[], tactics: TacticSummary | null,
                            opponentNote: string | null = null): Recap {
   const expected = pregameExpected(game.myRating, game.oppRating, game.color, game.timeClass);
-  const past = history.filter(r => r.url !== game.url && r.family === game.family && r.color === game.color);
+  // only games that ended before this one: a profile built after it (a first install, or an older
+  // game opened later) can contain this game and the ones after it
+  const id = gameId(game.url);
+  const past = history.filter(r => gameId(r.url) !== id && r.endTime < game.endTime && r.family === game.family && r.color === game.color);
   const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
   const row = openings.find(o => o.family === game.family && o.color === game.color);
   const flag = row && row.verdict !== "not enough evidence" ? row.verdict : null;
@@ -71,7 +77,9 @@ export function buildRecap(game: Game, analysis: GameAnalysis, blunders: Blunder
     for (const t of tags) {
       const stat = tactics?.motifs.find(s => s.kind === t.kind && s.motif === t.motif);
       if (stat && stat.higher && stat.verdict !== "no difference") {
-        pattern = { kind: t.kind, motif: t.motif, count: stat.me + 1, verdict: stat.verdict };
+        // the profile's count includes this game when the profile was built after it
+        const counted = tactics?.blunders?.some(b => gameId(b.url) === id && b.ply === worst!.m.ply) ?? false;
+        pattern = { kind: t.kind, motif: t.motif, count: stat.me + (counted ? 0 : 1), verdict: stat.verdict };
         break;
       }
     }

@@ -260,7 +260,9 @@ function renderForest(rows: Opening[]) {
   const color = (r: Opening) => r.verdict.endsWith("weakness") ? "var(--weak)"
     : r.verdict === "worth watching" ? "var(--watch)" : r.verdict.endsWith("strength") ? "var(--good)" : "var(--neutral)";
   const ticks = [-lim, -lim / 2, 0, lim / 2, lim].map(t => Math.round(t * 100) / 100);
-  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Rating-adjusted score by opening">`;
+  // The chart is for wide screens; a list carries the same numbers on phones (where the chart's
+  // labels would be a few pixels tall) and for screen readers at every width.
+  let svg = `<svg class="forest-chart" viewBox="0 0 ${W} ${H}" aria-hidden="true">`;
   svg += `<line class="zero" x1="${x(0)}" x2="${x(0)}" y1="${top - 8}" y2="${H - 24}"/>`;
   for (const t of ticks) svg += `<text x="${x(t)}" y="${H - 8}" text-anchor="middle">${pts(t)}</text>`;
   svg += `<text x="${x(-lim)}" y="16">worse than rating predicts</text><text x="${x(lim)}" y="16" text-anchor="end">better</text>`;
@@ -274,7 +276,15 @@ function renderForest(rows: Opening[]) {
       `Adjusted ${pts(r.shrunk)} (90%: ${pts(r.ci_low)} to ${pts(r.ci_high)}). ${r.verdict}.`)}</title></circle>`;
     svg += `<text x="${W - 8}" y="${y + 4}" text-anchor="end" fill="${c}">${pts(r.shrunk)}</text>`;
   });
-  el.innerHTML = svg + "</svg>";
+  const chip = (r: Opening) => r.verdict.endsWith("weakness") ? "weak" : r.verdict === "worth watching" ? "watch"
+    : r.verdict.endsWith("strength") ? "good" : "";
+  const list = `<ul class="forest-list" aria-label="Rating-adjusted score by opening">${shown.map(r => `<li>
+      <div class="fl-head"><strong>${esc(r.family)}</strong> <span class="fl-meta">${side(r.color)} · ${r.n} games</span>
+        <span class="fl-adj" style="color:${color(r)}">${pts(r.shrunk)}</span></div>
+      <div class="fl-detail">Scored ${pct(r.score)} where your ratings predicted ${pct(r.expected)}.
+        Adjusted ${pts(r.shrunk)} points (90% range ${pts(r.ci_low)} to ${pts(r.ci_high)}).
+        <span class="chip ${chip(r)}">${esc(r.verdict)}</span></div></li>`).join("")}</ul>`;
+  el.innerHTML = svg + "</svg>" + list;
   $("branches").innerHTML = rows.filter(r => r.branch).map(r => {
     const b = r.branch!;
     const tag = r.verdict === "worth watching" ? ` <span class="chip watch">worth watching</span>` : "";
@@ -348,12 +358,29 @@ function renderCoach(c: CoachResp, example = false, footnote = "") {
 
 // ---------- tabs ----------
 
+const TABS = ["tactics", "openings", "phases", "coach"];
 function selectTab(name: string) {
-  for (const t of ["tactics", "openings", "phases", "coach"]) {
+  for (const t of TABS) {
     $(`t-${t}`).setAttribute("aria-selected", String(t === name));
+    $(`t-${t}`).tabIndex = t === name ? 0 : -1;     // one tab stop for the tab list; arrows move within it
     $(`tab-${t}`).hidden = t !== name;
   }
+  // keep the selected tab visible in a tab bar that scrolls sideways on phones (never scroll the page)
+  const btn = $(`t-${name}`), bar = btn.parentElement!, b = btn.getBoundingClientRect(), r = bar.getBoundingClientRect();
+  if (b.left < r.left) bar.scrollLeft -= r.left - b.left + 8;
+  else if (b.right > r.right) bar.scrollLeft += b.right - r.right + 8;
 }
+document.querySelector(".tabs")?.addEventListener("keydown", ev => {
+  const e = ev as KeyboardEvent;
+  const i = TABS.findIndex(t => document.activeElement === $(`t-${t}`));
+  if (i < 0) return;
+  const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: TABS.length - 1 }[e.key];
+  if (next === undefined) return;
+  e.preventDefault();
+  const name = TABS[(next + TABS.length) % TABS.length];
+  selectTab(name);
+  $(`t-${name}`).focus();
+});
 document.querySelectorAll<HTMLButtonElement>(".tabs button").forEach(b =>
   b.addEventListener("click", () => selectTab(b.id.slice(2))));
 

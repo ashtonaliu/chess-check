@@ -1,11 +1,27 @@
 # Plan: the big engine study
 
-Status: being run as a dataset, not as a prediction study. Both gates failed on 2026-11-14: a
-player's 50-game tactic profile did not predict their own next-game tactical mistakes
-(`scripts/eval_tactic_gate.py`), and their 50-game accuracy profile barely predicted next-game
-accuracy (correlation 0.10) or who outplayed whom (0.04; `scripts/eval_accuracy_gate.py`). The run
-still goes ahead to store every raw result once, so future questions (only moves, criticality,
-time use, opening preparation) are queries instead of new engine runs.
+Status: complete. The run started 2026-11-14 20:37 and finished 2026-11-16 05:40 (about 33 hours
+at 5.6 games per second on 17 workers), with no errors or restarts. Neither gate passed (tactic
+profiles: `scripts/eval_tactic_gate.py`; accuracy profiles: `scripts/eval_accuracy_gate.py`), so
+this is a stored dataset for later questions, not a prediction study.
+
+What is stored, checked after the run:
+
+| | |
+|---|---:|
+| Target games (14,739 eligible of 14,948; 209 lacked 50 earlier blitz games) | 14,739 |
+| Games analyzed and stored, none missing or duplicated | 664,898 |
+| Positions | 49,148,840 |
+| Positions without an evaluation or win/draw/loss | 0 |
+| Searches shallower than depth 10 | 0 |
+| Positions re-checked at depth 14 | 4,137,858 |
+| Positions with no second-best move (2,000 sampled: all had exactly one legal move) | 472,183 |
+| Game-over positions | 175,229 |
+| Size on disk | 4.5 GB |
+
+`chesscheck.dataset` builds every player's profile from it in about 12 seconds (171,126 players,
+12,393 with 50 or more games). Across those, rating correlates −0.23 with win-% lost per move,
++0.14 with finding the best move in critical positions and +0.09 with conversion.
 
 ## Goal
 

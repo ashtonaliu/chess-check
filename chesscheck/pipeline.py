@@ -73,7 +73,7 @@ def _json_safe(x):
 def _tactics_payload(t: dict | None) -> dict | None:
     if not t:
         return None
-    keep = ("motifs", "pieces", "forks_allowed_by", "pieces_lost", "examples", "flagged", "confirmed",
+    keep = ("motifs", "pieces", "forks_allowed_by", "pieces_lost", "examples", "blunders", "flagged", "confirmed",
             "deep", "deep_depth", "n_tests", "moves_me", "moves_opp", "games")
     return _json_safe({k: t[k] for k in keep if k in t})
 

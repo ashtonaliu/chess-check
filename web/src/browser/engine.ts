@@ -66,9 +66,9 @@ export class Engine {
     const ready = this.until(l => l === "readyok");
     this.w.postMessage("isready"); await ready;
   }
-  /** Score (centipawns, side-to-move POV, mates as +/-MATE-n) and best move in UCI. */
-  async analyse(fen: string, depth: number): Promise<{ cp: number; best: string | null }> {
-    let cp = 0, pv: string | null = null;
+  /** Score (centipawns, side-to-move POV, mates as +/-MATE-n), best move and principal variation in UCI. */
+  async analyse(fen: string, depth: number): Promise<{ cp: number; best: string | null; pv: string[] }> {
+    let cp = 0, pv: string[] | null = null;
     const done = this.until(l => l.startsWith("bestmove"), l => {
       if (!l.startsWith("info") || !l.includes(" score ")) return;
       if (/ (lower|upper)bound/.test(l)) return;
@@ -77,14 +77,14 @@ export class Engine {
         const v = +m[2];
         cp = m[1] === "cp" ? v : v > 0 ? MATE - v : -MATE - v;
       }
-      const p = l.match(/ pv (\S+)/);
-      if (p) pv = p[1];
+      const p = l.match(/ pv (.+)$/);
+      if (p) pv = p[1].trim().split(/\s+/);
     });
     this.w.postMessage(`position fen ${fen}`);
     this.w.postMessage(`go depth ${depth}`);
     const bm = await done;
     const best = bm.split(" ")[1];
-    return { cp, best: pv ?? (best && best !== "(none)" ? best : null) };
+    return { cp, best: pv?.[0] ?? (best && best !== "(none)" ? best : null), pv: pv ?? [] };
   }
   terminate() { this.w.terminate(); }
 }

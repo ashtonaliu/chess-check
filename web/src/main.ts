@@ -2,7 +2,8 @@ import { costUsd, describeError, makeClient, runCoach } from "./browser/coach";
 import { Follower, POLL_MS } from "./browser/follow";
 import { analyzeInBrowser, STAGES } from "./browser/pipeline";
 import type { Recap } from "./browser/recap";
-import { boardSvg, esc, moveSquares, notificationText, PLURAL, PUZZLE, recapCard } from "./ui/recapCard";
+import { esc, notificationText, PLURAL, PUZZLE, recapCard } from "./ui/recapCard";
+import { exampleCard, initExampleViewers, openExamples, type DialogItem } from "./ui/lineViewer";
 import { embed } from "./browser/search";
 
 // Chess Check UI. Plain TypeScript, no framework. In the static demo the
@@ -21,10 +22,10 @@ interface RiskBand { moves: number; actual: number; expected: number; ratio: num
 interface Risk extends RiskBand { model?: string; buckets: (RiskBand & { label: string })[]; }
 interface MotifStat { kind: string; motif: string; me: number; opp: number; ratio: number | null; ci_low: number | null; ci_high: number | null; verdict: string; higher: boolean; }
 interface PieceStat { piece: string; moves: number; blunders: number; rate: number; opp_moves: number; opp_blunders: number; opp_rate: number | null; ratio: number | null; ci_low: number | null; ci_high: number | null; verdict: string; }
-interface Example { url: string; ply: number; move_no: number; san: string; wp_loss: number; phase: string; best: string | null; refutation: string | null; fen: string; allowed: string[]; missed: string[]; fork_by?: string; }
+interface Example { url: string; ply: number; move_no: number; san: string; wp_loss: number; phase: string; best: string | null; refutation: string | null; fen: string; allowed: string[]; missed: string[]; fork_by?: string; piece?: string | null; }
 interface Tactics {
   motifs: MotifStat[]; pieces: PieceStat[]; forks_allowed_by: Record<string, number>; pieces_lost: Record<string, number>;
-  examples: Record<string, Example>; flagged: number; confirmed: number; deep: boolean; deep_depth: number;
+  examples: Record<string, Example>; blunders?: Example[]; flagged: number; confirmed: number; deep: boolean; deep_depth: number;
   n_tests: number; moves_me: number; moves_opp: number;
 }
 interface Fact { id: string; text: string; }
@@ -53,6 +54,7 @@ const STATIC = (window as unknown as { CHESS_CHECK_STATIC?: StaticConfig }).CHES
 const ENGINE_URL = new URL("engine/stockfish-19-lite-single.js", import.meta.url).href;
 const BROWSER_DEPTH = 8;
 
+let findingList: Finding[] = [];
 let lastReq: { username: string; games: number; time_class: string | null } | null = null;
 let current: Payload | null = null;
 
@@ -92,9 +94,29 @@ function showProgress(stage: number | null, frac: number | null, text: string) {
 
 // ---------- key findings ----------
 
-interface Finding { level: "weak" | "watch" | "good" | "info"; title: string; detail: string; link?: [string, string]; score: number; }
+interface Finding { level: "weak" | "watch" | "good" | "info"; title: string; detail: string; link?: [string, string]; score: number; positions?: DialogItem[]; }
 const TAG = { weak: "Weakness", watch: "Worth watching", good: "Strength", info: "Overview" };
 const rx = (r: number | null) => (r === null || !Number.isFinite(r) ? "" : `${r >= 10 ? r.toFixed(0) : r.toFixed(1)}×`);
+
+/** Every blunder of yours matching a finding, worst first, ready for the positions dialog. */
+function positionsWhere(t: Tactics | null | undefined, keep: (r: Example) => boolean,
+                        kind?: "allowed" | "missed", motif?: string): DialogItem[] | undefined {
+  const list = (t?.blunders ?? []).filter(keep).sort((a, b) => b.wp_loss - a.wp_loss);
+  return list.length ? list.map(r => ({ data: r, caption: describe(r, kind, motif) })) : undefined;
+}
+
+/** One sentence on what went wrong, naming the finding's tactic first when there is one. */
+function describe(r: Example, kind?: "allowed" | "missed", motif?: string): string {
+  const missed = kind === "missed" && motif ? motif : r.missed[0];
+  const allowed = kind === "allowed" && motif ? motif : r.allowed[0];
+  const tell = (k: "missed" | "allowed", m: string) => k === "missed"
+    ? `You missed a ${LABEL[m].toLowerCase()}.`
+    : `This allowed a ${LABEL[m].toLowerCase()}${r.fork_by && m === "fork" ? ` by the ${r.fork_by}` : ""}${r.refutation ? ` (${r.refutation})` : ""}.`;
+  if (kind && motif) return tell(kind, motif);
+  if (allowed) return tell("allowed", allowed);
+  if (missed) return tell("missed", missed);
+  return `In the ${r.phase}.`;
+}
 
 function findings(p: Payload): Finding[] {
   const out: Finding[] = [];
@@ -108,7 +130,8 @@ function findings(p: Payload): Finding[] {
       : (m.kind === "missed" ? `You rarely miss ${what}` : `You rarely allow ${what}`);
     const detail = `${m.me} times vs ${m.opp} for your opponents in the same games` + (m.ratio !== null && Number.isFinite(m.ratio) && m.higher ? ` (${rx(m.ratio)} their rate).` : ".");
     out.push({ level, title, detail, score: (level === "weak" ? 300 : level === "watch" ? 200 : 0) + m.me,
-      link: m.higher ? [`Practice ${what}`, `https://lichess.org/training/${PUZZLE[m.motif]}`] : undefined });
+      link: m.higher ? [`Practice ${what}`, `https://lichess.org/training/${PUZZLE[m.motif]}`] : undefined,
+      positions: m.higher ? positionsWhere(t, r => r[m.kind as "allowed" | "missed"].includes(m.motif), m.kind as "allowed" | "missed", m.motif) : undefined });
   }
   for (const pc of t?.pieces ?? []) {
     if (pc.verdict === "no difference" || pc.ratio === null) continue;
@@ -116,7 +139,7 @@ function findings(p: Payload): Finding[] {
     out.push({ level: higher ? (pc.verdict === "pattern" ? "weak" : "watch") : "good",
       title: higher ? `Your ${pc.piece} moves blunder more` : `Your ${pc.piece} moves are safe`,
       detail: `${(100 * pc.rate).toFixed(1)}% of ${pc.piece} moves are blunders vs ${(100 * (pc.opp_rate ?? 0)).toFixed(1)}% for your opponents.`,
-      score: higher ? 250 : 5 });
+      score: higher ? 250 : 5, positions: higher ? positionsWhere(t, r => r.piece === pc.piece) : undefined });
   }
   for (const o of p.openings) {
     if (o.verdict.endsWith("weakness") || o.verdict === "worth watching") {
@@ -149,25 +172,14 @@ function renderOverview(p: Payload) {
   const o = p.overall;
   $("player").innerHTML = `<h2>${esc(p.username)}</h2><span class="meta">${o.games} ${esc(p.time_class ?? "")} games ·
     average rating ${o.avg_rating} · scored ${pct(o.score)} against an expected ${pct(o.expected)}</span>`;
-  $("findings").innerHTML = findings(p).map(f => `<article class="finding ${f.level}">
+  findingList = findings(p);
+  $("findings").innerHTML = findingList.map((f, i) => `<article class="finding ${f.level}">
       <div class="tag">${TAG[f.level]}</div><h3>${esc(f.title)}</h3><p>${esc(f.detail)}</p>
-      ${f.link ? `<a href="${esc(f.link[1])}" target="_blank" rel="noopener">${esc(f.link[0])} on Lichess →</a>` : ""}
+      <div class="finding-actions">
+        ${f.positions ? `<button type="button" class="secondary small" data-finding="${i}">See your ${f.positions.length === 1 ? "position" : `${f.positions.length} positions`}</button>` : ""}
+        ${f.link ? `<a href="${esc(f.link[1])}" target="_blank" rel="noopener">${esc(f.link[0])} on Lichess →</a>` : ""}
+      </div>
     </article>`).join("");
-}
-
-// ---------- board diagrams ----------
-
-function exampleCard(e: { fen: string; ply: number; move_no: number; san: string; wp_loss: number; best: string | null; url: string },
-                     caption: string): string {
-  const flip = e.ply % 2 === 1;
-  const played = moveSquares(e.fen, e.san), best = e.best && e.best !== e.san ? moveSquares(e.fen, e.best) : null;
-  const arrows = [...(played ? [{ ...played, color: "#d0452f" }] : []), ...(best ? [{ ...best, color: "#2f9a5a" }] : [])];
-  const label = e.ply % 2 === 0 ? `${e.move_no}.${e.san}` : `${e.move_no}...${e.san}`;
-  return `<div class="example">${boardSvg(e.fen, flip, arrows)}
-    <div class="cap"><span class="moves">${esc(label)}</span> lost <strong class="weak">${Math.round(e.wp_loss)}%</strong> winning chances.
-      ${caption}</div>
-    <div class="keyline"><span style="color:#d0452f">●</span> your move${best ? ` &nbsp;<span style="color:#2f9a5a">●</span> better: <span class="moves">${esc(e.best!)}</span>` : ""}
-      · <a href="${esc(e.url)}" target="_blank" rel="noopener">open game</a></div></div>`;
 }
 
 // ---------- tactics tab ----------
@@ -558,6 +570,12 @@ async function initStatic(cfg: StaticConfig) {
 }
 
 $("form").addEventListener("submit", analyze);
+initExampleViewers(ENGINE_URL);
+$("findings").addEventListener("click", ev => {
+  const i = (ev.target as HTMLElement).closest<HTMLElement>("[data-finding]")?.dataset.finding;
+  const f = i === undefined ? undefined : findingList[Number(i)];
+  if (f?.positions) openExamples(f.title, f.positions);
+});
 $("coachBtn").addEventListener("click", coach);
 initCoach();
 if (STATIC) initStatic(STATIC);

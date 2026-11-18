@@ -9,11 +9,30 @@ async function ensureOffscreen() {
   } catch { /* another request created it at the same moment */ }
 }
 
+/** Send to the offscreen page. Right after it is created its listener may not be registered yet,
+ *  and Chrome then rejects the message ("Receiving end does not exist"), so retry briefly. */
+async function toOffscreen(msg: object): Promise<unknown> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const reply = await chrome.runtime.sendMessage({ ...msg, target: "offscreen" });
+      if (reply !== undefined || attempt >= 40) return reply;
+    } catch (e) {
+      if (attempt >= 40) throw e;
+    }
+    await new Promise(r => setTimeout(r, 100));
+  }
+}
+
 chrome.runtime.onMessage.addListener((msg: { target?: string }, _sender, sendResponse) => {
   if (msg.target !== "bg") return false;
   void (async () => {
-    await ensureOffscreen();
-    sendResponse(await chrome.runtime.sendMessage({ ...msg, target: "offscreen" }));
+    try {
+      await ensureOffscreen();
+      sendResponse(await toOffscreen(msg) ?? { status: "error", message: "The analysis page did not answer." });
+    } catch (e) {
+      // always answer, so the cube never waits forever
+      sendResponse({ status: "error", message: (e as Error).message });
+    }
   })();
   return true;   // reply asynchronously
 });

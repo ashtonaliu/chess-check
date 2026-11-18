@@ -25,7 +25,7 @@ The same pipeline exists twice: in Python (`chesscheck/`), which is the referenc
 
 ## Openings
 
-Each game's result is compared with its Elo-expected score, so the residual (actual minus expected) removes the effect of opponent strength. Per-opening averages of the residual go into a normal-normal hierarchical model:
+Each game's result is compared with its expected score (the Elo formula recalibrated per time class, with White's edge; see "The upset meter's formula"), so the residual (actual minus expected) removes the effect of opponent strength. Per-opening averages of the residual go into a normal-normal hierarchical model:
 
 - Each opening's true effect is drawn from a normal distribution around the player's average.
 - The spread between openings (tau) gets a half-normal prior with scale 10 points, and the posterior averages over a grid of 80 tau values.

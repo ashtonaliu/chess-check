@@ -10,45 +10,21 @@ Type in a Chess.com username and find out what that player is actually bad at.
 
 1. Downloads your recent games from Chess.com.
 2. Runs the Stockfish chess engine on every move to find your mistakes, then double-checks each mistake with a deeper search.
-3. Recognizes the tactic behind each blunder (a fork you walked into, a discovered attack you missed, a free piece you left) and which piece you moved.
-4. Checks each opening against what your rating predicts, so a bad result against stronger players does not count against you.
+3. Names the tactic behind each blunder (a fork you walked into, a discovered attack you missed, a free piece you left) and which piece you moved.
+4. Checks each opening against what your rating predicted, so a bad result against stronger players does not count against you.
 5. Estimates whether you blunder more than similar players would in the same positions, and whether time pressure is the cause.
 6. Has an AI coach write a short report, then checks every number and move in it against the real data before showing it.
-7. Gives you a short recap after each game you finish, in a Chrome extension next to Chess.com or on the website.
+7. Shows a short recap after each game you finish, in a Chrome extension on Chess.com or on the website.
 
 Everything is compared with your opponents in the same games. A typical result, from my own games: *"You miss discovered attacks: 17 times in positions where you blundered, against 4 for your opponents."*
 
 ## Try it
 
 1. Open the [demo](https://ashtonaliu.github.io/chess-check/). It starts with an analysis of my own 300 blitz games.
-2. Enter any Chess.com username and press Analyze. 150 games take about 15 to 40 seconds.
-3. Press **Follow my games** to get a recap after every game you finish: the result and how surprising it was, the turning point on a board, your record in that opening, whether the mistake fits one of your patterns, and a note on your opponent.
-4. For the AI coaching report, paste your own [Anthropic API key](https://console.anthropic.com/settings/keys). The key only goes from your browser to Anthropic, and a report costs under one cent.
+2. Enter any Chess.com username and press Analyze. 150 games take about 30 seconds.
+3. For the AI coaching report, paste your own [Anthropic API key](https://console.anthropic.com/settings/keys). The key only goes from your browser to Anthropic, and a report costs under one cent.
 
-## How it works
-
-1. **Games:** pulled from the Chess.com public API.
-2. **Engine:** Stockfish scores every position. I measure mistakes as lost winning chances, so dropping from +9 to +6 barely counts but +1 to -2 does. Every move flagged as a blunder is checked again with a deeper search, which throws out about 13% of them.
-3. **Tactics:** for each confirmed blunder, the code looks at the board to name the tactic in the opponent's best reply and in the move you should have played, then compares your counts with your opponents'.
-4. **Openings:** each game's result is compared with the result your rating predicted. A statistical model then pulls small samples toward your average, so 4 unlucky games do not get called a weakness.
-5. **Blunder model:** a machine learning model learns from your opponents' moves how often a player at your level blunders in a given position and clock situation. Comparing your real blunders with that prediction shows whether you blunder more than expected.
-6. **AI coach:** Claude gets the computed facts plus tools to query your games, search them, and run Stockfish. A checker verifies every number, move and link in its report. If something is not supported, the coach gets one chance to fix it.
-
-## Post-game recaps
-
-**Chrome extension.** The extension puts a small cube on Chess.com pages that you can drag anywhere. There is nothing to set up: open one of your finished games and the cube turns green; click it to see the recap. While you are playing, clicking it only says the recap will appear when the game ends. To install it before it is in the Chrome Web Store:
-
-1. Run `scripts/build_extension.sh` (or download the zip from the releases page and unzip it).
-2. Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and choose the `extension` folder.
-3. Reload your Chess.com tab and open a finished game. The first recap analyzes your last 150 games in that time control, which takes a minute or two.
-
-The cube knows who you are from the Chess.com account you are signed in to, and it gets both players from the game itself. If you are signed out, it asks once which of the two players you are. It reads nothing else from the page.
-
-It is fast because the slow part happens before you play. On Chess.com pages that are not a game or the play page, it analyzes your recent games in the time control you play most. During a game it only checks every 5 seconds whether Chess.com has published the finished game, and it stops any analysis still running. Chess.com does not publish a live game until it is over, so nothing about the game is known, shown or analyzed while you play. Your profile is saved, so it survives restarting Chrome. With it ready, the recap is ready about 2 seconds after the game is published. On a brand-new install the first recap uses your last 50 games and takes about 13 seconds; the rest are added between games. Clicking the toolbar icon hides or shows the cube.
-
-**On the website,** press **Follow my games** and keep the tab open; a recap appears after each game you finish.
-
-Recaps only cover finished games. Chess.com's fair-play rules forbid outside help during a game, and in live chess the clock starts the moment you are paired, so anything shown "before" a game is really shown during it. That is why the app shows nothing about your opponent until the game is over, and why the win probability appears afterwards as an upset meter ("Before the game you had a 46% expected score") rather than as a prediction. Finished games reach the Chess.com public API within about a minute, and the page checks every 45 seconds.
+**The Chrome extension** puts a small cube on Chess.com that you can drag anywhere. Open a finished game and the cube turns green; click it for the recap. It knows who you are from your signed-in account and needs no setup. Chess.com's fair-play rules forbid outside help during a game, so the extension computes and shows nothing about a game until it is over, and the recap appears about 2 seconds after it ends. To install it before it is in the Chrome Web Store, run `scripts/build_extension.sh`, open `chrome://extensions`, turn on Developer mode, click Load unpacked and choose the `extension` folder.
 
 ## Results
 
@@ -56,14 +32,13 @@ Recaps only cover finished games. Chess.com's fair-play rules forbid outside hel
 
 | Model | AUC |
 |---|---:|
-| Guessing | 0.50 |
 | Logistic regression | 0.82 |
 | Gradient boosting | 0.84 |
 | Neural network (PyTorch) | 0.85 |
 
-The biggest predictor of a blunder is how little time is left on the clock. The site uses logistic regression because its predictions were the most accurate in the time-pressure range, even though its overall AUC is a little lower.
+The biggest predictor of a blunder is how little time is left on the clock. The site uses logistic regression because its predictions were the most accurate in the time-pressure range.
 
-**Tactic detector.** I tested the detector on 20,000 Lichess puzzles, using Lichess's own theme tags as the answers. The app only names a tactic when this test showed it was usually right.
+**Tactic detector.** I tested it on 20,000 Lichess puzzles, using Lichess's own theme tags as the answers.
 
 | Tactic | Precision | Recall |
 |---|---:|---:|
@@ -72,9 +47,9 @@ The biggest predictor of a blunder is how little time is left on the clock. The 
 | Discovered attack | 0.63 | 0.55 |
 | Free piece | 0.58 | 1.00 |
 
-Pins and back-rank mates scored too low (precision 0.49 and 0.27), so the app leaves them out. Forced mates come from the engine score instead of the board.
+Pins and back-rank mates scored too low (precision 0.49 and 0.27), so the app leaves them out.
 
-**AI coach accuracy.** The share of numbers and moves in the coach's reports that could not be backed up by the data, across 5 players.
+**AI coach accuracy.** The share of numbers and moves in the coach's reports that the data could not back up, across 5 players.
 
 | Setup | Unsupported claims |
 |---|---:|
@@ -82,73 +57,64 @@ Pins and back-rank mates scored too low (precision 0.49 and 0.27), so the app le
 | Claude with computed facts and tools | 2% |
 | Same, plus the checker and one fix | 0% |
 
-When I checked a raw report by hand, most of its claims were true but impossible to verify, and one win-loss record was simply wrong. Giving the coach computed facts makes every claim checkable.
+Giving the coach computed facts makes every claim checkable, and the checker catches the rest.
 
-**Which model writes the report.** I ran the same coach with three Claude models on the same 5 players.
+**Which model writes the report.** The same coach, three Claude models, the same 5 players.
 
-| Model | Unsupported claims, first draft | Key findings cited | Cost per report |
-|---|---:|---:|---:|
-| Opus 5.5 | 12% | 84% | $0.15 |
-| Sonnet 5.5 | 12% | 88% | $0.06 |
-| **Haiku 5.5** | **4%** | **84%** | **$0.005** |
+| Model | Unsupported claims, first draft | Cost per report |
+|---|---:|---:|
+| Opus 5.5 | 12% | $0.15 |
+| Sonnet 5.5 | 12% | $0.06 |
+| **Haiku 5.5** | **4%** | **$0.005** |
 
-The smallest model was the most accurate and about 34 times cheaper than Opus, so the coach uses Haiku. Sonnet kept putting citations in the wrong sentence even after the checker told it how to fix them. I also found that Haiku listed small-sample openings ahead of a stronger finding, so I added a rule to order findings by strength of evidence; after that, every report led with the strongest finding.
+The smallest model was the most accurate and about 30 times cheaper than Opus, so the coach uses Haiku.
 
-**Game search.** The coach can search your games by meaning, for example "games where I threw away a winning position". I tested 13 questions with known right answers (precision@5: the share of the top 5 results that are correct).
+**Game search.** The coach can search your games by meaning, such as "games where I threw away a winning position". On 13 questions with known answers (share of the top 5 results that are correct):
 
 | Search method | Precision@5 |
 |---|---:|
-| Random | 0.17 |
 | Keyword matching | 0.41 |
 | AI embeddings | 0.35 |
 | Both combined | 0.45 |
 
-Embeddings understand rewording ("got flagged" finds games lost on time) but confuse who did what ("my king got mated" also finds games where I mated someone). Keywords handle that case, so the coach uses both.
+Embeddings understand rewording but confuse who did what, and keywords cover that case, so the coach uses both.
 
-**Does a player's history predict the result?** I wanted to know whether a pre-game "odds" number could beat plain ratings. I tested it on 14,830 blitz games from 250 players, using only games that ended before each one. History meant recent form, results with each color, results in each side's main openings, how each player scores against the openings the other one usually plays, clock habits (losing on time, flagging opponents, clock left at the end), win streaks and how much each player had been playing. I scored the models on players they had not seen (Brier score: 0.25 is a coin flip, lower is better).
+**Can anything beat the rating at predicting a game?** I tested this on the blitz histories of 12,233 players, fitting on 4.4 million player-games from before November 1 and testing on 1.5 million from after November 7 (Brier score: lower is better, 0.25 is a coin flip).
 
 | Model | Brier score |
 |---|---:|
-| Elo formula from the two ratings | 0.2398 |
-| Ratings, fitted | 0.2387 |
-| Ratings plus all history, linear model | 0.2389 |
-| Ratings plus all history, gradient boosting | 0.2391 |
+| Elo formula | 0.23765 |
+| Elo recalibrated, plus color | 0.23683 |
+| ...plus the player's recent history | 0.23667 |
 
-None of the history models beat ratings. This sample could detect an effect of about 2 percentage points per game, so if history matters, it matters less than that. Chess.com pairs you with someone of about your rating, so most games start close to a coin flip, and the rating already carries most of what history knows. The one hint was clock habits: when one player often flags opponents and the other often loses on time, the flagger scored about 1.5 to 1.9 points better than ratings predicted, but both intervals just reached zero. Two follow-ups also came up empty. The first looked for players whose rating is out of date: much stronger in another time control, rising fast, far below their recent peak, new, or back from a break, plus each player's own tendency to tilt after a loss (+0.0001 Brier, −0.0003 to +0.0005). The second learned a few "style" numbers for each of 65,166 players from 6.5 million of their games, so that pairs of styles could predict who outplays whom, and tested them on later games: +0.0001 (0.0000 to 0.0002), about one point of expected score. Chess.com's rating updates after every game, so anything lasting about a player ends up in it quickly. What is left is mostly what happens inside the game. A Stockfish study of both players' last 50 games (995 games, 70,467 analyzed) did not help either. Its first models looked worse, but with the regularization tuned inside each training fold the difference disappeared (Brier 0.2362 against 0.2365), so that was overfitting; at that size the study can only rule out effects of about 10 points per game. Engine features alone did no better than a coin flip, but neither did ratings in those games: matchmaking leaves a median rating gap of 14 points. The engine features do track strength (stronger players lose fewer winning chances per move), just less precisely than the rating. The app does not show pre-game odds anyway because of the fair-play rules below.
+Most of the gain comes from fixing the formula. In matched games a rating gap matters about half as much as Elo assumes, and White scores 51.7% while Elo ignores color. History adds a little: players far below their recent average beat their rating by 2.4 points, and players score worse right after a loss. Openings, clock habits, session length, playstyles learned from 6.5 million games, and Stockfish profiles of both players' last 50 games added nothing measurable. The extension's upset meter and the report's opening tables now use the recalibrated formula.
 
-**Where ratings can be beaten.** Those tests were too small to see effects under about 2 points. So I used every game in the 12,233 players' histories instead: fit on 4.4 million player-games before November 1 and tested on 1.5 million from November 7 on, which can see effects under 1 point.
+**Engine dataset.** To make later questions cheap, I analyzed 664,898 games (49.1 million positions) once with Stockfish 19, keeping the two best moves, win/draw/loss chances and clock time for every position. It took 33 hours on my laptop, and profiles for all 171,126 players in it now take 12 seconds to compute.
 
-| Model (tested on 1,537,434 later player-games) | Brier | Gain (90% interval) |
-|---|---:|---|
-| Elo formula | 0.23765 | |
-| Elo recalibrated, plus colour | 0.23683 | +0.00083 over Elo (+0.00077 to +0.00087) |
-| ...plus the player's recent history | 0.23667 | +0.00015 more (+0.00013 to +0.00017) |
+## How it works
 
-Most of the gain is in the formula itself. In matched blitz games a rating gap matters about half as much as Elo assumes (players Elo gave 34% scored 42%, and those it gave 69% scored 55%), and White scores 51.7% while Elo ignores colour. History adds a little more, almost all of it from two effects. One is regression to the mean: a player 62 or more points below their 200-game average beat their rating by 2.4 points, and one 78 or more above it fell 0.7 short. The other is tilt: after a loss, players scored 0.6 points worse than after a win, and after losing a game Elo gave them 70% or more, 7.9 points worse (that happens in only 0.25% of games). Session length, games played that day, breaks and time of day did not matter. Altogether the prediction for a typical game moves by about 3 points. The recap's upset meter now uses the recalibrated formula with colour, fitted separately for bullet, blitz and rapid.
+The analysis runs twice from the same design: in Python (`chesscheck/`) as the reference, and in TypeScript in the browser for the demo and the extension, with tests checking that both give the same answers. [docs/methods.md](docs/methods.md) has the full write-up: the statistical model, every eval and how it was scored, the extension's design, the odds studies with their leak checks, and the engine dataset.
 
 ## What I learned
 
 - **Small samples lie.** My Scotch Game as Black looked terrible at 21% over 12 games. The model only marked it "worth watching" because with 34 openings, one bad result is expected by luck. Sixteen games later it was 38%, which is normal.
-- **Test against real data early.** Running on my own games exposed a statistics bug that squashed real effects to almost zero, and a blunder baseline that compared me with myself.
-- **A detector that finds everything is useless.** My first tactic detector caught almost every fork but also flagged many moves that were not forks (precision 0.42). Adding the rule that the forking piece must not simply be capturable raised it to 0.83.
-- **Check the checker.** My claim checker had three bugs of its own. One rejected correct game links, so the coach deleted good information to make it happy.
-- **Measure before trusting the hype.** AI embeddings alone did worse than plain keyword search. Combining them did best.
-- **The biggest model is not always the best one.** Haiku beat Opus on accuracy at a thirtieth of the price. Measuring it took an hour; guessing would have cost 30 times more per report.
-- **Check where the numbers come from.** My first run of the odds test said a fitted model beat the Elo formula by a wide margin. The reason was that Chess.com's archive stores each player's rating after the game, so the winner's rating already included the points they won. Using each player's rating from their previous game removed the gap.
-- **A result that looks too good probably is.** My first run of the bigger odds test said gradient boosting beat ratings clearly. No single group of features helped on its own, which made me suspicious. Two features measured time from when the game ended, so they included how long the game lasted, and that gives away how it ended. Measured from the previous game instead, the gain disappeared.
-- **"No effect" depends on the sample size.** Fifteen thousand games said history does not beat ratings. Six million said it does, by about a point per game, mostly through regression to the mean and tilt. Both were true for what each could see.
-- **Two versions keep each other honest.** I wrote the analysis in Python and again in TypeScript for the browser. Testing that both give the same answers caught a rounding difference and a solver that stopped too early.
+- **Check where the numbers come from.** My first odds test said a fitted model beat the Elo formula by a wide margin. Chess.com stores each player's rating after the game, so the winner's rating already included the points they won. Using the rating from their previous game removed the gap.
+- **A result that looks too good probably is.** A later run said gradient boosting beat ratings clearly, but no single feature helped on its own. Two features measured time from when the game ended, so they included how long the game lasted, which gives away how it ended. Measured from the previous game instead, the gain disappeared.
+- **"No effect" depends on the sample size.** Fifteen thousand games said history does not beat ratings. Six million said it does, by about a point per game. Both were true for what each could see.
+- **The biggest model is not always the best one.** Haiku beat Opus on accuracy at a thirtieth of the price, and measuring it took an hour.
+- **Check the checker.** My claim checker had three bugs of its own, and one made the coach delete correct information to satisfy it.
+- **Two versions keep each other honest.** Testing that the Python and TypeScript versions agree caught a rounding difference and a solver that stopped too early.
 
 ## Tech used
 
 | Area | Tools |
 |---|---|
 | Languages | Python, TypeScript |
-| Machine learning | scikit-learn, PyTorch, a hierarchical Bayesian model, sentence embeddings |
+| Machine learning | scikit-learn, PyTorch, a hierarchical Bayesian model, calibration, sentence embeddings |
 | AI | Claude API, tool use, MCP, retrieval (embeddings plus BM25), evals |
-| Data | DuckDB (also in the browser), MySQL, pandas |
+| Data | DuckDB (also in the browser), Parquet, MySQL, pandas |
 | Chess | Stockfish (native and WebAssembly), python-chess, chess.js |
-| App | FastAPI, Docker, GitHub Pages, GitHub Actions |
+| App | Chrome extension (Manifest V3), FastAPI, Docker, GitHub Pages, GitHub Actions CI |
 
 ## Run it locally
 
@@ -160,15 +126,9 @@ python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/uvicorn server:app --port 8765
 ```
 
-Then open http://localhost:8765. For the AI coach, either log in to [Claude Code](https://claude.com/claude-code) or put `ANTHROPIC_API_KEY=...` in a `.env` file (see `.env.example`).
+Then open http://localhost:8765. For the AI coach, either log in to [Claude Code](https://claude.com/claude-code) or put `ANTHROPIC_API_KEY=...` in a `.env` file (see `.env.example`). To run with MySQL instead, set the passwords in `.env` and run `docker compose up --build`.
 
-To run everything with MySQL instead, set the passwords in `.env` and run `docker compose up --build`.
-
-Tests: `.venv/bin/python -m pytest -q` (Python) and `cd web && npm test` (TypeScript).
-
-## More detail
-
-[docs/methods.md](docs/methods.md) has the full write-up: the statistical model, the evals and how they were scored, the MySQL setup, the three ways the coach runs, deployment, and every design decision with its reasoning.
+Tests: `.venv/bin/python -m pytest -q` and `cd web && npm test`. GitHub Actions runs both, plus the site and extension builds, on every pull request.
 
 ## License note
 

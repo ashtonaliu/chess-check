@@ -2,6 +2,7 @@ import { costUsd, describeError, makeClient, runCoach } from "./browser/coach";
 import { Follower, POLL_MS } from "./browser/follow";
 import { analyzeInBrowser, STAGES } from "./browser/pipeline";
 import type { Recap } from "./browser/recap";
+import { turningBoard } from "./ui/board";
 import { esc, notificationText, PLURAL, PUZZLE, recapCard } from "./ui/recapCard";
 import { exampleCard, initExampleViewers, openExamples, type DialogItem } from "./ui/lineViewer";
 import { embed } from "./browser/search";
@@ -503,7 +504,7 @@ let followTick: ReturnType<typeof setInterval> | null = null;
 let unseen = 0;
 
 function renderRecap(r: Recap, isNew: boolean) {
-  $("recaps").prepend(recapCard(r, isNew));
+  $("recaps").prepend(recapCard(r, isNew, { drawBoard: turningBoard }));
   if (isNew) {
     unseen++;
     if (document.hidden) document.title = `(${unseen}) Chess Check`;

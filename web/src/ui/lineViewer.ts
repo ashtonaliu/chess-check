@@ -4,7 +4,8 @@
 // viewer never blocks: the rest of the line fills in when the engine answers.
 import { Chess } from "chess.js";
 import { Engine } from "../browser/engine";
-import { boardSvg, esc, moveLink, moveSquares } from "./recapCard";
+import { boardSvg, moveSquares } from "./board";
+import { esc, moveLink } from "./recapCard";
 
 export interface ExampleData { fen: string; ply: number; move_no: number; san: string; wp_loss: number; best: string | null; url: string; }
 interface Step { san: string; fen: string; from: string; to: string; }

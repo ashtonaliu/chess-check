@@ -51,6 +51,8 @@ test("recap of a real game: expected score, opening history without the game its
   // turning point is the user's largest confirmed loss in that game
   const losses = a.moves.filter(m => m.is_me).map(m => (m as any).deep_loss ?? m.wp_loss);
   assert.ok(r.turning && Math.abs(r.turning.loss - Math.max(...losses)) < 1e-9);
+  // and carries how often players at this rating find the better move, when there is one
+  if (r.turning.best && r.turning.best !== r.turning.san) assert.ok(r.turning.findRate! > 0 && r.turning.findRate! < 1);
   assert.equal(r.clean, false);
   // a pattern match is only for problems, and this profile already contains this game, so its count
   // is not added again

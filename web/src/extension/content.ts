@@ -12,7 +12,6 @@
 // still running is stopped.
 import siteCss from "../../style.css";
 import type { Recap } from "../browser/recap";
-import { findRate } from "../browser/findRate";
 import { addItems, grade, itemFromRecap, patchItems, type ReviewItem } from "../browser/reviewQueue";
 import { esc, moveLink, quizHint, recapCard, tacticSentence } from "../ui/recapCard";
 import type { Callback } from "../browser/callbackGame";
@@ -209,8 +208,8 @@ function renderReview() {
   current = it.id;
   const tags = tacticSentence(it.tactics.filter(x => x.kind === "missed"));   // the hint already said what it allowed
   // how hard it was: from the find-rate model trained on the engine dataset, at your rating then
-  const rate = it.fen && it.rating ? findRate(it.fen, it.best, it.rating) : null;
-  const odds = rate === null ? "" : ` Players near ${Math.round(it.rating! / 50) * 50} find it about ${Math.round(rate * 20) * 5}% of the time.`;
+  const rate = it.findRate ?? null;
+  const odds = rate === null || !it.rating ? "" : ` Players near ${Math.round(it.rating / 50) * 50} find it about ${Math.round(rate * 20) * 5}% of the time.`;
   body.innerHTML = `<div class="review">
     <p class="count">Review · ${pos} of ${total}</p>
     <p>From your game vs ${esc(it.opponent)} ${esc(daysAgo(it.endTime, Date.now()))}.
@@ -245,6 +244,7 @@ panel.addEventListener("click", e => {
 
 /** Add a finished game's turning point, and start an empty queue from the games already analyzed. */
 const seedAsked = new Set<string>();      // once per page load and player
+const rateAsked = new Set<string>();
 async function collect(r: Recap | null, user: string) {
   const u = user.toLowerCase();
   if (queueOwner !== u) await loadQueue(u);
@@ -261,6 +261,18 @@ async function collect(r: Recap | null, user: string) {
         queue = patchItems(queue, reply.items); saveQueue();
       }
     } catch { /* try again later */ }
+  }
+  // entries from before the find rate was stored get it from the analysis page
+  const unrated = queue.filter(q => q.findRate === undefined && q.fen && q.rating);
+  if (unrated.length && !rateAsked.has(u)) {
+    rateAsked.add(u);
+    try {
+      const reply = await ask({ type: "rate", items: unrated.map(q => ({ id: q.id, fen: q.fen!, best: q.best, rating: q.rating! })) });
+      if (reply.status === "rates" && queueOwner === u) {
+        queue = queue.map(q => q.id in reply.rates && q.findRate === undefined ? { ...q, findRate: reply.rates[q.id] } : q);
+        saveQueue();
+      }
+    } catch { /* try again on the next page */ }
   }
   decorateCube();
 }
@@ -283,7 +295,7 @@ function renderPanel() {
     if (version === shown && progress && body.contains(progress)) { progress.textContent = partial; return; }
     shown = version;
     // Chess.com's own board is on the page, so the recap points at it instead of drawing one.
-    body.replaceChildren(recapCard(recap, false, { board: false, sameTab: true }));
+    body.replaceChildren(recapCard(recap, false, { sameTab: true }));
     if (partial) body.insertAdjacentHTML("beforeend", `<p class="fine progress" role="status">${esc(partial)}</p>`);
     else if (basis < 150) body.insertAdjacentHTML("beforeend",
       `<p class="fine">Based on your last ${basis} games so far. The rest are added between games.</p>`);
@@ -374,7 +386,7 @@ function togglePanel(force?: boolean) {
   const wasOpen = !panel.classList.contains("hidden");
   panel.classList.toggle("hidden", !open);
   if (open && state === "ready") { markSeen(store, lastId); decorateCube(); }
-  if (open && state === "idle" && (!queue.length || queue.some(q => !q.fen)) && whoAmI()) void collect(null, whoAmI()!).then(() => renderPanel());
+  if (open && state === "idle" && (!queue.length || queue.some(q => !q.fen || q.findRate === undefined)) && whoAmI()) void collect(null, whoAmI()!).then(() => renderPanel());
   cube.setAttribute("aria-expanded", String(open));
   if (open) renderPanel();
   else if (wasOpen) cube.focus();

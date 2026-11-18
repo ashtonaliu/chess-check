@@ -12,6 +12,7 @@ import { analyzeGame, type Profile } from "../browser/follow";
 import { fetchGames, type Game } from "../browser/games";
 import { analyzeInBrowser } from "../browser/pipeline";
 import { buildRecap, opponentNote, type Recap } from "../browser/recap";
+import { findRate } from "../browser/findRate";
 import { itemsFromBlunders, type ReviewItem } from "../browser/reviewQueue";
 import type { BlunderRec } from "../browser/tactics";
 import { canShowRecap } from "./guard";
@@ -21,6 +22,7 @@ export type Request =
   | { type: "warm"; username: string }
   | { type: "stop" }                           // a game is starting: stop any profile build now
   | { type: "seed"; username: string }         // past blunders to start an empty review queue
+  | { type: "rate"; items: { id: string; fen: string; best: string; rating: number }[] }   // find rates (findRate.ts)
   | { type: "recap"; username: string; kind: "live" | "daily"; gameId: string; callback: Callback };
 export type Reply =
   | { status: "building"; progress: string }
@@ -30,6 +32,7 @@ export type Reply =
   // is not complete yet (ask again in a moment, unless retry is false).
   | { status: "recap"; recap: Recap; games: number; partial?: string; retry?: boolean }
   | { status: "seed"; items: ReviewItem[] }    // empty until a profile exists
+  | { status: "rates"; rates: Record<string, number | null> }
   | { status: "error"; message: string };
 
 const ENGINE_URL = typeof chrome !== "undefined" && chrome.runtime?.getURL
@@ -116,6 +119,10 @@ export async function handle(req: Request): Promise<Reply> {
       }
       return { status: "ready" };
     }
+    if (req.type === "rate") {
+      // the cube's script does without chess.js, so the find rate is worked out here
+      return { status: "rates", rates: Object.fromEntries(req.items.map(i => [i.id, findRate(i.fen, i.best, i.rating)])) };
+    }
     if (req.type === "seed") {
       // from the finished profiles (in memory, or saved for the player's main time class)
       const u = req.username.toLowerCase();
@@ -125,7 +132,7 @@ export async function handle(req: Request): Promise<Reply> {
         if (saved) profiles.push(saved.profile);
       }
       const items = itemsFromBlunders(profiles.flatMap(p => p.tactics?.blunders ?? []),
-        profiles.flatMap(p => p.games ?? []), Date.now());
+        profiles.flatMap(p => p.games ?? []), Date.now(), undefined, findRate);
       return { status: "seed", items };
     }
     if (req.type === "warm") {

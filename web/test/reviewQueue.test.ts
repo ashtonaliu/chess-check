@@ -50,8 +50,9 @@ test("a recap adds its turning point only when it was a real question, due tomor
   const base = { url: "https://www.chess.com/game/live/187502325560", opponent: "YodaRampage", endTime: 1700 } as Recap;
   const turning = { label: "22...Qf5", loss: 69, phase: "middlegame", best: "Bxf3+", fen: "", ply: 43, moveNo: 22, san: "Qf5",
                     tactics: [{ kind: "missed" as const, motif: "fork" }], clockFrac: null };
-  const it = itemFromRecap({ ...base, turning }, NOW)!;
+  const it = itemFromRecap({ ...base, turning: { ...turning, findRate: 0.65 } }, NOW)!;
   assert.equal(it.id, "187502325560:43");
+  assert.equal(it.findRate, 0.65);
   assert.equal(it.due, NOW + DAY);
   assert.equal(itemFromRecap({ ...base, turning: { ...turning, loss: 12 } }, NOW), null);
   assert.equal(itemFromRecap({ ...base, turning: { ...turning, best: "Qf5" } }, NOW), null);
@@ -68,8 +69,9 @@ test("seeding takes your worst blunder per game, newest games first, due now", (
     rec(games[1].url, 5, 90, { is_me: false }),                      // the opponent's blunder
     rec(games[2].url, 7, 30), rec(games[2].url, 9, 15),              // under the threshold
     rec(games[1].url, 11, 50, { best: "Nf3" }),                      // no better move
-  ], games, NOW);
+  ], games.map(g => ({ ...g, myRating: 1800 })), NOW, undefined, (_fen, best, rating) => (best === "e4" && rating === 1800 ? 0.4 : null));
   assert.deepEqual(items.map(i => [i.id, i.label]), [["3:7", "4...Nf3"], ["1:20", "11.Nf3"]]);
+  assert.ok(items.every(i => i.findRate === 0.4 && i.rating === 1800), "the find rate is worked out where chess.js is loaded");
   assert.ok(items.every(i => i.due === NOW));
   assert.deepEqual(items[1].tactics, [{ kind: "allowed", motif: "fork" }]);
 });

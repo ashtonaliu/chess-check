@@ -94,7 +94,7 @@ function showProgress(stage: number | null, frac: number | null, text: string) {
 
 interface Finding { level: "weak" | "watch" | "good" | "info"; title: string; detail: string; link?: [string, string]; score: number; }
 const TAG = { weak: "Weakness", watch: "Worth watching", good: "Strength", info: "Overview" };
-const rx = (r: number | null) => (r === null ? "" : `${r >= 10 ? r.toFixed(0) : r.toFixed(1)}×`);
+const rx = (r: number | null) => (r === null || !Number.isFinite(r) ? "" : `${r >= 10 ? r.toFixed(0) : r.toFixed(1)}×`);
 
 function findings(p: Payload): Finding[] {
   const out: Finding[] = [];
@@ -106,7 +106,7 @@ function findings(p: Payload): Finding[] {
     const title = m.higher
       ? (m.kind === "missed" ? `You miss ${what}` : `You walk into ${what}`)
       : (m.kind === "missed" ? `You rarely miss ${what}` : `You rarely allow ${what}`);
-    const detail = `${m.me} times vs ${m.opp} for your opponents in the same games` + (m.ratio !== null && m.higher ? ` (${rx(m.ratio)} their rate).` : ".");
+    const detail = `${m.me} times vs ${m.opp} for your opponents in the same games` + (m.ratio !== null && Number.isFinite(m.ratio) && m.higher ? ` (${rx(m.ratio)} their rate).` : ".");
     out.push({ level, title, detail, score: (level === "weak" ? 300 : level === "watch" ? 200 : 0) + m.me,
       link: m.higher ? [`Practice ${what}`, `https://lichess.org/training/${PUZZLE[m.motif]}`] : undefined });
   }
@@ -194,7 +194,7 @@ function renderTactics(p: Payload) {
     const max = Math.max(...rows.flatMap(m => [per1k(m.me, t.moves_me), per1k(m.opp, t.moves_opp)]), 0.001);
     return `<div class="box"><h3>${title}</h3><p class="note">${sub}</p>
       <div class="legend"><span><i style="background:var(--you)"></i>you</span><span><i style="background:var(--opp)"></i>your opponents</span></div>` +
-      rows.map(m => `<div class="row" title="${m.ratio !== null ? `${rx(m.ratio)} your opponents' rate; 90% range ${m.ci_low?.toFixed(2)} to ${m.ci_high?.toFixed(2)}` : ""}">
+      rows.map(m => `<div class="row" title="${m.ratio === null ? "" : Number.isFinite(m.ratio) ? `${rx(m.ratio)} your opponents' rate; 90% range ${m.ci_low?.toFixed(2)} to ${m.ci_high?.toFixed(2)}` : `${m.me} for you and none for your opponents`}">
         <div class="name">${esc(LABEL[m.motif])}</div>
         <div class="bars"><span class="you" style="width:${(100 * per1k(m.me, t.moves_me) / max).toFixed(1)}%"></span>
           <span class="opp" style="width:${(100 * per1k(m.opp, t.moves_opp) / max).toFixed(1)}%"></span></div>

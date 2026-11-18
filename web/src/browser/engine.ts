@@ -274,10 +274,42 @@ async function analyseOne(eng: Engine, game: Game, depth: number): Promise<Store
   return { url: game.url, moves, opening_eval_white: openingEval };
 }
 
-/** A worker count that can change while a pool runs (pace.ts): workers past `active()` wait
- *  between tasks without being shut down, so they can be picked up again at once. */
-export interface Pacer { readonly max: number; active(): number }
-const idle = () => new Promise(r => setTimeout(r, 250));
+/** Worker slots shared by every background build (pace.ts). A pool takes a slot before each task
+ *  and gives it back after, and starts an engine only once it holds one, so builds running together
+ *  never search on more workers, or start more engines, than the budget allows. */
+export interface Pacer { readonly max: number; acquire(signal?: AbortSignal): Promise<void>; release(): void }
+
+/** Runs tasks 0..count-1 on up to `max` engines, each engine taking the next task when free. */
+async function runPool(count: number, o: { workers?: number; pace?: Pacer; engineUrl: string; signal?: AbortSignal },
+                       task: (eng: Engine, t: number) => Promise<void>): Promise<void> {
+  if (!count) return;
+  const n = Math.max(1, Math.min(o.pace?.max ?? o.workers ?? defaultWorkers(), count));
+  const engines: Engine[] = [];
+  const cancelled = () => new DOMException("Cancelled", "AbortError");
+  // Cancelling stops the engines mid-search instead of after the task each is working on.
+  const stop = () => engines.forEach(e => e.terminate());
+  o.signal?.addEventListener("abort", stop);
+  let next = 0;
+  try {
+    await Promise.all(Array.from({ length: n }, async () => {
+      let eng: Engine | null = null;
+      while (next < count) {
+        if (o.signal?.aborted) throw cancelled();
+        await o.pace?.acquire(o.signal);
+        try {
+          if (o.signal?.aborted) throw cancelled();
+          if (next >= count) break;
+          const t = next++;
+          if (!eng) { eng = new Engine(o.engineUrl); engines.push(eng); await eng.init(); }
+          await task(eng, t);
+        } finally { o.pace?.release(); }
+      }
+    }));
+  } finally {
+    o.signal?.removeEventListener("abort", stop);
+    engines.forEach(e => e.terminate());
+  }
+}
 
 export interface PoolOptions { depth: number; workers?: number; engineUrl: string;
   onProgress?: (done: number, total: number, cached: number) => void; signal?: AbortSignal; pace?: Pacer; }
@@ -291,33 +323,14 @@ export async function analyseGames(games: Game[], opts: PoolOptions): Promise<Ga
   let done = cached;
   opts.onProgress?.(done, games.length, cached);
 
-  const n = Math.max(1, Math.min(opts.pace?.max ?? opts.workers ?? defaultWorkers(), todo.length));
-  const engines: Engine[] = [];
-  // Cancelling stops the engines mid-search instead of after the game each is working on.
-  const stop = () => engines.forEach(e => e.terminate());
-  opts.signal?.addEventListener("abort", stop);
-  try {
-    if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
-    if (todo.length) {
-      for (let i = 0; i < n; i++) engines.push(new Engine(opts.engineUrl));
-      await Promise.all(engines.map(e => e.init()));
-    }
-    let next = 0;
-    await Promise.all(engines.map(async (eng, k) => {
-      while (next < todo.length) {
-        if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
-        if (opts.pace && k >= opts.pace.active()) { await idle(); continue; }
-        const i = todo[next++];
-        const res = await analyseOne(eng, games[i], opts.depth);
-        out[i] = res;
-        idb(db, "readwrite", s => s.put(res, key(games[i])));
-        opts.onProgress?.(++done, games.length, cached);
-      }
-    }));
-  } finally {
-    opts.signal?.removeEventListener("abort", stop);
-    engines.forEach(e => e.terminate());
-  }
+  if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+  await runPool(todo.length, opts, async (eng, t) => {
+    const i = todo[t];
+    const res = await analyseOne(eng, games[i], opts.depth);
+    out[i] = res;
+    idb(db, "readwrite", s => s.put(res, key(games[i])));
+    opts.onProgress?.(++done, games.length, cached);
+  });
   // "is_me" and the user's-POV opening eval depend on whose report this is
   return games.map((g, i) => {
     const s = out[i]!;
@@ -351,44 +364,29 @@ export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: 
     .filter(m => m.wp_loss >= BLUNDER_DROP && (opts.only?.(m) ?? true) && !cached[i][String(m.ply)])
     .map(m => ({ i, m })));
   let done = 0;
-  const n = Math.max(1, Math.min(opts.pace?.max ?? opts.workers ?? defaultWorkers(), tasks.length));
-  const engines: Engine[] = [];
-  const stop = () => engines.forEach(e => e.terminate());
-  opts.signal?.addEventListener("abort", stop);
-  try {
-    if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
-    if (tasks.length) { for (let k = 0; k < n; k++) engines.push(new Engine(opts.engineUrl)); await Promise.all(engines.map(e => e.init())); }
-    const left = new Map<number, number>();               // positions still to check, per game
-    for (const t of tasks) left.set(t.i, (left.get(t.i) ?? 0) + 1);
-    let next = 0;
-    await Promise.all(engines.map(async (eng, k) => {
-      while (next < tasks.length) {
-        if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
-        if (opts.pace && k >= opts.pace.active()) { await idle(); continue; }
-        const { i, m } = tasks[next++];
-        const c = new Chess(m.fen);
-        const r1 = await eng.analyse(m.fen, depth);
-        const before = r1.cp;   // the mover is the side to move
-        const best = uciToSan(new Chess(m.fen), r1.best);
-        c.move(m.san);
-        let after: number, refutation: string | null;
-        if (c.isGameOver()) { after = c.isCheckmate() ? MATE : 0; refutation = null; }
-        else {
-          const r2 = await eng.analyse(c.fen(), depth);
-          after = -r2.cp;   // side to move is now the opponent
-          refutation = uciToSan(new Chess(c.fen()), r2.best);
-        }
-        cached[i][String(m.ply)] = { deep_best: best, deep_refutation: refutation, deep_cp_before: before,
-          deep_cp_after: after, deep_loss: Math.round(Math.max(winPct(before) - winPct(after), 0) * 10) / 10 };
-        opts.onProgress?.(++done, tasks.length);
-        left.set(i, left.get(i)! - 1);
-        if (left.get(i) === 0) idbMerge(db, key(analyses[i]), cached[i]);
-      }
-    }));
-  } finally {
-    opts.signal?.removeEventListener("abort", stop);
-    engines.forEach(e => e.terminate());
-  }
+  if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+  const left = new Map<number, number>();               // positions still to check, per game
+  for (const t of tasks) left.set(t.i, (left.get(t.i) ?? 0) + 1);
+  await runPool(tasks.length, opts, async (eng, t) => {
+    const { i, m } = tasks[t];
+    const c = new Chess(m.fen);
+    const r1 = await eng.analyse(m.fen, depth);
+    const before = r1.cp;   // the mover is the side to move
+    const best = uciToSan(new Chess(m.fen), r1.best);
+    c.move(m.san);
+    let after: number, refutation: string | null;
+    if (c.isGameOver()) { after = c.isCheckmate() ? MATE : 0; refutation = null; }
+    else {
+      const r2 = await eng.analyse(c.fen(), depth);
+      after = -r2.cp;   // side to move is now the opponent
+      refutation = uciToSan(new Chess(c.fen()), r2.best);
+    }
+    cached[i][String(m.ply)] = { deep_best: best, deep_refutation: refutation, deep_cp_before: before,
+      deep_cp_after: after, deep_loss: Math.round(Math.max(winPct(before) - winPct(after), 0) * 10) / 10 };
+    opts.onProgress?.(++done, tasks.length);
+    left.set(i, left.get(i)! - 1);
+    if (left.get(i) === 0) idbMerge(db, key(analyses[i]), cached[i]);
+  });
   analyses.forEach((a, i) => { const d = cached[i]; for (const m of a.moves) Object.assign(m, d[String(m.ply)] ?? {}); });
 }
 

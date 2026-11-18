@@ -99,10 +99,14 @@ export function nextDue(queue: ReviewItem[]): number | null {
   return open.length ? Math.min(...open.map(q => q.due)) : null;
 }
 
-/** Record an answer: found moves it up the ladder, missed starts it over tomorrow. */
-export function grade(queue: ReviewItem[], id: string, found: boolean, now: number): ReviewItem[] {
+/** Record an answer: found moves it up the ladder, missed starts it over tomorrow. `shown` is the
+ *  entry as the tab asked it; when the saved one has moved on since (another tab answered the same
+ *  question first), the answer is dropped so one review is never counted twice. */
+export function grade(queue: ReviewItem[], id: string, found: boolean, now: number,
+                      shown?: Pick<ReviewItem, "step" | "due">): ReviewItem[] {
   return queue.map(q => {
     if (q.id !== id) return q;
+    if (shown && (q.step !== shown.step || q.due !== shown.due || q.done)) return q;
     if (!found) return { ...q, step: 0, due: now + DAY };
     const step = q.step + 1;
     return step >= STEPS_DAYS.length ? { ...q, step, done: true, due: now }

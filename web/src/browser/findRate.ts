@@ -4,6 +4,7 @@
 import { Chess, type Move, type Square } from "chess.js";
 
 import { FIND_RATE_MODEL as M } from "./findRateModel";
+import { inRateRange } from "./rateRange";
 
 const VALUE: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 const PIECE: Record<string, number> = { p: 1, n: 2, b: 3, r: 4, q: 5, k: 6 };
@@ -69,9 +70,11 @@ export function findProbability(f: MoveFeatures, rating: number): number {
   return 1 / (1 + Math.exp(-z));
 }
 
-/** How often players near `rating` find `best` in `fen`, or null if the move cannot be read. Ratings
- *  are held to 1200-2000, where nearly all of the training positions are. */
+/** How often players near `rating` find `best` in `fen`, or null if the move cannot be read or the
+ *  rating is outside the range the model covers (an estimate for 1200 would be wrong to show as
+ *  one for players near 800). */
 export function findRate(fen: string, best: string, rating: number): number | null {
+  if (!inRateRange(rating)) return null;
   const f = moveFeatures(fen, best);
-  return f ? findProbability(f, Math.min(Math.max(rating, 1200), 2000)) : null;
+  return f ? findProbability(f, rating) : null;
 }

@@ -53,3 +53,22 @@ test("without the lock the same interleaving loses a change (why the lock is the
   const q = store.data.get(queueKey("me"))!;
   assert.ok(q.length === 1 || q[0].step === 0, "one of the two changes is lost");
 });
+
+test("two tabs answering the same question count it once", async () => {
+  const store = slowStorage();
+  store.data.set(queueKey("me"), [item("1:1")]);
+  const deps: QueueDeps = { ...store, lock: locks() };
+  // both tabs showed the entry at step 0 and both press "Got it" before either sees the other's save
+  const shown = { step: 0, due: NOW };
+  await Promise.all([
+    updateQueue(deps, "me", q => grade(q, "1:1", true, NOW, shown)),
+    updateQueue(deps, "me", q => grade(q, "1:1", true, NOW, shown)),
+  ]);
+  assert.equal(store.data.get(queueKey("me"))![0].step, 1, "one step up the ladder, not two");
+});
+
+test("an answer to a question that has since moved on is dropped", () => {
+  const q = grade([item("1:1")], "1:1", true, NOW);                    // another tab: step 1
+  assert.deepEqual(grade(q, "1:1", false, NOW, { step: 0, due: NOW }), q, "the stale miss does not reset it");
+  assert.equal(grade(q, "1:1", true, NOW, { step: q[0].step, due: q[0].due })[0].step, 2, "a current answer still counts");
+});

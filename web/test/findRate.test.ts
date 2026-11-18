@@ -26,3 +26,10 @@ test("SAN works as well as UCI, and an illegal move gives null", () => {
   assert.equal(findRate(fen, "Ke7e5", 1600), null);
   assert.equal(findRate("not a fen", "e4", 1600), null);
 });
+
+test("no estimate for ratings the model does not cover", () => {
+  const fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2";
+  assert.equal(findRate(fen, "Nf3", 800), null, "not the 1200 figure labeled as 800");
+  assert.equal(findRate(fen, "Nf3", 2400), null);
+  assert.ok(findRate(fen, "Nf3", 1500)! > 0);
+});

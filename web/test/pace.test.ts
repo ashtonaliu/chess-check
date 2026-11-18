@@ -54,20 +54,56 @@ test("one worker is all a one-core machine gets", () => {
   assert.equal(p.remember, 1);
 });
 
-test("builds running together share one budget, and a stutter eases all of them", async () => {
+test("builds running together share one set of slots, and never use more than the budget", async () => {
   const { SharedPace } = await import("../src/browser/pace");
   const clock = { t: 0 };
-  const shared = new SharedPace(new Pace({ max: 8, start: 8, now: () => clock.t }));
-  const blitz = shared.join();
-  assert.equal(blitz.active(), 8, "alone it gets the whole budget");
-  const rapid = shared.join();
-  assert.equal(blitz.active() + rapid.active(), 8, "together they stay within it, not 16");
-  shared.pace.stall();
-  assert.ok(blitz.active() + rapid.active() <= 7, "the stutter reaches both builds");
+  const shared = new SharedPace(new Pace({ max: 8, start: 1, now: () => clock.t }));
+  const blitz = shared.join(), rapid = shared.join();
+  // a budget of one: two builds get one slot between them, not one each
+  await blitz.acquire();
+  let rapidGot = false;
+  const waiting = rapid.acquire().then(() => { rapidGot = true; });
+  await Promise.resolve();
+  assert.equal(shared.inUse, 1);
+  assert.equal(rapidGot, false, "the second build waits for the slot");
+  blitz.release();
+  await waiting;
+  assert.equal(rapidGot, true);
+  assert.equal(shared.inUse, 1);
+  rapid.release();
+  assert.equal(shared.inUse, 0);
   rapid.leave(); rapid.leave();
   assert.equal(shared.builds, 1, "leaving twice counts once");
-  assert.equal(blitz.active(), 7);
-  // never starved: each build keeps at least one worker
-  const many = [shared.join(), shared.join(), shared.join(), shared.join(), shared.join(), shared.join(), shared.join(), shared.join()];
-  assert.ok(many.every(b => b.active() >= 1));
+});
+
+test("a stutter lowers the slots for every build, and slots given back above it stay empty", async () => {
+  const { SharedPace } = await import("../src/browser/pace");
+  const clock = { t: 0 };
+  const shared = new SharedPace(new Pace({ max: 4, start: 4, now: () => clock.t }));
+  const a = shared.join(), b = shared.join();
+  await a.acquire(); await a.acquire(); await b.acquire(); await b.acquire();
+  assert.equal(shared.inUse, 4);
+  shared.pace.stall(); clock.t += 5000; shared.pace.stall();   // down to 2
+  let more = 0;
+  const p1 = a.acquire().then(() => { more++; });
+  a.release(); a.release();
+  await Promise.resolve();
+  assert.equal(more, 0, "still at the new limit of 2");
+  b.release();
+  await p1;
+  assert.equal(more, 1);
+  assert.equal(shared.inUse, 2);
+});
+
+test("a cancelled build stops waiting for a slot", async () => {
+  const { SharedPace } = await import("../src/browser/pace");
+  const shared = new SharedPace(new Pace({ max: 1, start: 1 }));
+  const a = shared.join(), b = shared.join();
+  await a.acquire();
+  const abort = new AbortController();
+  const waiting = b.acquire(abort.signal);
+  abort.abort();
+  await assert.rejects(waiting, { name: "AbortError" });
+  a.release();
+  assert.equal(shared.inUse, 0, "the slot was not handed to the cancelled build");
 });

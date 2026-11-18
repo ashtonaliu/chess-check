@@ -56,22 +56,56 @@ export function startingWorkers(max: number, remembered: number | null): number 
 
 /**
  * One worker budget for all background builds at once. Builds for different time classes can run
- * together (a blitz warm-up and a rapid recap's profile), and with a count per build they could use
- * twice the limit while only the newest heard about stutter. Each build joins with `join()`, which
- * hands it a share of the budget (the count divided by the builds running, at least one each), and
- * calls `leave()` when it ends. A stutter lowers the shared count, so every build eases off.
+ * together (a blitz warm-up and a rapid recap's profile). The budget is a set of slots, as many as
+ * the adaptive count allows: a build takes a slot before each search task and gives it back after,
+ * and waits when every slot is taken, so all builds together never search on more workers than the
+ * count. A stutter lowers the count, and slots given back above it stay empty. Each build joins
+ * with `join()` and calls `leave()` when it ends, so the last one out can remember the count.
  */
 export class SharedPace {
   private running = 0;
+  private busy = 0;
+  private waiting: { go: () => void; signal?: AbortSignal; stop?: () => void }[] = [];
   constructor(readonly pace: Pace) {}
   get builds(): number { return this.running; }
-  join(): { max: number; active(): number; leave(): void } {
+  /** Slots in use now, across every build. */
+  get inUse(): number { return this.busy; }
+
+  join(): { max: number; acquire(signal?: AbortSignal): Promise<void>; release(): void; leave(): void } {
     this.running++;
     let left = false;
     return {
       max: this.pace.max,
-      active: () => Math.max(1, Math.floor(this.pace.active() / Math.max(1, this.running))),
+      acquire: signal => this.acquire(signal),
+      release: () => this.release(),
       leave: () => { if (!left) { left = true; this.running--; } },
     };
+  }
+
+  private acquire(signal?: AbortSignal): Promise<void> {
+    if (signal?.aborted) return Promise.reject(new DOMException("Cancelled", "AbortError"));
+    if (!this.waiting.length && this.busy < this.pace.active()) { this.busy++; return Promise.resolve(); }
+    return new Promise((resolve, reject) => {
+      const w: { go: () => void; signal?: AbortSignal; stop?: () => void } = { go: resolve, signal };
+      if (signal) {
+        w.stop = () => {
+          this.waiting = this.waiting.filter(x => x !== w);
+          reject(new DOMException("Cancelled", "AbortError"));
+        };
+        signal.addEventListener("abort", w.stop, { once: true });
+      }
+      this.waiting.push(w);
+    });
+  }
+
+  private release(): void {
+    this.busy = Math.max(0, this.busy - 1);
+    // first come, first served, so builds running together take turns
+    while (this.waiting.length && this.busy < this.pace.active()) {
+      const w = this.waiting.shift()!;
+      if (w.stop) w.signal?.removeEventListener("abort", w.stop);
+      this.busy++;
+      w.go();
+    }
   }
 }

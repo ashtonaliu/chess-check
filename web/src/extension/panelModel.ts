@@ -2,7 +2,7 @@
 // what is stored. content.ts draws the result and talks to Chess.com and the analysis page; every
 // decision about what to show lives here, so it can be tested without a browser
 // (test/panelModel.test.ts).
-import { gameId } from "../browser/recap";
+import { gameId } from "../browser/ids";
 import { dueItems, nextDue, type ReviewItem } from "../browser/reviewQueue";
 import { canReview, gameIdFromPage } from "./guard";
 

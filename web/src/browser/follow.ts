@@ -1,7 +1,7 @@
 // Follow mode: watch a player's Chess.com games and build a recap for each one
 // as soon as it is finished. Only finished games appear in the public API, so
 // nothing here can run during a game.
-import { analyseGames, recheckBlunders } from "./engine";
+import { analyseGames, defaultWorkers, recheckBlunders } from "./engine";
 import { fetchGames, type Game } from "./games";
 import { buildRecap, opponentNote, type Recap } from "./recap";
 import type { GameRow } from "./stats";
@@ -101,10 +101,11 @@ export class Follower {
   }
 }
 
-/** Stockfish on one finished game, with its blunders confirmed deeper and classified. */
+/** Stockfish on one finished game, with the player's blunders confirmed deeper (several at once)
+ *  and classified. The opponent's are left to the profile build, which reuses these positions. */
 export async function analyzeGame(g: Game, engineUrl: string) {
   const [analysis] = await analyseGames([g], { depth: 8, engineUrl, workers: 1 });
-  await recheckBlunders([analysis], { engineUrl, workers: 1 });
+  await recheckBlunders([analysis], { engineUrl, workers: Math.min(defaultWorkers(), 4), only: m => m.is_me });
   return { analysis, blunders: classifyGame(g.pgn, analysis) };
 }
 

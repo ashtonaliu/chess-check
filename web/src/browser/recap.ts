@@ -3,6 +3,8 @@
 // nothing is computed or shown before or during a game (Chess.com's fair-play
 // rules forbid outside help while playing).
 import { BLUNDER_DROP, moveLabel, type GameAnalysis } from "./engine";
+import { findRate } from "./findRate";
+import { gameId } from "./ids";
 import type { Game } from "./games";
 import { openingTable, pregameExpected, type GameRow } from "./stats";
 import type { BlunderRec, TacticSummary } from "./tactics";
@@ -13,7 +15,9 @@ export interface Recap {
   expected: number; surprise: number; verdict: string;
   opening: { name: string; family: string; history: { n: number; score: number; expected: number } | null; flag: string | null };
   turning: null | { label: string; loss: number; phase: string; best: string | null; fen: string; ply: number; moveNo: number; san: string;
-                    tactics: { kind: "allowed" | "missed"; motif: string }[]; clockFrac: number | null };
+                    tactics: { kind: "allowed" | "missed"; motif: string }[]; clockFrac: number | null;
+                    /** How often players near your rating find the best move (findRate.ts), when there is one. */
+                    findRate?: number | null };
   pattern: null | { kind: string; motif: string; count: number; verdict: string };
   clean: boolean;
   opponentNote: string | null;
@@ -33,8 +37,7 @@ const HOW_LOST: Record<string, string> = { timeout: "on time", checkmated: "by c
 const HOW_DREW: Record<string, string> = { agreed: "by agreement", repetition: "by repetition", stalemate: "by stalemate",
   insufficient: "with insufficient material", "50move": "by the 50-move rule", timevsinsufficient: "on time vs insufficient material" };
 
-/** A Chess.com game's numeric ID, so the same game matches across archive, endpoint and page URLs. */
-export const gameId = (url: string) => url.match(/\/(\d+)(?:[/?#]|$)/)?.[1] ?? url;
+export { gameId };
 
 export function upset(score: number, expected: number): string {
   if (score === 1) return expected < 0.35 ? "Big upset win" : expected < 0.45 ? "Upset win" : expected > 0.65 ? "Win as the favorite" : "Win";
@@ -79,7 +82,8 @@ export function buildRecap(game: Game, analysis: GameAnalysis, blunders: Blunder
     const tags = rec ? [...rec.missed.map(motif => ({ kind: "missed" as const, motif })),
                         ...rec.allowed.map(motif => ({ kind: "allowed" as const, motif }))] : [];
     turning = { label: moveLabel(worst.m), loss: worst.loss, phase: worst.m.phase, best: worst.best, fen: worst.m.fen,
-      ply: worst.m.ply, moveNo: worst.m.move_no, san: worst.m.san, tactics: tags, clockFrac: worst.m.clock_frac };
+      ply: worst.m.ply, moveNo: worst.m.move_no, san: worst.m.san, tactics: tags, clockFrac: worst.m.clock_frac,
+      findRate: worst.best && worst.best !== worst.m.san ? findRate(worst.m.fen, worst.best, game.myRating) : null };
     // does it match one of the player's known patterns? (only problems: rates above the opponents')
     for (const t of tags) {
       const stat = tactics?.motifs.find(s => s.kind === t.kind && s.motif === t.motif);

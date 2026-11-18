@@ -1,6 +1,6 @@
-// Shared rendering for the website and the Chrome extension's side panel:
-// board diagrams and the post-game recap card.
-import { Chess } from "chess.js";
+// Shared rendering for the website and the Chrome extension's side panel: the post-game recap
+// card. Board diagrams are in board.ts, which needs chess.js; the extension leaves the board to
+// Chess.com, so its script does not load chess.js at all.
 import type { Recap } from "../browser/recap";
 
 export const esc = (s: string) => s.replace(/[&<>"']/g, c =>
@@ -12,51 +12,6 @@ export const PUZZLE: Record<string, string> = { mate: "mate", fork: "fork", skew
   hangingPiece: "hangingPiece", promotion: "promotion" };
 export const MOTIF_SINGULAR: Record<string, string> = { mate: "forced mate", fork: "fork", skewer: "skewer",
   discoveredAttack: "discovered attack", hangingPiece: "free piece", promotion: "promotion" };
-
-// ---------- board diagrams ----------
-
-const GLYPH: Record<string, string> = { k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟" };
-const sqXY = (sq: string, flip: boolean) => {
-  const f = sq.charCodeAt(0) - 97, r = Number(sq[1]) - 1;
-  return flip ? [7 - f, r] : [f, 7 - r];
-};
-
-/** SVG board for a FEN, oriented for `flip` (Black at the bottom), with move arrows. */
-export function boardSvg(fen: string, flip: boolean, arrows: { from: string; to: string; color: string }[]): string {
-  const S = 40, rows = fen.split(" ")[0].split("/");
-  let svg = `<svg class="board" viewBox="0 0 ${8 * S} ${8 * S}" role="img" aria-label="Chess position">`;
-  for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
-    svg += `<rect x="${x * S}" y="${y * S}" width="${S}" height="${S}" fill="var(${(x + y) % 2 ? "--sq-dark" : "--sq-light"})"/>`;
-  }
-  rows.forEach((row, ri) => {
-    let fi = 0;
-    for (const ch of row) {
-      if (/\d/.test(ch)) { fi += Number(ch); continue; }
-      const sq = String.fromCharCode(97 + fi) + String(8 - ri);
-      const [x, y] = sqXY(sq, flip);
-      const white = ch === ch.toUpperCase();
-      svg += `<text x="${x * S + S / 2}" y="${y * S + S * 0.78}" text-anchor="middle" font-size="${S * 0.82}"
-        fill="${white ? "#fafaf7" : "#1b1d1c"}" stroke="${white ? "#1b1d1c" : "none"}" stroke-width="${white ? 1.1 : 0}"
-        style="font-family:'Segoe UI Symbol','Noto Sans Symbols 2','DejaVu Sans',sans-serif">${GLYPH[ch.toLowerCase()]}</text>`;
-      fi++;
-    }
-  });
-  arrows.forEach((a, i) => {
-    const [x1, y1] = sqXY(a.from, flip), [x2, y2] = sqXY(a.to, flip);
-    const cx1 = x1 * S + S / 2, cy1 = y1 * S + S / 2, cx2 = x2 * S + S / 2, cy2 = y2 * S + S / 2;
-    const len = Math.hypot(cx2 - cx1, cy2 - cy1) || 1, sx = cx2 - (cx2 - cx1) / len * 12, sy = cy2 - (cy2 - cy1) / len * 12;
-    svg += `<defs><marker id="ah${i}${a.color}" markerWidth="4" markerHeight="4" refX="2" refY="2" orient="auto">
-      <path d="M0,0 L4,2 L0,4 z" fill="${a.color}"/></marker></defs>
-      <line x1="${cx1}" y1="${cy1}" x2="${sx}" y2="${sy}" stroke="${a.color}" stroke-width="7" stroke-linecap="round"
-        opacity=".8" marker-end="url(#ah${i}${a.color})"/>`;
-  });
-  return svg + "</svg>";
-}
-
-export function moveSquares(fen: string, san: string | null): { from: string; to: string } | null {
-  if (!san) return null;
-  try { const m = new Chess(fen).move(san); return { from: m.from, to: m.to }; } catch { return null; }
-}
 
 // ---------- recap card ----------
 
@@ -95,16 +50,15 @@ const wasRevealed = (r: Recap) => { try { return sessionStorage.getItem(revealKe
 const rememberReveal = (r: Recap) => { try { sessionStorage.setItem(revealKey(r), "1"); } catch { /* not remembered */ } };
 
 export interface RecapOptions {
-  /** Draw the turning point on a small board (the website). The extension leaves the board to
-   *  Chess.com, whose own board is on the page. */
-  board?: boolean;
+  /** Draws the turning point on a small board (the website passes board.ts's turningBoard). The
+   *  extension leaves the board to Chess.com, whose own board is on the page. */
+  drawBoard?: (fen: string, flip: boolean, played: string, best: string | null) => string;
   /** Open "Find it on the board" in this tab (the extension, on the game's own page). */
   sameTab?: boolean;
 }
 
 /** The recap card as a DOM element. Its only side effect is remembering a revealed answer. */
 export function recapCard(r: Recap, isNew: boolean, opts: RecapOptions = {}): HTMLElement {
-  const showBoard = opts.board ?? true;
 
   const col = r.color === "white" ? "White" : "Black";
   const resultPos = r.score * 100, expPos = r.expected * 100;
@@ -114,10 +68,8 @@ export function recapCard(r: Recap, isNew: boolean, opts: RecapOptions = {}): HT
   const quiz = !!(t && t.loss >= 20 && t.best && t.best !== t.san);
   let revealed = !quiz || wasRevealed(r);
   const boardFor = (withAnswer: boolean) => {
-    if (!t || !showBoard) return "";
-    const flip = t.ply % 2 === 1;
-    const played = moveSquares(t.fen, t.san), best = withAnswer && t.best && t.best !== t.san ? moveSquares(t.fen, t.best) : null;
-    return boardSvg(t.fen, flip, [...(played ? [{ ...played, color: "#d0452f" }] : []), ...(best ? [{ ...best, color: "#2f9a5a" }] : [])]);
+    if (!t || !opts.drawBoard) return "";
+    return opts.drawBoard(t.fen, t.ply % 2 === 1, t.san, withAnswer && t.best && t.best !== t.san ? t.best : null);
   };
   const board = boardFor(revealed);
   const clock = t?.clockFrac !== null && t?.clockFrac !== undefined

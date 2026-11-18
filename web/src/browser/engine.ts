@@ -313,56 +313,60 @@ export async function analyseGames(games: Game[], opts: PoolOptions): Promise<Ga
 export const DEEP_DEPTH_BROWSER = 14;
 
 /** Screen cheap, confirm expensive: re-search only the positions flagged as blunders, deeper.
- * Adds deep_* fields to those move rows (in place). Cached in IndexedDB per game and depth. */
+ * Adds deep_* fields to those move rows (in place). Every flagged position is its own task, shared
+ * across the workers, so one game's blunders are checked in parallel too. `only` limits which
+ * flagged moves are checked (a recap needs only the player's own). Cached in IndexedDB per game and
+ * depth, position by position, so a later call checks only what is still missing. */
 export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: number; engineUrl: string;
-  workers?: number; onProgress?: (done: number, total: number) => void; signal?: AbortSignal }): Promise<void> {
+  workers?: number; onProgress?: (done: number, total: number) => void; signal?: AbortSignal;
+  only?: (m: MoveRow) => boolean }): Promise<void> {
   const depth = opts.depth ?? DEEP_DEPTH_BROWSER;
   const db = await openDb();
   const key = (a: GameAnalysis) => `deep_v1_${a.url.split("/").pop()}_d${depth}`;
   type Deep = Record<string, { deep_best: string | null; deep_refutation: string | null; deep_cp_before: number; deep_cp_after: number; deep_loss: number }>;
-  const cached = await readCached<Deep>(db, analyses.map(key));
-  const todo = analyses.map((a, i) => i).filter(i => !cached[i] && analyses[i].moves.some(m => m.wp_loss >= BLUNDER_DROP));
-  const total = todo.reduce((n, i) => n + analyses[i].moves.filter(m => m.wp_loss >= BLUNDER_DROP).length, 0);
+  const cached = (await readCached<Deep>(db, analyses.map(key))).map(d => d ?? {});
+  const tasks = analyses.flatMap((a, i) => a.moves
+    .filter(m => m.wp_loss >= BLUNDER_DROP && (opts.only?.(m) ?? true) && !cached[i][String(m.ply)])
+    .map(m => ({ i, m })));
   let done = 0;
-  const n = Math.max(1, Math.min(opts.workers ?? defaultWorkers(), todo.length));
+  const n = Math.max(1, Math.min(opts.workers ?? defaultWorkers(), tasks.length));
   const engines: Engine[] = [];
   const stop = () => engines.forEach(e => e.terminate());
   opts.signal?.addEventListener("abort", stop);
   try {
     if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
-    if (todo.length) { for (let i = 0; i < n; i++) engines.push(new Engine(opts.engineUrl)); await Promise.all(engines.map(e => e.init())); }
+    if (tasks.length) { for (let k = 0; k < n; k++) engines.push(new Engine(opts.engineUrl)); await Promise.all(engines.map(e => e.init())); }
+    const left = new Map<number, number>();               // positions still to check, per game
+    for (const t of tasks) left.set(t.i, (left.get(t.i) ?? 0) + 1);
     let next = 0;
     await Promise.all(engines.map(async eng => {
-      while (next < todo.length) {
-        const i = todo[next++], a = analyses[i], out: Deep = {};
-        for (const m of a.moves) {
-          if (m.wp_loss < BLUNDER_DROP) continue;
-          if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
-          const c = new Chess(m.fen);
-          const r1 = await eng.analyse(m.fen, depth);
-          const before = r1.cp;   // the mover is the side to move
-          const best = uciToSan(new Chess(m.fen), r1.best);
-          c.move(m.san);
-          let after: number, refutation: string | null;
-          if (c.isGameOver()) { after = c.isCheckmate() ? MATE : 0; refutation = null; }
-          else {
-            const r2 = await eng.analyse(c.fen(), depth);
-            after = -r2.cp;   // side to move is now the opponent
-            refutation = uciToSan(new Chess(c.fen()), r2.best);
-          }
-          out[String(m.ply)] = { deep_best: best, deep_refutation: refutation, deep_cp_before: before,
-            deep_cp_after: after, deep_loss: Math.round(Math.max(winPct(before) - winPct(after), 0) * 10) / 10 };
-          opts.onProgress?.(++done, total);
+      while (next < tasks.length) {
+        if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+        const { i, m } = tasks[next++];
+        const c = new Chess(m.fen);
+        const r1 = await eng.analyse(m.fen, depth);
+        const before = r1.cp;   // the mover is the side to move
+        const best = uciToSan(new Chess(m.fen), r1.best);
+        c.move(m.san);
+        let after: number, refutation: string | null;
+        if (c.isGameOver()) { after = c.isCheckmate() ? MATE : 0; refutation = null; }
+        else {
+          const r2 = await eng.analyse(c.fen(), depth);
+          after = -r2.cp;   // side to move is now the opponent
+          refutation = uciToSan(new Chess(c.fen()), r2.best);
         }
-        cached[i] = out;
-        idb(db, "readwrite", s => s.put(out, key(a)));
+        cached[i][String(m.ply)] = { deep_best: best, deep_refutation: refutation, deep_cp_before: before,
+          deep_cp_after: after, deep_loss: Math.round(Math.max(winPct(before) - winPct(after), 0) * 10) / 10 };
+        opts.onProgress?.(++done, tasks.length);
+        left.set(i, left.get(i)! - 1);
+        if (left.get(i) === 0) { const d = cached[i], k = key(analyses[i]); idb(db, "readwrite", s => s.put(d, k)); }
       }
     }));
   } finally {
     opts.signal?.removeEventListener("abort", stop);
     engines.forEach(e => e.terminate());
   }
-  analyses.forEach((a, i) => { const d = cached[i]; if (d) for (const m of a.moves) Object.assign(m, d[String(m.ply)] ?? {}); });
+  analyses.forEach((a, i) => { const d = cached[i]; for (const m of a.moves) Object.assign(m, d[String(m.ply)] ?? {}); });
 }
 
 // ---------- summaries (chesscheck/engine.py) ----------

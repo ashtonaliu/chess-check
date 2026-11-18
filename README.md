@@ -96,6 +96,17 @@ Embeddings understand rewording but confuse who did what, and keywords cover tha
 
 Most of the gain comes from fixing the formula. In matched games a rating gap matters about half as much as Elo assumes, and White scores 51.7% while Elo ignores color. History adds a little: players far below their recent average beat their rating by 2.4 points, and players score worse right after a loss. Openings, clock habits, session length, playstyles learned from 6.5 million games, and Stockfish profiles of both players' last 50 games added nothing measurable. The extension's upset meter and the report's opening tables now use the recalibrated formula.
 
+**How hard was the move you missed?** In 803,299 positions from the engine dataset where only one move works, blitz players found it 79.3% of the time. Tested on 11,868 players the model never saw:
+
+| Model | AUC |
+|---|---:|
+| Rating | 0.51 |
+| Rating and clock | 0.56 |
+| Plus what kind of move it is (logistic) | 0.76 |
+| Gradient boosting | 0.80 |
+
+The rating barely matters in this range; the kind of move matters a lot. Captures are easy to find, quiet moves to attacked squares are hard, and players who are already ahead find the only move less often. The logistic version runs in the extension, which tells you after each review how often players near your rating find that move.
+
 **Engine dataset.** To make later questions cheap, I analyzed 664,898 games (49.1 million positions) once with Stockfish 19, keeping the two best moves, win/draw/loss chances and clock time for every position. It took 33 hours on my laptop, and profiles for all 171,126 players in it now take 12 seconds to compute. On all 14,739 test games, none of the engine profiles (accuracy, blunders, conversion, time trouble, form, a rating implied by move quality) improved on the odds formula. The test was precise enough to rule out effects bigger than about 2 points of expected score.
 
 ## How it works

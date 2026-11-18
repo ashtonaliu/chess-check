@@ -660,6 +660,28 @@ formula in the app.
 python scripts/fit_history_odds.py
 ```
 
+## How often players find the only good move
+
+`scripts/eval_find_rate.py` (`build`, then `evaluate`). The review queue asks you to find a move you missed, and a miss means more if most players at your rating find that move. So the question is: in a position where only one move works, how often does a blitz player at a given rating find it, and does anything besides the rating predict it?
+
+**Data.** From the engine dataset, every position in a third of the blitz games (chosen by a hash of the game ID) where the best move beats the second best by at least 20 points of win chance for the player to move, so missing it costs a lot. That gives 803,299 positions from 59,720 players. The label is whether the player chose Stockfish's best move. The rating is the player's rating before the game, from their previous game, as in the odds study. Players were split by a hash of their username: 645,716 positions from 47,852 players to fit and 157,583 from 11,868 players to test, so no tested player was seen in fitting. The only good move was found 79.3% of the time.
+
+**Features.** Each is computable from the position and the best move alone, so the browser can compute it too: what piece moves, whether it captures (and what), gives check, promotes, castles, moves backward or sideways, escapes an attack or lands on an attacked square, whether the player is in check, how many legal moves, captures and checks there are, and the material. The clock and Stockfish's own numbers (the gap to the second move and the win chance) were tested as separate groups.
+
+| Model (held-out players) | Log loss | Brier | AUC |
+|---|---:|---:|---:|
+| Overall rate | 0.5102 | 0.1643 | 0.500 |
+| Rating | 0.5102 | 0.1643 | 0.508 |
+| Rating and clock | 0.5069 | 0.1632 | 0.557 |
+| Rating, clock and the move's features (logistic) | 0.4410 | 0.1428 | 0.758 |
+| Same, plus Stockfish's gap and win chance (logistic) | 0.4323 | 0.1400 | 0.773 |
+| Move features, gradient boosting | 0.4090 | 0.1332 | 0.800 |
+| All features, gradient boosting | 0.4011 | 0.1306 | 0.811 |
+
+The rating says almost nothing here, because nearly every position comes from players between 1400 and 1800 (the find rate goes from 77.9% at 1200 to 80.5% at 1800). What kind of move it is says a lot. With the logistic model's gain over the rating alone bootstrapped by player, log loss falls by 0.069 (90% interval 0.068 to 0.071). The largest effects: captures are found far more often, and more so the bigger the captured piece; a move to an attacked square, a position with many legal moves or many captures available, and being in check all make the move harder; and the more material the player is ahead, the less often they find it, possibly because a won position invites less care, though the data cannot say why. Gradient boosting is better again, but the logistic model is what the browser uses, since it is 27 numbers. Its calibration is within 6 points in every decile (predicted 47% against 53% actual at the hardest tenth, 97% against 98% at the easiest).
+
+**In the extension.** `scripts/eval_find_rate.py evaluate` writes the coefficients to `web/src/browser/findRateModel.ts`, and `web/src/browser/findRate.ts` computes the same features with chess.js. `web/test/findRate.test.ts` checks the features and probabilities against Python on 300 held-out positions (all features identical, probabilities within 0.0001). After you reveal a review card, it says how often players near your rating then find the move, with the clock held at the training median (0.66 of the starting time) so the number describes the position and not your clock that day. Ratings are held to 1200 to 2000, where the data are. Two limits: the model was fitted on positions with one clearly best move, and a review position only promises that your move lost at least 20 points, so another move may also have worked; and the figure is rounded to the nearest 5%.
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

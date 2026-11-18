@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Recap } from "../src/browser/recap";
-import { addItems, dueItems, grade, itemFromRecap, itemsFromBlunders, MAX_ITEMS, nextDue, type ReviewItem } from "../src/browser/reviewQueue";
+import { addItems, dueItems, grade, itemFromRecap, itemsFromBlunders, MAX_ITEMS, nextDue, patchItems, type ReviewItem } from "../src/browser/reviewQueue";
 import type { BlunderRec } from "../src/browser/tactics";
 
 const DAY = 86_400_000, NOW = 1_800_000_000_000;
@@ -72,4 +72,15 @@ test("seeding takes your worst blunder per game, newest games first, due now", (
   assert.deepEqual(items.map(i => [i.id, i.label]), [["3:7", "4...Nf3"], ["1:20", "11.Nf3"]]);
   assert.ok(items.every(i => i.due === NOW));
   assert.deepEqual(items[1].tactics, [{ kind: "allowed", motif: "fork" }]);
+});
+
+test("older entries get their position and rating from fresh copies, and nothing else changes", () => {
+  const old = [item("1:43", { step: 2, due: NOW + 5 }), item("2:10", { fen: "kept", rating: 1500 })];
+  const fresh = [item("1:43", { fen: "8/8/8/8/8/8/8/K6k w - - 0 1", rating: 1846, step: 0, due: 0 }), item("2:10", { fen: "new", rating: 1900 })];
+  const out = patchItems(old, fresh);
+  assert.equal(out[0].fen, "8/8/8/8/8/8/8/K6k w - - 0 1");
+  assert.equal(out[0].rating, 1846);
+  assert.equal(out[0].step, 2);
+  assert.equal(out[0].due, NOW + 5);
+  assert.equal(out[1].fen, "kept");
 });

@@ -150,4 +150,4 @@ Tests: `.venv/bin/python -m pytest -q` and `cd web && npm test`. GitHub Actions 
 
 ## License note
 
-The browser demo serves [Stockfish.js](https://github.com/nmrugg/stockfish.js) (GPL-3.0) unmodified as a separate file.
+The browser demo and the extension serve [Stockfish.js](https://github.com/nmrugg/stockfish.js) (GPL-3.0) as a separate file, with one line changed at build time so its pauses during a search do not wait for the browser's 4 ms timer minimum (`web/scripts/patchStockfish.mjs`, which documents the change). The WebAssembly file is unmodified.

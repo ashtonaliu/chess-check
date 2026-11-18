@@ -105,7 +105,7 @@ Most of the gain comes from fixing the formula. In matched games a rating gap ma
 | Plus what kind of move it is (logistic) | 0.76 |
 | Gradient boosting | 0.80 |
 
-The rating barely matters in this range; the kind of move matters a lot. Captures are easy to find, quiet moves to attacked squares are hard, and players who are already ahead find the only move less often. The logistic version runs in the extension, which tells you after each review how often players near your rating find that move.
+The rating barely matters in this range; the kind of move matters a lot. Captures are easy to find, quiet moves to attacked squares are hard, and players who are already ahead find the only move less often. The logistic version runs in the extension: after you review a position from a blitz game, it says how often players near your rating find moves like it.
 
 **Engine dataset.** To make later questions cheap, I analyzed 664,898 games (49.1 million positions) once with Stockfish 19, keeping the two best moves, win/draw/loss chances and clock time for every position. It took 33 hours on my laptop, and profiles for all 171,126 players in it now take 12 seconds to compute. On all 14,739 test games, none of the engine profiles (accuracy, blunders, conversion, time trouble, form, a rating implied by move quality) improved on the odds formula. The test was precise enough to rule out effects bigger than about 2 points of expected score.
 

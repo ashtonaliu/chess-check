@@ -179,6 +179,19 @@ function idb<T>(db: IDBDatabase | null, mode: IDBTransactionMode, fn: (s: IDBObj
   });
 }
 
+/** Add `fresh` to the object stored under `key`, reading and writing in one transaction, so two
+ *  writers that each hold part of an entry (a recap's recheck and a profile build's) both keep
+ *  their part instead of the later one replacing the whole entry. */
+export function mergeInto<T extends object>(existing: T | undefined, fresh: T): T { return { ...(existing ?? {}), ...fresh } as T; }
+function idbMerge(db: IDBDatabase | null, key: string, fresh: object) {
+  if (!db) return;
+  try {
+    const store = db.transaction(STORE, "readwrite").objectStore(STORE);
+    const req = store.get(key);
+    req.onsuccess = () => store.put(mergeInto(req.result as object | undefined, fresh), key);
+  } catch { /* not cached */ }
+}
+
 // Issue all reads before the transaction can become inactive.
 async function readCached<T>(db: IDBDatabase | null, keys: string[]): Promise<(T | undefined)[]> {
   if (db && keys.length) {
@@ -369,7 +382,7 @@ export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: 
           deep_cp_after: after, deep_loss: Math.round(Math.max(winPct(before) - winPct(after), 0) * 10) / 10 };
         opts.onProgress?.(++done, tasks.length);
         left.set(i, left.get(i)! - 1);
-        if (left.get(i) === 0) { const d = cached[i], k = key(analyses[i]); idb(db, "readwrite", s => s.put(d, k)); }
+        if (left.get(i) === 0) idbMerge(db, key(analyses[i]), cached[i]);
       }
     }));
   } finally {

@@ -53,6 +53,7 @@ test("a recap adds its turning point only when it was a real question, due tomor
   const it = itemFromRecap({ ...base, turning: { ...turning, findRate: 0.65 } }, NOW)!;
   assert.equal(it.id, "187502325560:43");
   assert.equal(it.findRate, 0.65);
+  assert.equal(itemFromRecap({ ...base, timeClass: "rapid", turning } as Recap, NOW)!.timeClass, "rapid");
   assert.equal(it.due, NOW + DAY);
   assert.equal(itemFromRecap({ ...base, turning: { ...turning, loss: 12 } }, NOW), null);
   assert.equal(itemFromRecap({ ...base, turning: { ...turning, best: "Qf5" } }, NOW), null);
@@ -69,9 +70,10 @@ test("seeding takes your worst blunder per game, newest games first, due now", (
     rec(games[1].url, 5, 90, { is_me: false }),                      // the opponent's blunder
     rec(games[2].url, 7, 30), rec(games[2].url, 9, 15),              // under the threshold
     rec(games[1].url, 11, 50, { best: "Nf3" }),                      // no better move
-  ], games.map(g => ({ ...g, myRating: 1800 })), NOW, undefined, (_fen, best, rating) => (best === "e4" && rating === 1800 ? 0.4 : null));
+  ], games.map(g => ({ ...g, myRating: 1800, timeClass: "blitz" })), NOW, undefined, (_fen, best, rating) => (best === "e4" && rating === 1800 ? 0.4 : null));
   assert.deepEqual(items.map(i => [i.id, i.label]), [["3:7", "4...Nf3"], ["1:20", "11.Nf3"]]);
   assert.ok(items.every(i => i.findRate === 0.4 && i.rating === 1800), "the find rate is worked out where chess.js is loaded");
+  assert.ok(items.every(i => i.timeClass === "blitz"), "and the time control is kept, since the rate is shown for blitz only");
   assert.ok(items.every(i => i.due === NOW));
   assert.deepEqual(items[1].tactics, [{ kind: "allowed", motif: "fork" }]);
 });
@@ -85,4 +87,10 @@ test("older entries get their position and rating from fresh copies, and nothing
   assert.equal(out[0].step, 2);
   assert.equal(out[0].due, NOW + 5);
   assert.equal(out[1].fen, "kept");
+});
+
+test("older entries also get their time control from fresh copies", () => {
+  const out = patchItems([item("1:43", { fen: "x" })], [item("1:43", { fen: "y", timeClass: "blitz" })]);
+  assert.equal(out[0].timeClass, "blitz");
+  assert.equal(out[0].fen, "x", "what an entry already has is kept");
 });

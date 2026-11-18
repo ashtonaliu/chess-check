@@ -16,6 +16,7 @@ import { addItems, grade, itemFromRecap, patchItems, type ReviewItem } from "../
 import { esc, moveLink, quizHint, recapCard, tacticSentence } from "../ui/recapCard";
 import type { Callback } from "../browser/callbackGame";
 import { gameIdFromPage } from "./guard";
+import { queueKey, updateQueue, type QueueDeps } from "./queueStore";
 import {
   afterLookup, cubeLook, daysAgo, dueNow, markFind, markSeen, panelView, reviewAllowed, reviewCard, StallWatch,
   takeReopen, takeReview, wasSeen, whenNext, type State, type View,
@@ -152,13 +153,37 @@ let queueOwner = "";                      // whose queue is loaded (lowercase)
 let current: string | null = null;        // the position being asked
 let reviewRevealed = false;
 
-const queueKey = (u: string) => `queue:${u}`;
 async function loadQueue(user: string | null) {
   const u = (user ?? "").toLowerCase();
   queue = u ? await load<ReviewItem[]>(queueKey(u), []) : [];
   queueOwner = u;
 }
-function saveQueue() { if (queueOwner) void save(queueKey(queueOwner), queue); }
+// Every change goes through queueStore.updateQueue: applied to the latest saved queue under a lock
+// all Chess.com tabs share, so a tab with an older copy cannot undo another tab's grade.
+const queueDeps: QueueDeps = {
+  load: key => load<ReviewItem[]>(key, []),
+  save,
+  lock: typeof navigator !== "undefined" && navigator.locks
+    ? (name, fn) => navigator.locks.request(name, () => fn()) as unknown as Promise<ReviewItem[]> : null,
+};
+async function changeQueue(change: (q: ReviewItem[]) => ReviewItem[]) {
+  const u = queueOwner;
+  if (!u) return;
+  try {
+    const next = await updateQueue(queueDeps, u, change);
+    if (queueOwner === u) queue = next;
+  } catch { /* not saved; the next change tries again */ }
+}
+// another tab changed the queue: show its version
+try {
+  chrome.storage.onChanged?.addListener((changes, area) => {
+    const c = area === "local" && queueOwner ? changes[queueKey(queueOwner)] : undefined;
+    if (!c) return;
+    queue = (c.newValue as ReviewItem[] | undefined) ?? [];
+    decorateCube();
+    if (!panel.classList.contains("hidden") && view === "review") renderPanel();
+  });
+} catch { /* development harness */ }
 
 const due = () => (queueOwner ? dueNow(queue, pageUrl(), state, Date.now()) : []);
 const nextText = () => whenNext(queue, Date.now(), reviewAllowed(pageUrl(), state));
@@ -207,9 +232,11 @@ function renderReview() {
   const { item: it, position: pos, total, here } = card;
   current = it.id;
   const tags = tacticSentence(it.tactics.filter(x => x.kind === "missed"));   // the hint already said what it allowed
-  // how hard it was: from the find-rate model trained on the engine dataset, at your rating then
-  const rate = it.findRate ?? null;
-  const odds = rate === null || !it.rating ? "" : ` Players near ${Math.round(it.rating / 50) * 50} find it about ${Math.round(rate * 20) * 5}% of the time.`;
+  // how hard it was: the find-rate model, fitted on blitz positions with one clearly best move, so
+  // shown only for blitz games and worded as an estimate for moves like this one
+  const rate = it.timeClass === "blitz" ? it.findRate ?? null : null;
+  const odds = rate === null || !it.rating ? ""
+    : ` In blitz, players near ${Math.round(it.rating / 50) * 50} find moves like this about ${Math.round(rate * 20) * 5}% of the time.`;
   body.innerHTML = `<div class="review">
     <p class="count">Review · ${pos} of ${total}</p>
     <p>From your game vs ${esc(it.opponent)} ${esc(daysAgo(it.endTime, Date.now()))}.
@@ -233,8 +260,9 @@ panel.addEventListener("click", e => {
   if (el.closest(".quiz-reveal")) { reviewRevealed = true; renderPanel(); body.querySelector<HTMLButtonElement>("[data-grade]")?.focus(); return; }
   const g = el.closest<HTMLElement>("[data-grade]");
   if (g && current) {
-    const found = g.dataset.grade === "1";
-    queue = grade(queue, current, found, Date.now()); saveQueue(); addTally(found);
+    const found = g.dataset.grade === "1", id = current, now = Date.now();
+    queue = grade(queue, id, found, now); addTally(found);           // shown at once,
+    void changeQueue(q => grade(q, id, found, now)).then(decorateCube);  // and saved onto the latest
     current = null; reviewRevealed = false; renderPanel(); decorateCube();
     return;
   }
@@ -249,16 +277,19 @@ async function collect(r: Recap | null, user: string) {
   const u = user.toLowerCase();
   if (queueOwner !== u) await loadQueue(u);
   const it = r ? itemFromRecap(r, Date.now()) : null;
-  if (it && !queue.some(q => q.id === it.id)) { queue = addItems(queue, [it]); saveQueue(); }
+  if (it && !queue.some(q => q.id === it.id)) await changeQueue(q => addItems(q, [it]));
   // an empty queue starts from the profile; entries saved before positions were kept get theirs
-  const missing = queue.some(q => !q.fen);
+  const missing = queue.some(q => !q.fen || q.timeClass === undefined);
   if (!seedAsked.has(u) && (missing || !(await load<boolean>(`seeded:${u}`, false)))) {
     seedAsked.add(u);
     try {
       const reply = await ask({ type: "seed", username: user });
       if (reply.status === "seed" && reply.items.length && queueOwner === u) {
-        if (!(await load<boolean>(`seeded:${u}`, false))) { queue = addItems(queue, reply.items); void save(`seeded:${u}`, true); }
-        queue = patchItems(queue, reply.items); saveQueue();
+        const seed = !(await load<boolean>(`seeded:${u}`, false));
+        // entries the profile cannot fill (from games outside it) are marked so they are not asked about again
+        await changeQueue(q => patchItems(seed ? addItems(q, reply.items) : q, reply.items)
+          .map(i => (i.timeClass === undefined ? { ...i, timeClass: "unknown" } : i)));
+        if (seed) void save(`seeded:${u}`, true);
       }
     } catch { /* try again later */ }
   }
@@ -269,8 +300,8 @@ async function collect(r: Recap | null, user: string) {
     try {
       const reply = await ask({ type: "rate", items: unrated.map(q => ({ id: q.id, fen: q.fen!, best: q.best, rating: q.rating! })) });
       if (reply.status === "rates" && queueOwner === u) {
-        queue = queue.map(q => q.id in reply.rates && q.findRate === undefined ? { ...q, findRate: reply.rates[q.id] } : q);
-        saveQueue();
+        const rates = reply.rates;
+        await changeQueue(q => q.map(i => i.id in rates && i.findRate === undefined ? { ...i, findRate: rates[i.id] } : i));
       }
     } catch { /* try again on the next page */ }
   }
@@ -386,7 +417,7 @@ function togglePanel(force?: boolean) {
   const wasOpen = !panel.classList.contains("hidden");
   panel.classList.toggle("hidden", !open);
   if (open && state === "ready") { markSeen(store, lastId); decorateCube(); }
-  if (open && state === "idle" && (!queue.length || queue.some(q => !q.fen || q.findRate === undefined)) && whoAmI()) void collect(null, whoAmI()!).then(() => renderPanel());
+  if (open && state === "idle" && (!queue.length || queue.some(q => !q.fen || q.findRate === undefined || q.timeClass === undefined)) && whoAmI()) void collect(null, whoAmI()!).then(() => renderPanel());
   cube.setAttribute("aria-expanded", String(open));
   if (open) renderPanel();
   else if (wasOpen) cube.focus();

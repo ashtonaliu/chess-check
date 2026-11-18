@@ -209,9 +209,12 @@ function openReview(id: string | null = null) {
 
 function renderReview() {
   const list = due();
-  let it = list.find(q => q.id === current) ?? list[0] ?? null;
+  const it = list.find(q => q.id === current) ?? list[0] ?? null;
+  // "Back" returns to a recap you came from; "Show" offers the recap of the game on screen only
+  // while its own card (or nothing) is showing, so it is not mistaken for the card's game.
+  const onScreen = gameIdFromPage(pageUrl());
   const back = state === "ready" && recap ? `<button class="linkish" data-act="back">Back to this game's recap</button>`
-    : state === "finished" ? `<button class="linkish" data-act="recap">Show this game's recap</button>` : "";
+    : state === "finished" && (!it || gameId(it.url) === onScreen) ? `<button class="linkish" data-act="recap">Show this game's recap</button>` : "";
   if (!it) {
     const t = tally();
     const summary = t.found + t.missed ? `That's all for now: ${t.found} found, ${t.missed} missed.` : "Nothing to review right now.";

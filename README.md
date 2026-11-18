@@ -22,10 +22,10 @@ Everything is compared with your opponents in the same games. A typical result, 
 ## Try it
 
 1. Open the [demo](https://ashtonaliu.github.io/chess-check/). It starts with an analysis of my own 300 blitz games.
-2. Enter any Chess.com username and press Analyze. 150 games take about 30 seconds.
+2. Enter any Chess.com username and press Analyze. The score and opening table appear within a few seconds, and the full analysis of 150 games took about 48 seconds in my tests.
 3. For the AI coaching report, paste your own [Anthropic API key](https://console.anthropic.com/settings/keys). The key only goes from your browser to Anthropic, and a report costs under one cent.
 
-**The Chrome extension** puts a small cube on Chess.com that you can drag anywhere, so you can study between games without leaving the site. It knows who you are from your signed-in account and needs no setup. When a game ends, the cube turns green and the recap fills in as each part is ready: the result and the upset meter at once, the turning point a few seconds later, then your patterns and your opponent's openings. With a saved history, the whole recap took about 3 seconds in my tests.
+**The Chrome extension** puts a small cube on Chess.com that you can drag anywhere, so you can study between games without leaving the site. It knows who you are from your signed-in account and needs no setup. When a game ends, the cube turns green and the recap fills in as each part is ready: the result and the upset meter at once, the turning point a few seconds later, then your patterns and your opponent's openings. With a saved history, the whole recap took under 2 seconds in my tests, and about 5 to 8 seconds on a first install, when it also analyzes your recent games.
 
 The turning point is a question. The recap says which move cost you the most and asks you to find the better one. "Find it on the board" opens the game at that move on Chess.com's own board, where you can try moves, and "Reveal the move" shows the answer. Missed moves go into a review queue that brings each one back after 1, 3, 7 and 21 days until you find it, from the same cube, between games. Chess.com's fair-play rules forbid outside help during a game, so the extension computes and shows nothing about a game until it is over. To install it before it is in the Chrome Web Store:
 

@@ -5,7 +5,7 @@
 import { BLUNDER_DROP, moveLabel, type GameAnalysis } from "./engine";
 import type { Game } from "./games";
 import { openingTable, pregameExpected, type GameRow } from "./stats";
-import { MOTIF_LABEL, type BlunderRec, type TacticSummary } from "./tactics";
+import type { BlunderRec, TacticSummary } from "./tactics";
 
 export interface Recap {
   url: string; endTime: number; opponent: string; myRating: number; oppRating: number;
@@ -124,5 +124,3 @@ export function opponentNote(opponent: string, oppGames: Game[], family: string,
     `They usually play the ${topFamily} (${topN} games).`;
 }
 
-export const motifName = (kind: string, motif: string) =>
-  `${kind === "missed" ? "missed" : "allowed"} ${MOTIF_LABEL[motif] ?? motif}`;

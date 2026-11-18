@@ -96,6 +96,7 @@ root.innerHTML = `<style>${siteCss.replace(/:root/g, ":host")}
   .cube.building { background: #3d6d93; }
   .cube.ready::after, .cube.choose::after { content: ""; position: absolute; top: -3px; right: -3px; width: 12px; height: 12px;
     border-radius: 50%; background: #f2c14e; border: 2px solid #1b201d; }
+  .cube.ready.seen::after { display: none; }
   .cube:active { cursor: grabbing; }
   .panel { position: fixed; width: 340px; max-width: calc(100vw - 16px); box-sizing: border-box; overflow: auto; background: var(--bg); color: var(--ink);
     border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.45); border: 1px solid var(--line); padding: 12px 14px; }
@@ -135,6 +136,8 @@ let timer: ReturnType<typeof setTimeout> | null = null;
 function setState(s: State, msg = "") {
   state = s; message = msg;
   cube.className = "cube" + (s === "ready" ? " ready" : s === "building" ? " building" : s === "choose" ? " choose" : "");
+  if (s === "ready" && !panel.classList.contains("hidden")) markSeen(lastId);   // arrived while open
+  cube.classList.toggle("seen", s === "ready" && wasSeen(lastId));
   cube.title = s === "ready" ? "Chess Check: your recap is ready" : s === "choose" ? "Chess Check: which player are you?" : "Chess Check";
   if (!panel.classList.contains("hidden")) renderPanel();
 }
@@ -230,10 +233,22 @@ cube.addEventListener("click", () => {
 });
 window.addEventListener("resize", place);
 
+// The dot on the cube means a recap you have not opened yet; it goes once you open it.
+const SEEN = "chess-check-seen";
+function wasSeen(id: string | null): boolean {
+  try { return !!id && (sessionStorage.getItem(SEEN) ?? "").split(",").includes(id); } catch { return false; }
+}
+function markSeen(id: string | null) {
+  if (!id || wasSeen(id)) return;
+  try { sessionStorage.setItem(SEEN, [...(sessionStorage.getItem(SEEN) ?? "").split(",").filter(Boolean).slice(-20), id].join(",")); }
+  catch { /* the dot stays */ }
+}
+
 function togglePanel(force?: boolean) {
   const open = force ?? panel.classList.contains("hidden");
   const wasOpen = !panel.classList.contains("hidden");
   panel.classList.toggle("hidden", !open);
+  if (open && state === "ready") { markSeen(lastId); cube.classList.add("seen"); }
   cube.setAttribute("aria-expanded", String(open));
   if (open) renderPanel();
   else if (wasOpen) cube.focus();

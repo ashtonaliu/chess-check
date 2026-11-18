@@ -1,7 +1,7 @@
 // Shared rendering for the website and the Chrome extension's side panel:
 // board diagrams and the post-game recap card.
 import { Chess } from "chess.js";
-import { motifName, type Recap } from "../browser/recap";
+import type { Recap } from "../browser/recap";
 
 export const esc = (s: string) => s.replace(/[&<>"']/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
@@ -67,6 +67,16 @@ export const ago = (t: number) => {
 const VERDICT_CLASS = (r: Recap) => r.surprise >= 0.4 ? "good" : r.surprise <= -0.4 ? "weak" : r.score === 1 ? "good" : "";
 
 /** Link to a game on Chess.com, opened at the position before move `ply` (0-based half-moves). */
+const article = (w: string) => (/^[aeiou]/.test(w) ? "an " : "a ") + w;
+
+/** The answer's tactic sentence, such as " You allowed a fork and missed a skewer." */
+export function tacticSentence(tactics: { kind: "allowed" | "missed"; motif: string }[]): string {
+  const names = (kind: string) => tactics.filter(x => x.kind === kind).map(x => article(MOTIF_SINGULAR[x.motif] ?? x.motif));
+  const did = (["allowed", "missed"] as const).map(k => [k, names(k)] as const).filter(([, ws]) => ws.length)
+    .map(([verb, ws]) => `${verb} ${ws.join(" and ")}`);
+  return did.length ? ` You ${did.join(" and ")}.` : "";
+}
+
 export function moveLink(url: string, ply: number): string {
   try { const u = new URL(url); u.searchParams.set("move", String(ply)); return u.toString(); } catch { return url; }
 }
@@ -105,11 +115,10 @@ export function recapCard(r: Recap, isNew: boolean, opts: RecapOptions = {}): HT
   const board = boardFor(revealed);
   const clock = t?.clockFrac !== null && t?.clockFrac !== undefined
     ? (t.clockFrac <= 0.1 ? ", in time trouble" : t.clockFrac <= 0.3 ? ", low on time" : "") : "";
-  const tags = t?.tactics.length ? ` You ${t.tactics.map(x => motifName(x.kind, x.motif)).join(" and ")}.` : "";
   // Before the reveal: what went wrong with your move ("allowed") and a hint ("missed").
   const allowed = t?.tactics.filter(x => x.kind === "allowed").map(x => MOTIF_SINGULAR[x.motif] ?? x.motif) ?? [];
   const missed = t?.tactics.filter(x => x.kind === "missed").map(x => MOTIF_SINGULAR[x.motif] ?? x.motif) ?? [];
-  const article = (w: string) => (/^[aeiou]/.test(w) ? "an " : "a ") + w;
+  const tags = t ? tacticSentence(t.tactics) : "";
   const why = allowed.length ? ` It allowed ${allowed.map(article).join(" and ")}.` : "";
   const hint = missed.length ? ` Hint: look for ${missed.map(article).join(" or ")}.` : "";
   const link = t ? moveLink(r.url, t.ply) : r.url;

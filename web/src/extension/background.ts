@@ -23,7 +23,22 @@ async function toOffscreen(msg: object): Promise<unknown> {
   }
 }
 
-chrome.runtime.onMessage.addListener((msg: { target?: string }, _sender, sendResponse) => {
+// Developer installs only (loaded unpacked in chrome://extensions): the cube can ask for the build it
+// is running and for the extension to reload itself, so a new build can be tried without clicking
+// reload by hand. An install from the Chrome Web Store has installType "normal" and ignores both.
+const isDevInstall = () => chrome.management.getSelf().then(s => s.installType === "development", () => false);
+
+chrome.runtime.onMessage.addListener((msg: { target?: string; type?: string }, _sender, sendResponse) => {
+  if (msg.target === "dev") {
+    void (async () => {
+      if (!(await isDevInstall())) { sendResponse({ dev: false }); return; }
+      if (msg.type === "reload") { sendResponse({ dev: true, reloading: true }); setTimeout(() => chrome.runtime.reload(), 50); return; }
+      let built: string | null = null;
+      try { built = (await (await fetch(chrome.runtime.getURL("dist/build.json"))).json()).built; } catch { /* no stamp */ }
+      sendResponse({ dev: true, built });
+    })();
+    return true;
+  }
   if (msg.target !== "bg") return false;
   void (async () => {
     try {

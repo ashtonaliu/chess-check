@@ -525,6 +525,21 @@ try {
   }).observe({ type, buffered: false });
 } catch { /* the browser cannot report long frames */ }
 
+// Developer installs only: a page can ask the extension to reload itself after a new build
+// (window.postMessage({ type: "chess-check:dev-reload" })), and the cube's host element carries the
+// build time, so a test can check which build is running. The background script checks that this is
+// an unpacked install before doing either; an install from the Chrome Web Store ignores both.
+try {
+  void chrome.runtime.sendMessage<{ dev: boolean; built?: string | null }>({ target: "dev", type: "info" })
+    .then(r => { if (r?.dev) host.dataset.chessCheckBuild = r.built ?? "unknown"; })
+    .catch(() => { /* not a developer install */ });
+  window.addEventListener("message", e => {
+    if (e.source === window && (e.data as { type?: string } | null)?.type === "chess-check:dev-reload") {
+      void chrome.runtime.sendMessage({ target: "dev", type: "reload" }).catch(() => {});
+    }
+  });
+} catch { /* development harness */ }
+
 // Chess.com changes pages without reloading, so watch the address.
 let lastUrl = "";
 setInterval(() => { if (pageUrl() !== lastUrl) { lastUrl = pageUrl(); void check(); } }, 1000);

@@ -24,6 +24,7 @@ for (const [name, user] of [["187138001290", "ashton-iwnl"], ["promo", "ashton-i
     const myChange = want.color === "white" ? cw : cbk, oppChange = want.color === "white" ? cbk : cw;
     assert.equal(got.myRating, want.myRating - myChange);
     assert.equal(got.oppRating, want.oppRating - oppChange);
+    assert.equal(got.ratingSource, "pregame");
     // clocks survive into the PGN the analysis reads
     const clk = (p: string) => [...p.matchAll(/\[%clk ([^\]]+)\]/g)].map(m => m[1]);
     assert.deepEqual(clk(got.pgn).map(parseFloat), clk(want.pgn).map(parseFloat));

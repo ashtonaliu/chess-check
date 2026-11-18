@@ -5,6 +5,10 @@ import { Chess } from "chess.js";
 
 export interface Game {
   url: string;
+  /** Where the ratings come from: "pregame" (Chess.com's game endpoint gives the change, so exact),
+   *  "estimated" (worked out from the archive's ratings after each game), or "after-game" (no
+   *  earlier game to work from, so the stored ratings, which already include this game's result). */
+  ratingSource?: "pregame" | "estimated" | "after-game";
   color: "white" | "black";
   myRating: number;
   oppRating: number;
@@ -165,9 +169,9 @@ export function withPregameRatings(games: Game[]): Game[] {
   return games.map((g, i) => {
     let prev: Game | undefined;
     for (let j = i + 1; j < games.length && !prev; j++) if (games[j].timeClass === g.timeClass) prev = games[j];
-    if (!prev) return g;
+    if (!prev) return { ...g, ratingSource: "after-game" };
     const change = g.myRating - prev.myRating;
-    return { ...g, myRating: prev.myRating, oppRating: g.oppRating + change };
+    return { ...g, myRating: prev.myRating, oppRating: g.oppRating + change, ratingSource: "estimated" };
   });
 }
 

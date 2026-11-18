@@ -122,5 +122,5 @@ export function opponentNoteFor(g: Game, timeClass: string | null): Promise<stri
 export async function recapGame(g: Game, profile: Profile, engineUrl: string): Promise<Recap> {
   const note = opponentNoteFor(g, profile.timeClass);
   const { analysis, blunders } = await analyzeGame(g, engineUrl);
-  return buildRecap(g, analysis, blunders, profile.rows, profile.openings, profile.tactics, await note);
+  return buildRecap(g, analysis, blunders, profile.rows, profile.tactics, await note);
 }

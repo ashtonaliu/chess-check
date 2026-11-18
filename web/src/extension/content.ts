@@ -12,7 +12,8 @@
 // still running is stopped.
 import siteCss from "../../style.css";
 import { gameId, type Recap } from "../browser/recap";
-import { addItems, dueItems, grade, itemFromRecap, nextDue, type ReviewItem } from "../browser/reviewQueue";
+import { findRate } from "../browser/findRate";
+import { addItems, dueItems, grade, itemFromRecap, nextDue, patchItems, type ReviewItem } from "../browser/reviewQueue";
 import { esc, moveLink, quizHint, recapCard, tacticSentence } from "../ui/recapCard";
 import type { Callback } from "../browser/callbackGame";
 import { canReview, gameIdFromPage } from "./guard";
@@ -226,13 +227,16 @@ function renderReview() {
   const pos = list.indexOf(it) + 1;
   const here = gameIdFromPage(pageUrl()) === gameId(it.url) && new URL(pageUrl()).searchParams.get("move") === String(it.ply);
   const tags = tacticSentence(it.tactics.filter(x => x.kind === "missed"));   // the hint already said what it allowed
+  // how hard it was: from the find-rate model trained on the engine dataset, at your rating then
+  const rate = it.fen && it.rating ? findRate(it.fen, it.best, it.rating) : null;
+  const odds = rate === null ? "" : ` Players near ${Math.round(it.rating! / 50) * 50} find it about ${Math.round(rate * 20) * 5}% of the time.`;
   body.innerHTML = `<div class="review">
     <p class="count">Review · ${pos} of ${list.length}</p>
     <p>From your game vs ${esc(it.opponent)} ${esc(daysAgo(it.endTime))}.
       You played <span class="moves">${esc(it.label)}</span> and lost <strong class="weak">${Math.round(it.loss)}%</strong>.
       Find the better move.<span class="quiz-q">${esc(quizHint(it.tactics))}</span></p>
     ${reviewRevealed
-      ? `<p><span class="lbl">Answer</span>Better was <span class="moves">${esc(it.best)}</span>.${esc(tags)}</p>
+      ? `<p><span class="lbl">Answer</span>Better was <span class="moves">${esc(it.best)}</span>.${esc(tags)}${esc(odds)}</p>
          <div class="grade"><button type="button" data-grade="1">Got it</button><button type="button" class="missed" data-grade="0">Missed it</button></div>`
       : `<div class="quiz-actions">${here ? "" : `<a class="quiz-board" data-review="${esc(it.id)}" href="${esc(moveLink(it.url, it.ply))}">Find it on the board</a>`}
            <button type="button" class="quiz-reveal">Reveal the move</button></div>`}
@@ -266,12 +270,15 @@ async function collect(r: Recap | null, user: string) {
   if (queueOwner !== u) await loadQueue(u);
   const it = r ? itemFromRecap(r, Date.now()) : null;
   if (it && !queue.some(q => q.id === it.id)) { queue = addItems(queue, [it]); saveQueue(); }
-  if (!seedAsked.has(u) && !(await load<boolean>(`seeded:${u}`, false))) {
+  // an empty queue starts from the profile; entries saved before positions were kept get theirs
+  const missing = queue.some(q => !q.fen);
+  if (!seedAsked.has(u) && (missing || !(await load<boolean>(`seeded:${u}`, false)))) {
     seedAsked.add(u);
     try {
       const reply = await ask({ type: "seed", username: user });
       if (reply.status === "seed" && reply.items.length && queueOwner === u) {
-        queue = addItems(queue, reply.items); saveQueue(); void save(`seeded:${u}`, true);
+        if (!(await load<boolean>(`seeded:${u}`, false))) { queue = addItems(queue, reply.items); void save(`seeded:${u}`, true); }
+        queue = patchItems(queue, reply.items); saveQueue();
       }
     } catch { /* try again later */ }
   }
@@ -402,7 +409,7 @@ function togglePanel(force?: boolean) {
   const wasOpen = !panel.classList.contains("hidden");
   panel.classList.toggle("hidden", !open);
   if (open && state === "ready") { markSeen(lastId); cube.classList.add("seen"); }
-  if (open && state === "idle" && !queue.length && whoAmI()) void collect(null, whoAmI()!).then(() => renderPanel());
+  if (open && state === "idle" && (!queue.length || queue.some(q => !q.fen)) && whoAmI()) void collect(null, whoAmI()!).then(() => renderPanel());
   cube.setAttribute("aria-expanded", String(open));
   if (open) renderPanel();
   else if (wasOpen) cube.focus();

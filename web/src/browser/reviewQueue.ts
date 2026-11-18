@@ -22,6 +22,7 @@ export interface ReviewItem {
   url: string; ply: number; label: string; san: string; best: string; loss: number;
   tactics: { kind: "allowed" | "missed"; motif: string }[];
   opponent: string; endTime: number;
+  fen?: string; rating?: number;  // the position and your rating then, for how often players find the move
   step: number;                  // how many times in a row it was found
   due: number;                   // when it is next asked (ms)
   done?: boolean;                // learned: found at every step
@@ -37,11 +38,11 @@ export function itemFromRecap(r: Recap, now: number): ReviewItem | null {
   const t = r.turning;
   if (!t || r.pending?.turning || t.loss < MIN_LOSS || !t.best || t.best === t.san) return null;
   return { id: itemId(r.url, t.ply), url: r.url, ply: t.ply, label: t.label, san: t.san, best: t.best, loss: t.loss,
-    tactics: t.tactics, opponent: r.opponent, endTime: r.endTime, step: 0, due: now + DAY };
+    tactics: t.tactics, opponent: r.opponent, endTime: r.endTime, fen: t.fen, rating: r.myRating, step: 0, due: now + DAY };
 }
 
 /** Your worst recent blunders from an analyzed profile, due now, to start an empty queue. */
-export function itemsFromBlunders(blunders: BlunderRec[], games: { url: string; opponent?: string | null; endTime: number }[],
+export function itemsFromBlunders(blunders: BlunderRec[], games: { url: string; opponent?: string | null; endTime: number; myRating?: number }[],
                                   now: number, limit = SEED_COUNT): ReviewItem[] {
   const byUrl = new Map(games.map(g => [g.url, g]));
   const out: ReviewItem[] = [];
@@ -51,7 +52,7 @@ export function itemsFromBlunders(blunders: BlunderRec[], games: { url: string; 
     out.push({ id: itemId(b.url, b.ply), url: b.url, ply: b.ply, label: label(b.ply, b.move_no, b.san), san: b.san, best: b.best,
       loss: b.wp_loss, tactics: [...b.missed.map(motif => ({ kind: "missed" as const, motif })),
                                   ...b.allowed.map(motif => ({ kind: "allowed" as const, motif }))],
-      opponent: g.opponent ?? "your opponent", endTime: g.endTime, step: 0, due: now });
+      opponent: g.opponent ?? "your opponent", endTime: g.endTime, fen: b.fen, rating: g.myRating, step: 0, due: now });
   }
   // one per game (its worst), newest games first
   const best = new Map<string, ReviewItem>();
@@ -60,6 +61,15 @@ export function itemsFromBlunders(blunders: BlunderRec[], games: { url: string; 
     if (!cur || it.loss > cur.loss) best.set(k, it);
   }
   return [...best.values()].sort((a, b) => b.endTime - a.endTime).slice(0, limit);
+}
+
+/** Fill in what older entries are missing (the position and rating) from fresh copies of them. */
+export function patchItems(queue: ReviewItem[], fresh: ReviewItem[]): ReviewItem[] {
+  const byId = new Map(fresh.map(f => [f.id, f]));
+  return queue.map(q => {
+    const f = byId.get(q.id);
+    return f && !q.fen && f.fen ? { ...q, fen: f.fen, rating: q.rating ?? f.rating } : q;
+  });
 }
 
 /** Add positions not already in the queue. When it is full, learned ones go first, then the oldest. */

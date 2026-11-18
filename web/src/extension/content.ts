@@ -25,7 +25,14 @@ const KNIGHT = `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="tru
 
 // ---------- messaging and storage (real extension, or the dev harness's stand-ins) ----------
 
-const ask = (req: Request) => chrome.runtime.sendMessage<Reply>({ ...req, target: "bg" });
+/** A request to the analysis page. Each answers within a second or two (long work continues in the
+ *  background and is asked about again), so a missing answer means something broke: say so. */
+const ASK_TIMEOUT_MS = 20_000;
+const ask = (req: Request) => Promise.race([
+  chrome.runtime.sendMessage<Reply>({ ...req, target: "bg" }),
+  new Promise<never>((_, reject) => setTimeout(() => reject(new Error(
+    "the extension did not answer. Reload the page, or reload Chess Check in chrome://extensions.")), ASK_TIMEOUT_MS)),
+]);
 async function load<T>(key: string, fallback: T): Promise<T> {
   try { return ((await chrome.storage.local.get([key]))[key] as T) ?? fallback; } catch { return fallback; }
 }

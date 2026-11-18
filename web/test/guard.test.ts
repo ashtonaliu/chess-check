@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { canShowRecap, gameIdFromApiUrl, gameIdFromPage } from "../src/extension/guard";
+import { canReview, canShowRecap, gameIdFromApiUrl, gameIdFromPage } from "../src/extension/guard";
 
 test("every Chess.com game address form maps to the game ID", () => {
   const id = "187138001290";
@@ -39,4 +39,15 @@ test("a game in progress (not yet in the public API) never gets a recap", () => 
   assert.equal(canShowRecap("3", finished), false);   // still being played
   assert.equal(canShowRecap(null, finished), false);
   assert.equal(canShowRecap("3", new Set()), false);
+});
+
+test("the review queue stays off the play page and off a game until it is confirmed over", () => {
+  assert.equal(canReview("https://www.chess.com/home", false), true);
+  assert.equal(canReview("https://www.chess.com/puzzles", false), true);
+  assert.equal(canReview("https://www.chess.com/play/online", false), false);
+  assert.equal(canReview("https://www.chess.com/play/online", true), false);
+  assert.equal(canReview("https://www.chess.com/play", false), false);
+  assert.equal(canReview("https://www.chess.com/game/187502325560", false), false);   // may be in progress
+  assert.equal(canReview("https://www.chess.com/game/live/187502325560?move=43", true), true);
+  assert.equal(canReview("not a url", true), false);
 });

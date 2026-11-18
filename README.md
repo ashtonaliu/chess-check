@@ -27,7 +27,7 @@ Everything is compared with your opponents in the same games. A typical result, 
 
 **The Chrome extension** puts a small cube on Chess.com that you can drag anywhere, so you can study between games without leaving the site. It knows who you are from your signed-in account and needs no setup. When a game ends, the cube turns green and the recap fills in as each part is ready: the result and the upset meter at once, the turning point a few seconds later, then your patterns and your opponent's openings. With a saved history, the whole recap took about 3 seconds in my tests.
 
-The turning point is a question. The recap says which move cost you the most and asks you to find the better one. "Find it on the board" opens the game at that move on Chess.com's own board, where you can try moves, and "Reveal the move" shows the answer. Chess.com's fair-play rules forbid outside help during a game, so the extension computes and shows nothing about a game until it is over. To install it before it is in the Chrome Web Store:
+The turning point is a question. The recap says which move cost you the most and asks you to find the better one. "Find it on the board" opens the game at that move on Chess.com's own board, where you can try moves, and "Reveal the move" shows the answer. Missed moves go into a review queue that brings each one back after 1, 3, 7 and 21 days until you find it, from the same cube, between games. Chess.com's fair-play rules forbid outside help during a game, so the extension computes and shows nothing about a game until it is over. To install it before it is in the Chrome Web Store:
 
 1. Run `scripts/build_extension.sh`.
 2. Open `chrome://extensions` and turn on Developer mode.

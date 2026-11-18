@@ -41,7 +41,7 @@ test("recap of a real game: expected score, opening history without the game its
   const tactics = summarize(analyses, new Map(games.map(g => [g.url, g.pgn])));
   const i = analyses.findIndex(a => a.moves.some(m => m.is_me && ((m as any).deep_loss ?? m.wp_loss) >= 20));
   const g = games[i], a = analyses[i];
-  const r = buildRecap(g, a, classifyGame(g.pgn, a), history, [], tactics);
+  const r = buildRecap(g, a, classifyGame(g.pgn, a), history, tactics);
   const exp = pregameExpected(g.myRating, g.oppRating, g.color, g.timeClass);   // recalibrated, with colour
   assert.ok(Math.abs(r.expected - exp) < 1e-12);
   assert.ok(Math.abs(r.surprise - (g.score - exp)) < 1e-12);
@@ -88,6 +88,7 @@ test("pre-game ratings come from the previous game in the same time class", asyn
     g("1", "blitz", 1510, 1480),    // the oldest blitz game: kept as stored
   ]);
   assert.deepEqual(out.map(x => [x.myRating, x.oppRating]), [[1500, 1500], [1700, 1650], [1510, 1500], [1510, 1480]]);
+  assert.deepEqual(out.map(x => x.ratingSource), ["estimated", "after-game", "estimated", "after-game"]);
 });
 
 test("a recap's opening record ignores later games, matched by game ID across URL forms", () => {
@@ -95,6 +96,21 @@ test("a recap's opening record ignores later games, matched by game ID across UR
   const i = analyses.findIndex(a => a.moves.some(m => m.is_me && ((m as any).deep_loss ?? m.wp_loss) >= 20));
   const g = { ...games[i], url: games[i].url.replace("/game/live/", "/game/") + "?move=3" };
   const later = history.map(r => ({ ...r, endTime: r.endTime + 10 ** 9 }));   // every game "after" this one
-  const r = buildRecap(g, analyses[i], [], later, [], null);
+  const r = buildRecap(g, analyses[i], [], later, null);
   assert.equal(r.opening.history, null);
+  assert.equal(r.opening.flag, null);                // the badge uses the same earlier-games slice
+});
+
+test("odds are labeled by where the ratings came from, and hidden when only post-game ratings exist", () => {
+  const i = analyses.findIndex(a => a.moves.some(m => m.is_me));
+  const base = { ...games[i], score: 1 };
+  const exact = buildRecap({ ...base, ratingSource: "pregame" }, analyses[i], [], [], null);
+  const est = buildRecap({ ...base, ratingSource: "estimated" }, analyses[i], [], [], null);
+  const none = buildRecap({ ...base, ratingSource: "after-game", myRating: 1500, oppRating: 1900 }, analyses[i], [], [], null);
+  assert.equal(exact.odds, "exact");
+  assert.equal(est.odds, "estimated");
+  assert.equal(est.expected, exact.expected);
+  assert.equal(none.odds, "unknown");
+  assert.equal(none.verdict, "Win");          // not "Big upset win": the ratings already include the result
+  assert.equal(none.surprise, 0);
 });

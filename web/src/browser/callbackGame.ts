@@ -69,7 +69,7 @@ export function gameFromCallback(cb: Callback, user: string, kind: "live" | "dai
   const [opening, family] = openingFrom(eco, moves, history);
   const tc = String(h.TimeControl ?? "");
   return {
-    url: `https://www.chess.com/game/${kind}/${g.id}`, color,
+    url: `https://www.chess.com/game/${kind}/${g.id}`, color, ratingSource: "pregame",
     myRating: color === "white" ? whitePre : blackPre, oppRating: color === "white" ? blackPre : whitePre,
     score: winner === null ? 0.5 : winner === color ? 1 : 0,
     timeClass: timeClassOf(tc), timeControl: tc, eco, opening, family, endTime: g.endTime ?? 0,

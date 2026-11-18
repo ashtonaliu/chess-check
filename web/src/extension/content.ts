@@ -232,7 +232,10 @@ function togglePanel(force?: boolean) {
   else if (wasOpen) cube.focus();
 }
 root.querySelector('[data-act="close"]')!.addEventListener("click", () => togglePanel(false));
-panel.addEventListener("keydown", e => { if (e.key === "Escape") { e.stopPropagation(); togglePanel(false); } });
+// Escape closes the panel whether focus is in it or still on the cube that opened it
+for (const el of [panel, cube]) el.addEventListener("keydown", e => {
+  if (e.key === "Escape" && !panel.classList.contains("hidden")) { e.stopPropagation(); togglePanel(false); }
+});
 
 // "Find it on the board" reloads this page at the move; reopen the recap when it is back.
 const REOPEN = "chess-check-reopen";

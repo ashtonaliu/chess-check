@@ -113,7 +113,9 @@ export function recapCard(r: Recap, isNew: boolean, opts: RecapOptions = {}): HT
   const why = allowed.length ? ` It allowed ${allowed.map(article).join(" and ")}.` : "";
   const hint = missed.length ? ` Hint: look for ${missed.map(article).join(" or ")}.` : "";
   const link = t ? moveLink(r.url, t.ply) : r.url;
-  const turning = r.pending?.turning
+  const turning = r.turningError
+    ? `<p><span class="lbl">Turning point</span>Unavailable: Stockfish could not analyze this game.</p>`
+    : r.pending?.turning
     ? `<p><span class="lbl">Turning point</span><span class="pending">Finding the turning point</span></p>`
     : !t ? `<p>Clean game: no mistakes worth noting.</p>`
     : quiz
@@ -149,10 +151,12 @@ export function recapCard(r: Recap, isNew: boolean, opts: RecapOptions = {}): HT
   card.innerHTML = `<div class="recap-head"><span class="chip ${VERDICT_CLASS(r)}">${esc(r.verdict)}</span>
       <strong>You ${esc(r.how)}</strong> vs ${esc(r.opponent)} (${r.oppRating}) as ${col}
       <span class="when">${esc(r.timeClass)} · ${ago(r.endTime)} · <a href="${esc(r.url)}" target="_blank" rel="noopener">open game</a></span></div>
-    <div class="meter" title="Pre-game expected score from both ratings, shown only after the game">
+    ${r.odds === "unknown" ? "" : `<div class="meter" title="${r.odds === "estimated"
+        ? "Pre-game expected score, from ratings estimated from your previous game (the game archive only stores ratings after each game), shown only after the game"
+        : "Pre-game expected score from both ratings, shown only after the game"}">
       <div class="track"><span class="mark" style="left:${expPos.toFixed(1)}%"></span>
         <span class="result" style="left:${resultPos}%;background:${resultColor}"></span></div>
-      <div class="labels"><span>loss</span><span>Before the game you had a ${Math.round(expPos)}% expected score</span><span>win</span></div></div>
+      <div class="labels"><span>loss</span><span>Before the game you had ${r.odds === "estimated" ? "about " : ""}a ${Math.round(expPos)}% expected score</span><span>win</span></div></div>`}
     <div class="recap-grid${board ? "" : " noboard"}">${board ? `<div class="recap-board">${board}</div>` : ""}
       <div class="recap-lines">${turning}${pat}${opening}${opp}</div></div>`;
   if (!board) (card.querySelector(".recap-grid") as HTMLElement).style.gridTemplateColumns = "1fr";

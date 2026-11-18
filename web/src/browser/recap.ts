@@ -4,7 +4,7 @@
 // rules forbid outside help while playing).
 import { BLUNDER_DROP, moveLabel, type GameAnalysis } from "./engine";
 import type { Game } from "./games";
-import { pregameExpected, type GameRow } from "./stats";
+import { openingTable, pregameExpected, type GameRow } from "./stats";
 import { MOTIF_LABEL, type BlunderRec, type TacticSummary } from "./tactics";
 
 export interface Recap {
@@ -17,6 +17,11 @@ export interface Recap {
   pattern: null | { kind: string; motif: string; count: number; verdict: string };
   clean: boolean;
   opponentNote: string | null;
+  /** How sure the pre-game odds are: exact from Chess.com's game endpoint, estimated from the
+   *  archive, or unknown (only ratings after the game were available, so no odds are shown). */
+  odds: "exact" | "estimated" | "unknown";
+  /** Why there is no turning point, when the engine could not analyze the game. */
+  turningError?: string;
   /** Parts still being worked out, so the card can show the result first: the game's own analysis
    *  (turning point) and the player's history (opening record, patterns, opponent note). Absent on a
    *  complete recap. */
@@ -48,15 +53,17 @@ export function howEnded(g: Game): string {
  * against the player's `history` (earlier games, which must not include this one).
  */
 export function buildRecap(game: Game, analysis: GameAnalysis, blunders: BlunderRec[], history: GameRow[],
-                           openings: { family: string; color: string; verdict: string }[], tactics: TacticSummary | null,
-                           opponentNote: string | null = null): Recap {
+                           tactics: TacticSummary | null, opponentNote: string | null = null): Recap {
+  const odds = game.ratingSource === "after-game" ? "unknown" : game.ratingSource === "estimated" ? "estimated" : "exact";
   const expected = pregameExpected(game.myRating, game.oppRating, game.color, game.timeClass);
-  // only games that ended before this one: a profile built after it (a first install, or an older
-  // game opened later) can contain this game and the ones after it
+  // Only games that ended before this one, for the record and the opening's badge alike: a profile
+  // built after it (a first install, or an older game opened later) can contain this game and the
+  // ones after it.
   const id = gameId(game.url);
-  const past = history.filter(r => gameId(r.url) !== id && r.endTime < game.endTime && r.family === game.family && r.color === game.color);
+  const prior = history.filter(r => gameId(r.url) !== id && r.endTime < game.endTime);
+  const past = prior.filter(r => r.family === game.family && r.color === game.color);
   const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
-  const row = openings.find(o => o.family === game.family && o.color === game.color);
+  const row = past.length ? openingTable(prior).find(o => o.family === game.family && o.color === game.color) : undefined;
   const flag = row && row.verdict !== "not enough evidence" ? row.verdict : null;
 
   // turning point: the user's biggest mistake, by the confirmed (deep) loss when available
@@ -87,7 +94,9 @@ export function buildRecap(game: Game, analysis: GameAnalysis, blunders: Blunder
   return {
     url: game.url, endTime: game.endTime, opponent: game.opponent ?? "your opponent", myRating: game.myRating, oppRating: game.oppRating,
     color: game.color, timeClass: game.timeClass, score: game.score, how: howEnded(game),
-    expected, surprise: game.score - expected, verdict: upset(game.score, expected),
+    // without pre-game ratings there are no odds: the result is named plainly and nothing is an upset
+    expected, surprise: odds === "unknown" ? 0 : game.score - expected, odds,
+    verdict: upset(game.score, odds === "unknown" ? 0.5 : expected),
     opening: { name: game.opening, family: game.family,
       history: past.length ? { n: past.length, score: mean(past.map(r => r.score)), expected: mean(past.map(r => r.expected)) } : null,
       flag },

@@ -144,29 +144,36 @@ export async function handle(req: Request): Promise<Reply> {
     const done = recaps.get(key);                // reuse a recap unless the profile has grown since
     if (done && (done.games >= games || !profile)) return { status: "recap", recap: done.recap, games: done.games };
     let job = jobs.get(key);
-    if (job?.error) { jobs.delete(key); return { status: "error", message: job.error }; }
     if (!job) job = startJob(key, gameFromCallback(req.callback, req.username, req.kind, slot?.profile?.games ?? [])!);
     // name the opening from the profile's games once there are some
     const game = profile ? gameFromCallback(req.callback, req.username, req.kind, profile.games ?? [])! : job.game;
-    const a = job.analysis;
-    if (profile && a && job.opponentDone) {
+    const a = job.analysis, err = job.error;
+    const empty: GameAnalysis = { url: game.url, color: game.color, moves: [], opening_eval: null };
+    if (profile && (a || err) && job.opponentDone) {
       // the note names the opening, so it is written now that the profile has named it
       const note = game.opponent && job.opponentGames
         ? opponentNote(game.opponent, job.opponentGames, game.family, game.color === "white" ? "black" : "white") : null;
-      const recap = buildRecap(game, a.analysis, a.blunders, profile.rows, profile.openings, profile.tactics, note);
-      recaps.set(key, { recap, games }); jobs.delete(key);
+      const recap = buildRecap(game, a?.analysis ?? empty, a?.blunders ?? [], profile.rows, profile.tactics, note);
+      jobs.delete(key);
+      if (err) {
+        // keep everything else; the next visit to this game tries the analysis again
+        recap.turningError = err;
+        return { status: "recap", recap, games, partial: "Reopen this game to try the analysis again.", retry: false };
+      }
+      recaps.set(key, { recap, games });
       return { status: "recap", recap, games };
     }
-    const empty: GameAnalysis = { url: game.url, color: game.color, moves: [], opening_eval: null };
-    const recap = buildRecap(game, a?.analysis ?? empty, a?.blunders ?? [], profile?.rows ?? [], profile?.openings ?? [],
-      profile?.tactics ?? null, null);
-    recap.pending = { turning: !a, history: !profile || !job.opponentDone };
+    const recap = buildRecap(game, a?.analysis ?? empty, a?.blunders ?? [], profile?.rows ?? [], profile?.tactics ?? null, null);
+    recap.pending = { turning: !a && !err, history: !profile || !job.opponentDone };
+    if (err) recap.turningError = err;
     const failed = p?.status === "error" ? p.message : "";
-    const partial = !a ? "Stockfish is analyzing this game."
-      : failed ? `Your past games could not be loaded (${failed}), so this recap has no patterns.`
+    const partial = failed ? `Your past games could not be loaded (${failed}), so this recap has no patterns.`
+      : !a && !err ? "Stockfish is analyzing this game."
       : !profile ? `Adding your patterns. ${p?.status === "building" ? p.progress : ""}`.trim()
       : "Reading your opponent's recent games…";
-    return { status: "recap", recap, games, partial, retry: !failed || !a };
+    // a failed history load is final for now; anything else is still on its way
+    if (failed && (a || err)) jobs.delete(key);
+    return { status: "recap", recap, games, partial, retry: !(failed && (a || err)) };
   } catch (e) {
     return { status: "error", message: (e as Error).message };
   }

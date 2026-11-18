@@ -4,7 +4,7 @@ import { test } from "node:test";
 
 import type { ReviewItem } from "../src/browser/reviewQueue";
 import {
-  afterLookup, cubeLook, dueNow, markFind, markSeen, panelView, pollDelay, REOPEN, REVIEW, reviewCard, takeReopen,
+  afterLookup, cubeLook, dueNow, markFind, markSeen, panelView, pollDelay, REOPEN, REVIEW, reviewCard, StallWatch, takeReopen,
   takeReview, wasSeen, whenNext, type Store,
 } from "../src/extension/panelModel";
 
@@ -123,4 +123,19 @@ test("review cards: the board link drops when the board already shows it, and th
   assert.deepEqual(done, { kind: "done", summary: "That's all for now: 3 found, 1 missed. Next review tomorrow.", back: "show" });
   assert.deepEqual(reviewCard([], null, "idle", false, HOME, { found: 0, missed: 0 }, ""),
     { kind: "done", summary: "Nothing to review right now.", back: null });
+});
+
+test("stutter: two long frames within 5 seconds make one report, ignoring page loading and hidden tabs", () => {
+  const w = new StallWatch(0);
+  assert.equal(w.frame(2_000, 300, true), false, "still loading");
+  assert.equal(w.frame(2_500, 300, true), false);
+  assert.equal(w.frame(10_000, 80, true), false, "short frames do not count");
+  assert.equal(w.frame(10_000, 150, true), false, "one is not enough");
+  assert.equal(w.frame(11_000, 150, true), true);
+  assert.equal(w.frame(12_000, 150, true), false, "at most one report per window");
+  assert.equal(w.frame(13_000, 150, true), false);
+  assert.equal(w.frame(17_000, 150, true), true);
+  assert.equal(w.frame(30_000, 400, false), false, "a hidden tab does not count");
+  assert.equal(w.frame(30_500, 400, false), false);
+  assert.equal(w.frame(40_000, 150, true), false, "an old stutter has expired");
 });

@@ -1,7 +1,7 @@
 // Full analysis in the browser, producing the same payload shape as the
 // Python server's /api/analyze (chesscheck/pipeline.py to_payload), so the page
 // renders either one.
-import { analyseGames, BLUNDER_DROP, DEEP_DEPTH_BROWSER, moveLabel, phaseSummary, recheckBlunders, worstBlunders } from "./engine";
+import { analyseGames, BLUNDER_DROP, DEEP_DEPTH_BROWSER, moveLabel, phaseSummary, recheckBlunders, worstBlunders, type Pacer } from "./engine";
 import { fetchGames } from "./games";
 import { buildFacts } from "./facts";
 import { summarize } from "./summary";
@@ -14,6 +14,8 @@ export const STAGES = ["Fetch games", "Run Stockfish", "Double-check blunders", 
 export interface BrowserOptions {
   username: string; games: number; timeClass: string | null; depth: number; engineUrl: string;
   onStatus?: (msg: string) => void; signal?: AbortSignal;
+  /** An adaptive worker count (pace.ts) for builds that run in the background; fixed otherwise. */
+  pace?: Pacer;
   /** stage = index into STAGES; frac = progress within it (null if unknown) */
   onProgress?: (stage: number, frac: number | null, text: string) => void;
   /** Called once the games are in, before Stockfish runs, with what needs no engine: the overall
@@ -56,13 +58,13 @@ export async function analyzeInBrowser(o: BrowserOptions) {
     overall: overall(rows), openings, phases: null, blunders: [], risk: null, facts: [], engine: false, tactics: null, pending: true });
   const t0 = performance.now();
   const analyses = await analyseGames(games, {
-    depth: o.depth, engineUrl: o.engineUrl, signal: o.signal,
+    depth: o.depth, engineUrl: o.engineUrl, signal: o.signal, pace: o.pace,
     onProgress: (done, total, cached) => report(1, done / total,
       `Stockfish is checking every move: game ${done} of ${total}${cached ? ` (${cached} saved from before)` : ""}${eta(t0, done, total, cached)}`),
   });
   const t1 = performance.now();
   report(2, 0, "Double-checking blunders with a deeper search…");
-  await recheckBlunders(analyses, { engineUrl: o.engineUrl, signal: o.signal, onProgress: (done, total) =>
+  await recheckBlunders(analyses, { engineUrl: o.engineUrl, signal: o.signal, pace: o.pace, onProgress: (done, total) =>
     report(2, done / total, `Double-checking blunders at depth ${DEEP_DEPTH_BROWSER}: ${done} of ${total}${eta(t1, done, total)}`) });
   report(3, null, "Finding patterns: tactics, pieces, openings and time pressure…");
   await new Promise(r => setTimeout(r, 0));   // let the status paint

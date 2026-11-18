@@ -258,8 +258,13 @@ async function analyseOne(eng: Engine, game: Game, depth: number): Promise<Store
   return { url: game.url, moves, opening_eval_white: openingEval };
 }
 
+/** A worker count that can change while a pool runs (pace.ts): workers past `active()` wait
+ *  between tasks without being shut down, so they can be picked up again at once. */
+export interface Pacer { readonly max: number; active(): number }
+const idle = () => new Promise(r => setTimeout(r, 250));
+
 export interface PoolOptions { depth: number; workers?: number; engineUrl: string;
-  onProgress?: (done: number, total: number, cached: number) => void; signal?: AbortSignal; }
+  onProgress?: (done: number, total: number, cached: number) => void; signal?: AbortSignal; pace?: Pacer; }
 
 export async function analyseGames(games: Game[], opts: PoolOptions): Promise<GameAnalysis[]> {
   const db = await openDb();
@@ -270,7 +275,7 @@ export async function analyseGames(games: Game[], opts: PoolOptions): Promise<Ga
   let done = cached;
   opts.onProgress?.(done, games.length, cached);
 
-  const n = Math.max(1, Math.min(opts.workers ?? defaultWorkers(), todo.length));
+  const n = Math.max(1, Math.min(opts.pace?.max ?? opts.workers ?? defaultWorkers(), todo.length));
   const engines: Engine[] = [];
   // Cancelling stops the engines mid-search instead of after the game each is working on.
   const stop = () => engines.forEach(e => e.terminate());
@@ -282,9 +287,10 @@ export async function analyseGames(games: Game[], opts: PoolOptions): Promise<Ga
       await Promise.all(engines.map(e => e.init()));
     }
     let next = 0;
-    await Promise.all(engines.map(async eng => {
+    await Promise.all(engines.map(async (eng, k) => {
       while (next < todo.length) {
         if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+        if (opts.pace && k >= opts.pace.active()) { await idle(); continue; }
         const i = todo[next++];
         const res = await analyseOne(eng, games[i], opts.depth);
         out[i] = res;
@@ -319,7 +325,7 @@ export const DEEP_DEPTH_BROWSER = 14;
  * depth, position by position, so a later call checks only what is still missing. */
 export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: number; engineUrl: string;
   workers?: number; onProgress?: (done: number, total: number) => void; signal?: AbortSignal;
-  only?: (m: MoveRow) => boolean }): Promise<void> {
+  only?: (m: MoveRow) => boolean; pace?: Pacer }): Promise<void> {
   const depth = opts.depth ?? DEEP_DEPTH_BROWSER;
   const db = await openDb();
   const key = (a: GameAnalysis) => `deep_v1_${a.url.split("/").pop()}_d${depth}`;
@@ -329,7 +335,7 @@ export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: 
     .filter(m => m.wp_loss >= BLUNDER_DROP && (opts.only?.(m) ?? true) && !cached[i][String(m.ply)])
     .map(m => ({ i, m })));
   let done = 0;
-  const n = Math.max(1, Math.min(opts.workers ?? defaultWorkers(), tasks.length));
+  const n = Math.max(1, Math.min(opts.pace?.max ?? opts.workers ?? defaultWorkers(), tasks.length));
   const engines: Engine[] = [];
   const stop = () => engines.forEach(e => e.terminate());
   opts.signal?.addEventListener("abort", stop);
@@ -339,9 +345,10 @@ export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: 
     const left = new Map<number, number>();               // positions still to check, per game
     for (const t of tasks) left.set(t.i, (left.get(t.i) ?? 0) + 1);
     let next = 0;
-    await Promise.all(engines.map(async eng => {
+    await Promise.all(engines.map(async (eng, k) => {
       while (next < tasks.length) {
         if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+        if (opts.pace && k >= opts.pace.active()) { await idle(); continue; }
         const { i, m } = tasks[next++];
         const c = new Chess(m.fen);
         const r1 = await eng.analyse(m.fen, depth);

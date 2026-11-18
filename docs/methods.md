@@ -551,6 +551,35 @@ its denominator. Player summaries pool the underlying moves or eligible games.
 Each rate includes its denominator in a matching `_n` column and is null when
 that denominator is zero.
 
+### Engine profiles against the odds formula, full sample
+
+`scripts/eval_engine_odds.py` asks the odds question again on all 14,739 targets in the dataset.
+The earlier engine tests used 995. Each player's profile comes only from the 50 blitz games listed
+for that target, all of which ended before it started. The baseline is the app's own formula. Each
+model adds a group of features as focal-minus-opponent differences in a win/draw/loss logistic
+regression, with C chosen inside each training fold, five folds grouped by focal player, and a
+paired bootstrap over players.
+
+| Model | Brier | Gain (90% interval) |
+|---|---:|---:|
+| App formula, fixed | 0.23853 | |
+| Formula refit on this sample | 0.23849 | +0.00004 (−0.00010 to +0.00018) |
+| + results against rating, rating climb (no engine) | 0.23844 | +0.00006 (−0.00006 to +0.00018) |
+| + move quality (win-% lost, blunders, best-move rates) | 0.23852 | −0.00008 (−0.00016 to +0.00001) |
+| + loss by phase | 0.23845 | −0.00001 (−0.00010 to +0.00008) |
+| + low-clock loss, time on critical moves | 0.23848 | −0.00004 (−0.00014 to +0.00006) |
+| + conversion, resilience, results after move 20 | 0.23843 | +0.00000 (−0.00012 to +0.00012) |
+| + form (last 15 games against the 35 before) | 0.23848 | −0.00004 (−0.00010 to +0.00002) |
+| + implied rating (rating predicted from move quality, minus actual) | 0.23843 | +0.00001 (−0.00005 to +0.00007) |
+| + all engine features | 0.23855 | −0.00011 (−0.00028 to +0.00005) |
+
+Engine gains are measured against the no-engine history row. None of them helps, and all of them
+together make predictions slightly worse. The profiles are real (win-% lost correlates −0.28 with
+rating, critical best-move rate +0.21, conversion +0.22), but the rating has already priced them
+in. The widest interval is 0.00033 wide, so this sample rules out any engine effect that shifts a
+typical game's expected score by more than about 2 points. With 15 times the data, the result
+matches the 995-game test.
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

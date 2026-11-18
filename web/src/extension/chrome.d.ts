@@ -2,6 +2,7 @@
 declare namespace chrome {
   namespace runtime {
     function getURL(path: string): string;
+    function reload(): void;
     function sendMessage<T = unknown>(msg: unknown): Promise<T>;
     const onMessage: {
       addListener(cb: (msg: any, sender: unknown, sendResponse: (r: unknown) => void) => boolean | void): void;
@@ -16,6 +17,9 @@ declare namespace chrome {
     const onChanged: {
       addListener(cb: (changes: Record<string, { oldValue?: unknown; newValue?: unknown }>, area: string) => void): void;
     } | undefined;
+  }
+  namespace management {
+    function getSelf(): Promise<{ installType: "admin" | "development" | "normal" | "sideload" | "other" }>;
   }
   namespace tabs {
     interface Tab { id?: number; url?: string; active?: boolean }

@@ -10,6 +10,8 @@ import { gameFromCallback, type Callback } from "../browser/callbackGame";
 import type { GameAnalysis } from "../browser/engine";
 import { analyzeGame, type Profile } from "../browser/follow";
 import { fetchGames, type Game } from "../browser/games";
+import { defaultWorkers } from "../browser/engine";
+import { Pace, startingWorkers } from "../browser/pace";
 import { analyzeInBrowser } from "../browser/pipeline";
 import { buildRecap, opponentNote, type Recap } from "../browser/recap";
 import { findRate } from "../browser/findRate";
@@ -22,6 +24,8 @@ export type Request =
   | { type: "warm"; username: string }
   | { type: "stop" }                           // a game is starting: stop any profile build now
   | { type: "seed"; username: string }         // past blunders to start an empty review queue
+  | { type: "stalls" }                         // the page the cube is on stuttered (pace.ts)
+  | { type: "pace" }                           // the worker count now, for testing
   | { type: "rate"; items: { id: string; fen: string; best: string; rating: number }[] }   // find rates (findRate.ts)
   | { type: "recap"; username: string; kind: "live" | "daily"; gameId: string; callback: Callback };
 export type Reply =
@@ -33,6 +37,7 @@ export type Reply =
   | { status: "recap"; recap: Recap; games: number; partial?: string; retry?: boolean }
   | { status: "seed"; items: ReviewItem[] }    // empty until a profile exists
   | { status: "rates"; rates: Record<string, number | null> }
+  | { status: "pace"; workers: number | null; max: number; remembered: number | null }
   | { status: "error"; message: string };
 
 const ENGINE_URL = typeof chrome !== "undefined" && chrome.runtime?.getURL
@@ -73,10 +78,20 @@ function startJob(key: string, game: Game): GameJob {
 }
 const mainClass = new Map<string, string>();   // the time class each player plays most
 
+// Profile builds run in the background while you use Chess.com, so their worker count adapts
+// (pace.ts) and the count that worked is remembered on this device for the next build.
+const WORKERS_KEY = "chess-check-workers";
+let pace: Pace | null = null;
+function rememberedWorkers(): number | null {
+  try { const n = Number(localStorage.getItem(WORKERS_KEY)); return n > 0 ? n : null; } catch { return null; }
+}
+
 function build(slot: Slot, key: string, username: string, timeClass: string, games: number) {
   slot.progress = `Analyzing ${username}'s last ${games} ${timeClass} games…`;
   const abort = slot.abort = new AbortController();
-  slot.building = analyzeInBrowser({ username, games, timeClass, depth: 8, engineUrl: ENGINE_URL,
+  const max = defaultWorkers();
+  const mine = pace = new Pace({ max, start: startingWorkers(max, rememberedWorkers()) });
+  slot.building = analyzeInBrowser({ username, games, timeClass, depth: 8, engineUrl: ENGINE_URL, pace: mine,
     signal: abort.signal, onProgress: (_s, _f, text) => { slot.progress = text; } })
     .then(async run => {
       const profile: Profile = { username: run.username, timeClass, rows: run.gameRows, openings: run.openings,
@@ -85,7 +100,13 @@ function build(slot: Slot, key: string, username: string, timeClass: string, gam
       await saveProfile(key, { profile, games, savedAt: Date.now() });
     })
     .catch(e => { if (!abort.signal.aborted && !slot.profile) slot.error = (e as Error).message; })
-    .finally(() => { slot.building = null; });
+    .finally(() => {
+      slot.building = null;
+      if (pace === mine) {
+        pace = null;
+        if (!abort.signal.aborted) { try { localStorage.setItem(WORKERS_KEY, String(mine.remember)); } catch { /* not remembered */ } }
+      }
+    });
 }
 
 /** Start or report the profile for this player and time class; null when one is ready to use.
@@ -118,6 +139,10 @@ export async function handle(req: Request): Promise<Reply> {
         if (!slot.profile) slots.delete(key);
       }
       return { status: "ready" };
+    }
+    if (req.type === "stalls") { pace?.stall(); return { status: "ready" }; }
+    if (req.type === "pace") {
+      return { status: "pace", workers: pace ? pace.active() : null, max: defaultWorkers(), remembered: rememberedWorkers() };
     }
     if (req.type === "rate") {
       // the cube's script does without chess.js, so the find rate is worked out here

@@ -17,8 +17,8 @@ import { esc, moveLink, quizHint, recapCard, tacticSentence } from "../ui/recapC
 import type { Callback } from "../browser/callbackGame";
 import { gameIdFromPage } from "./guard";
 import {
-  afterLookup, cubeLook, daysAgo, dueNow, markFind, markSeen, panelView, reviewAllowed, reviewCard, takeReopen,
-  takeReview, wasSeen, whenNext, type State, type View,
+  afterLookup, cubeLook, daysAgo, dueNow, markFind, markSeen, panelView, reviewAllowed, reviewCard, StallWatch,
+  takeReopen, takeReview, wasSeen, whenNext, type State, type View,
 } from "./panelModel";
 import type { Reply, Request } from "./offscreen";
 
@@ -479,6 +479,20 @@ async function requestRecap() {
     case "ready": break;
   }
 }
+
+// Tell the analysis page when this page stutters, so a background profile build uses fewer workers
+// (browser/pace.ts). Long frames are measured by the browser; only their timing is read.
+try {
+  const watch = new StallWatch(performance.now());
+  const type = PerformanceObserver.supportedEntryTypes?.includes("long-animation-frame") ? "long-animation-frame" : "longtask";
+  new PerformanceObserver(list => {
+    for (const e of list.getEntries()) {
+      if (watch.frame(e.startTime + e.duration, e.duration, document.visibilityState === "visible")) {
+        void ask({ type: "stalls" }).catch(() => { /* no build to slow down */ });
+      }
+    }
+  }).observe({ type, buffered: false });
+} catch { /* the browser cannot report long frames */ }
 
 // Chess.com changes pages without reloading, so watch the address.
 let lastUrl = "";

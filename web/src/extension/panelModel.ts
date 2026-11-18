@@ -146,3 +146,25 @@ export function markSeen(store: Store, id: string | null) {
   if (!id || wasSeen(store, id)) return;
   safe(() => store.setItem(SEEN, [...(store.getItem(SEEN) ?? "").split(",").filter(Boolean).slice(-20), id].join(",")), undefined);
 }
+
+// ---------- stutter on the page, for the adaptive worker count (browser/pace.ts) ----------
+
+export const STALL_MS = 100;        // a frame this long is a visible stutter
+const STALL_WINDOW_MS = 5_000;      // two stutters within this long are reported, at most once per window
+const SETTLE_MS = 5_000;            // a page's own loading is not counted
+
+/** Counts long frames on the page and says when to tell the analysis page to ease off. Only the
+ *  timing of frames is read, nothing about the page's content. */
+export class StallWatch {
+  private recent: number[] = [];
+  private lastReport = -Infinity;
+  constructor(private readonly loadedAt: number) {}
+  /** A frame of `duration` ms ended at `t`; true when this makes a report due. */
+  frame(t: number, duration: number, visible: boolean): boolean {
+    if (!visible || duration < STALL_MS || t - this.loadedAt < SETTLE_MS) return false;
+    this.recent = [...this.recent.filter(x => t - x < STALL_WINDOW_MS), t];
+    if (this.recent.length < 2 || t - this.lastReport < STALL_WINDOW_MS) return false;
+    this.lastReport = t; this.recent = [];
+    return true;
+  }
+}

@@ -34,6 +34,8 @@ interface Payload {
   overall: { games: number; score: number; expected: number; resid: number; avg_rating: number; se: number | null };
   openings: Opening[]; phases: Record<string, Phase> | null; blunders: Blunder[];
   risk: Risk | null; facts: Fact[]; engine: boolean; tactics?: Tactics | null;
+  /** Openings only, while Stockfish is still checking the moves (the browser shows these first). */
+  pending?: boolean;
 }
 interface Unsupported { type: string; claim: string | number; sentence: string; }
 interface Verification { checked: number; unsupported: Unsupported[]; bad_citations: string[]; ok: boolean; unsupported_rate: number; }
@@ -158,6 +160,13 @@ function findings(p: Payload): Finding[] {
     if (b.ci_low > 1) out.push({ level: "weak", title: "You blunder more in time trouble", detail: `With ${b.label}: ${b.actual} blunders vs ${b.expected.toFixed(0)} expected.`, score: 280 });
     else if (b.ci_high < 1) out.push({ level: "good", title: "You handle time trouble well", detail: `With ${b.label}: ${b.actual} blunders vs ${b.expected.toFixed(0)} expected.`, score: 8 });
   }
+  if (p.pending) {
+    const opening = out.filter(f => f.level !== "good").sort((a, b) => b.score - a.score).slice(0, 3);
+    return [...opening, pendingCancelled
+      ? { level: "info", title: "Move check cancelled", score: 0, detail: pendingNote }
+      : { level: "info", title: "Checking every move", score: 0,
+          detail: "Stockfish is going through your games. Tactics, pieces and time-pressure findings appear here when it is done." }];
+  }
   const problems = out.filter(f => f.level !== "good").sort((a, b) => b.score - a.score);
   const goods = out.filter(f => f.level === "good").sort((a, b) => b.score - a.score);
   const shown = [...problems.slice(0, 3), ...goods.slice(0, problems.length ? 1 : 3)];
@@ -198,6 +207,7 @@ function chip(verdict: string, higher: boolean): string {
 function renderTactics(p: Payload) {
   const t = p.tactics;
   const el = $("tactics");
+  if (p.pending) { el.innerHTML = `<p class="note">${esc(pendingNote)}</p>`; return; }
   if (!t) { el.innerHTML = `<p class="note">Tactic analysis needs the engine, which was not available for this analysis.</p>`; return; }
   const per1k = (n: number, moves: number) => (moves ? (1000 * n) / moves : 0);
   const motifBox = (kind: "allowed" | "missed", title: string, sub: string) => {
@@ -298,6 +308,11 @@ const ratioText = (r: RiskBand) => `${r.ratio.toFixed(2)}×` +
   (r.ci_low !== undefined ? ` <span class="ci">(${r.ci_low.toFixed(2)}–${r.ci_high!.toFixed(2)})</span>` : "");
 
 function renderPhases(p: Payload) {
+  if (p.pending) {
+    for (const id of ["phases", "risk", "blunders"]) $(id).innerHTML = "";
+    $("phases").innerHTML = `<p class="note">${esc(pendingNote)}</p>`;
+    return;
+  }
   if (!p.phases) { $("phases").innerHTML = `<p class="note">Engine analysis was not available.</p>`; return; }
   const worst = Object.entries(p.phases).filter(([, v]) => v.moves).sort((a, b) => b[1].avg_loss - a[1].avg_loss)[0]?.[0];
   $("phases").innerHTML = Object.entries(p.phases).filter(([, v]) => v.moves).map(([k, v]) =>
@@ -384,9 +399,13 @@ document.querySelector(".tabs")?.addEventListener("keydown", ev => {
 document.querySelectorAll<HTMLButtonElement>(".tabs button").forEach(b =>
   b.addEventListener("click", () => selectTab(b.id.slice(2))));
 
+let pendingNote = "";
+let pendingCancelled = false;
+
 function render(p: Payload) {
   current = p;
-  if (STATIC?.browser) {
+  if (p.pending) $("followCta").hidden = true;      // following needs the full analysis
+  if (STATIC?.browser && !p.pending) {
     $("followCta").hidden = false;
     if (!follower) ($("followBtn") as HTMLButtonElement).textContent = `Follow ${p.username}'s games`;
   }
@@ -409,17 +428,35 @@ async function analyze(ev: Event) {
   if (current && new URLSearchParams(location.search).get("follow") === "1") void startFollow();
 }
 
+let running: AbortController | null = null;
+
 async function runAnalysis(username: string, games: number, time_class: string | null): Promise<boolean> {
   const btn = $("go") as HTMLButtonElement;
   btn.disabled = true;
   $("coach").innerHTML = "";
   setStatus("");
+  const run = running = new AbortController();
+  let early = false;              // whether the openings are already on screen
   try {
     let p: Payload;
     if (STATIC?.browser) {
       showProgress(0, null, `Fetching ${username}'s games from Chess.com…`);
+      $("cancelBtn").hidden = false;
       p = await analyzeInBrowser({ username, games, timeClass: time_class, depth: BROWSER_DEPTH, engineUrl: ENGINE_URL,
-        onStatus: () => undefined, onProgress: (stage, frac, text) => showProgress(stage, frac, text) });
+        signal: run.signal, onStatus: () => undefined, onProgress: (stage, frac, text) => showProgress(stage, frac, text),
+        onPartial: partial => {
+          // Openings need no engine: show them now and keep the progress bar in view above them.
+          pendingNote = "Stockfish is checking every move. This tab fills in when it is done.";
+          pendingCancelled = false;
+          $("snapshot").innerHTML = `<span><strong>Analyzing ${esc(partial.username)}'s games in your browser.</strong>
+            Openings first; tactics and time pressure follow when Stockfish is done.</span>`;
+          $("snapshot").hidden = false;
+          render(partial as unknown as Payload);
+          selectTab("openings");
+          $("progress").classList.add("sticky");
+          early = true;
+          $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+        } });
       browserRun = p as Awaited<ReturnType<typeof analyzeInBrowser>>;
       $("keyBox").hidden = false;
       ($("coachBtn") as HTMLButtonElement).textContent = `Write ${p.username}'s coaching report`;
@@ -433,17 +470,31 @@ async function runAnalysis(username: string, games: number, time_class: string |
     }
     lastReq = { username, games, time_class };
     render(p);
-    selectTab("tactics");
-    $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!early) {
+      selectTab("tactics");
+      $("results").scrollIntoView({ behavior: "smooth", block: "start" });
+    }
     return true;
   } catch (e) {
-    setStatus((e as Error).message, true);
+    if (run.signal.aborted) {
+      // keep the openings if they are showing, and say plainly what is missing
+      if (early && current?.pending) {
+        pendingNote = "Cancelled before Stockfish finished. Analyze again to see tactics and time pressure.";
+        pendingCancelled = true;
+        render(current);
+      }
+      setStatus("Analysis cancelled.");
+    } else setStatus((e as Error).message, true);
     return false;
   } finally {
+    if (running === run) running = null;
+    $("cancelBtn").hidden = true;
+    $("progress").classList.remove("sticky");
     showProgress(null, null, "");
     btn.disabled = false;
   }
 }
+$("cancelBtn").addEventListener("click", () => running?.abort());
 
 // ---------- follow mode: a recap after every finished game ----------
 

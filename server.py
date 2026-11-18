@@ -7,7 +7,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import threading
 import time
+from collections import OrderedDict
+from concurrent.futures import Future
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
@@ -25,8 +28,13 @@ load_env()
 app = FastAPI(title="Chess Check")
 WEB = Path(__file__).parent / "web"
 USER_RE = re.compile(r"^[A-Za-z0-9_-]{3,25}$")
-_cache: dict[tuple, tuple[float, Analysis]] = {}
 CACHE_TTL = 3600
+CACHE_MAX = int(os.environ.get("CHESS_CHECK_CACHE_MAX", 32))     # finished analyses kept in memory
+MAX_JOBS = int(os.environ.get("CHESS_CHECK_MAX_JOBS", 2))        # analyses allowed to run at once
+_cache: OrderedDict[tuple, tuple[float, Analysis]] = OrderedDict()
+_inflight: dict[tuple, Future] = {}
+_state = threading.Lock()
+_jobs = threading.BoundedSemaphore(MAX_JOBS)
 # Small hosts (e.g. Render's free tier) set these to keep requests fast.
 MAX_GAMES = int(os.environ.get("CHESS_CHECK_MAX_GAMES", 400))
 ENGINE_DEPTH = int(os.environ.get("CHESS_CHECK_ENGINE_DEPTH", 10))
@@ -42,19 +50,53 @@ def _key(r: AnalyzeReq) -> tuple:
     return (r.username.lower(), min(r.games, MAX_GAMES), r.time_class)
 
 
+def _cached(key: tuple) -> Analysis | None:
+    """A fresh cached analysis, dropping expired entries on the way (call with _state held)."""
+    now = time.time()
+    for k in [k for k, (t, _) in _cache.items() if now - t >= CACHE_TTL]:
+        del _cache[k]
+    hit = _cache.get(key)
+    if hit:
+        _cache.move_to_end(key)
+    return hit[1] if hit else None
+
+
 def _get(r: AnalyzeReq) -> Analysis:
+    """One analysis per request key: identical requests that arrive while it runs wait for the same
+    result, at most MAX_JOBS analyses run at once, and the cache keeps at most CACHE_MAX results."""
     if not USER_RE.match(r.username):
         raise HTTPException(400, "That doesn't look like a Chess.com username.")
-    hit = _cache.get(_key(r))
-    if hit and time.time() - hit[0] < CACHE_TTL:
-        return hit[1]
+    key = _key(r)
+    with _state:
+        hit = _cached(key)
+        if hit is not None:
+            return hit
+        job = _inflight.get(key)
+        owner = job is None
+        if owner:
+            job = _inflight[key] = Future()
+    if not owner:
+        return job.result()          # the same result, or the same error, as the request running it
     try:
-        a = analyze(r.username, max_games=min(r.games, MAX_GAMES),
-                    time_class=r.time_class, depth=ENGINE_DEPTH)
-    except ValueError as e:
-        raise HTTPException(404, str(e))
-    _cache[_key(r)] = (time.time(), a)
-    return a
+        with _jobs:
+            try:
+                a = analyze(r.username, max_games=min(r.games, MAX_GAMES),
+                            time_class=r.time_class, depth=ENGINE_DEPTH)
+            except ValueError as e:
+                raise HTTPException(404, str(e))
+        with _state:
+            _cache[key] = (time.time(), a)
+            _cache.move_to_end(key)
+            while len(_cache) > CACHE_MAX:
+                _cache.popitem(last=False)
+        job.set_result(a)
+        return a
+    except BaseException as e:
+        job.set_exception(e)
+        raise
+    finally:
+        with _state:
+            _inflight.pop(key, None)
 
 
 @app.post("/api/analyze")

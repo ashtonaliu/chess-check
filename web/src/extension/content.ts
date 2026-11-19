@@ -473,8 +473,10 @@ async function check() {
   try {
     const g = await fetchGame(id, url);
     if (gameIdFromPage(pageUrl()) !== id) return;          // the page changed while we waited
-    const step = afterLookup(g && { finished: !!g.callback.game.isFinished, ...g.players }, url, signedInUser(), accounts,
-                             g?.callback.game.isFinished ? takeReview(store, id) : null);
+    // the markers left by "Find it on the board" are used only once the game is finished
+    const finished = !!g?.callback.game.isFinished;
+    const step = afterLookup(g && { finished, ...g.players }, url, signedInUser(), accounts,
+                             finished ? takeReview(store, id) : null, finished && takeReopen(store, id));
     if (step.next === "pending") {
       // still being played: make sure no analysis is running, and ask again shortly
       void ask({ type: "stop" }).catch(() => {});
@@ -483,10 +485,11 @@ async function check() {
       return;
     }
     served = g; players = g!.players;
-    if (step.next === "choose") { setState("choose"); return; }
+    if (step.next === "choose") { setState("choose"); if (step.open) togglePanel(true); return; }
     viewer = step.viewer;
     if (queueOwner !== viewer.toLowerCase()) await loadQueue(viewer);
     if (step.next === "review") { setState("finished"); openReview(step.item); return; }
+    if (step.open) { view = "game"; togglePanel(true); }
   } catch (e) { setState("error", (e as Error).message); return; }
   view = "game";
   await requestRecap();
@@ -507,7 +510,6 @@ async function requestRecap() {
       recap = reply.recap; basis = reply.games; partial = reply.partial ?? "";
       if (!reply.partial) void collect(recap, viewer);     // complete, so the profile exists too
       if (state !== "ready" || !panel.classList.contains("hidden")) setState("ready");
-      if (takeReopen(store, id)) togglePanel(true);
       if (reply.partial && reply.retry !== false) timer = setTimeout(requestRecap, 1000);
       break;
     case "error": setState("error", reply.message); break;

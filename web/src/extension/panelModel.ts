@@ -89,9 +89,9 @@ export function reviewCard(due: ReviewItem[], current: string | null, state: Sta
 
 export type AfterLookup =
   | { next: "pending"; delay: number }
-  | { next: "choose" }
+  | { next: "choose"; open?: true }
   | { next: "review"; viewer: string; item: string }
-  | { next: "recap"; viewer: string };
+  | { next: "recap"; viewer: string; open?: true };
 
 /**
  * What to do once Chess.com's game endpoint has answered for the game on the page: wait (no game
@@ -99,12 +99,17 @@ export type AfterLookup =
  * ask for the recap.
  */
 export function afterLookup(game: { finished: boolean; white: string; black: string } | null, pageUrl: string,
-                            signedIn: string | null, accounts: string[], reviewing: string | null): AfterLookup {
+                            signedIn: string | null, accounts: string[], reviewing: string | null,
+                            reopen = false): AfterLookup {
   if (!game || !game.finished) return { next: "pending", delay: pollDelay(pageUrl) };
   const me = signedIn?.toLowerCase();
   const viewer = [game.white, game.black].find(n => me ? n.toLowerCase() === me : accounts.includes(n.toLowerCase()));
-  if (!viewer) return { next: "choose" };
-  return reviewing ? { next: "review", viewer, item: reviewing } : { next: "recap", viewer };
+  // Back from "Find it on the board": the panel opens now, before the recap is ready, and fills in.
+  // Waiting for the recap left it closed whenever that load ended another way (an error, the
+  // player choice, a reply cut short by the page changing).
+  const open = reopen ? { open: true as const } : {};
+  if (!viewer) return { next: "choose", ...open };
+  return reviewing ? { next: "review", viewer, item: reviewing } : { next: "recap", viewer, ...open };
 }
 
 // ---------- markers kept across page loads (sessionStorage, per tab) ----------

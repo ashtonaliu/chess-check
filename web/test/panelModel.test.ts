@@ -139,3 +139,19 @@ test("stutter: two long frames within 5 seconds make one report, ignoring page l
   assert.equal(w.frame(30_500, 400, false), false);
   assert.equal(w.frame(40_000, 150, true), false, "an old stutter has expired");
 });
+
+test("back from \"Find it on the board\", the panel opens as soon as the game is looked up", () => {
+  const g = { finished: true, white: "YodaRampage", black: "ashton-iwnl" };
+  // opened before the recap is ready, so a slow, failed or cut-short recap request cannot leave it closed
+  assert.deepEqual(afterLookup(g, GAME, "ashton-iwnl", [], null, true), { next: "recap", viewer: "ashton-iwnl", open: true });
+  assert.deepEqual(afterLookup(g, GAME, null, [], null, true), { next: "choose", open: true }, "the player choice shows too");
+  // never while the game is in play
+  assert.deepEqual(afterLookup({ ...g, finished: false }, GAME, "ashton-iwnl", [], null, true), { next: "pending", delay: 5_000 });
+  // the marker is used once
+  const store = new Map<string, string>();
+  const s = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => void store.set(k, v),
+              removeItem: (k: string) => void store.delete(k) };
+  markFind(s, "game", "187502325560", null);
+  assert.equal(takeReopen(s, "187502325560"), true);
+  assert.equal(takeReopen(s, "187502325560"), false);
+});

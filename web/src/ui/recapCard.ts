@@ -107,7 +107,7 @@ function recapDetails(r: Recap, col: string): string {
   const resultPos = r.score * 100, expPos = r.expected * 100;
   const resultColor = r.score === 1 ? "var(--good)" : r.score === 0 ? "var(--weak)" : "var(--neutral)";
   const meter = r.odds === "unknown" ? "" : `<div class="meter" title="A win is 1 point and a draw is half a point. The line marks the expected score. The dot marks the result.">
-    <p><span class="lbl">Expected score</span>Before the game, ratings suggested ${r.odds === "estimated" ? "about " : ""}${r.expected.toFixed(2)} points out of 1.</p>
+    <p><span class="lbl">Expected score</span>Before the game, ratings expected you to score ${r.odds === "estimated" ? "about " : ""}${Math.round(expPos)}%.</p>
     <div class="track" aria-hidden="true"><span class="mark" style="left:${expPos.toFixed(1)}%"></span>
       <span class="result" style="left:${resultPos}%;background:${resultColor}"></span></div>
     <div class="labels" aria-hidden="true"><span>Loss</span><span>Draw</span><span>Win</span></div></div>`;

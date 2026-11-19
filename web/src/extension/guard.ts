@@ -41,3 +41,14 @@ export function canReview(pageUrl: string, gameConfirmedOver: boolean): boolean 
   if (isPlayPage(u)) return false;
   return !gameIdFromPage(pageUrl) || gameConfirmedOver;
 }
+
+/** Aliases for the same finished game share a key. Play and public pages have their own keys. */
+export function pageSafetyKey(url: string | undefined): string | null {
+  if (!url) return null;
+  let page: URL;
+  try { page = new URL(url); } catch { return null; }
+  if (page.protocol !== "https:" || !["www.chess.com", "chess.com"].includes(page.hostname)) return null;
+  if (isPlayPage(page)) return "play";
+  const game = gameIdFromPage(url);
+  return game ? `game:${game}` : "other";
+}

@@ -50,7 +50,7 @@ The extension runs packaged JavaScript and WebAssembly. Network requests to Ches
 
 **Data handling**
 
-Disclose Chess.com usernames, game URLs and IDs, game records, board and move data, ratings, review activity, preferences, and frame timings for local performance tuning. Chrome sends existing Chess.com cookies when requesting a game from the Chess.com game endpoint. The extension uses this data for its single purpose, keeps analysis and review progress locally, and sends no game or analysis data to the developer or analytics providers. Match the dashboard’s data categories and declarations to the policy and the version being uploaded.
+Disclose Chess.com usernames, Chess.com tab addresses, game URLs and IDs, game records, board and move data, ratings, review activity, preferences, and frame timings for local performance tuning. Chrome sends existing Chess.com cookies when requesting a game from the Chess.com game endpoint. The extension uses this data for its single purpose, keeps analysis and review progress locally, and sends no game or analysis data to the developer or analytics providers. Match the dashboard’s data categories and declarations to the policy and the version being uploaded.
 
 ## Assets
 

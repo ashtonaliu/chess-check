@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chess Check extension privacy policy</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="https://ashtonaliu.github.io/chess-check/"><span class="logo" aria-hidden="true">♞</span> Chess Check</a>
+  </header>
+  <main>
+    <h1>Chess Check extension privacy policy</h1>
+    <p>This policy covers the Chrome extension. Its purpose is to recap finished Chess.com games and let you practice positions from those games.</p>
+
+    <h2>What the extension uses</h2>
+    <p>On Chess.com, the extension reads the game ID from the page address and looks for your Chess.com username in the page’s account information or profile link. Signed out, you can pick a player from the game. It reads game results, moves, ratings, clocks, openings and public game history to build recaps and a review queue.</p>
+    <p>The extension also uses frame timings on visible Chess.com pages to reduce background engine work if the page stutters.</p>
+
+    <h2>What leaves this browser</h2>
+    <p>The extension requests game details from Chess.com and public game history from api.chess.com. Those requests include the game ID or the player username needed for the lookup. Chrome sends your existing Chess.com cookies with requests to the Chess.com game endpoint as it normally would for that site. The extension does not read your password or cookie values.</p>
+    <p>Stockfish analysis runs in Chrome. The extension has no analytics service and sends no game data, analysis or review results to the Chess Check developer. The developer does not sell or use extension data for advertising.</p>
+
+    <h2>Local storage and deletion</h2>
+    <p>The extension stores preferences, player selections, game history used for profiles, analysis caches and review progress in your Chrome profile. These records may remain until Chrome clears the relevant storage or you uninstall the extension. Per-tab recap and review markers are stored in the tab’s session storage, which Chrome normally clears when that tab closes.</p>
+
+    <h2>Limited Use and contact</h2>
+    <p>Chess Check’s use of information adheres to the Chrome Web Store User Data Policy, including the Limited Use requirements.</p>
+    <p>For privacy questions, contact the developer through the <a href="https://github.com/ashtonaliu/chess-check/issues">Chess Check issue tracker</a>. Avoid including private information in a public issue.</p>
+  </main>
+</body>
+</html>

@@ -1,0 +1,17 @@
+Stockfish.js 19.0.1 Lite Single
+----------------------------
+Stockfish.js and the bundled Stockfish engine are distributed under the GNU
+General Public License, version 3. See licenses/Stockfish-GPL-3.0.txt.
+
+Upstream source and build instructions for this version:
+https://github.com/nmrugg/stockfish.js/tree/0d5dd7944f88c817c07a26bc4fb1905d5f9c46d6
+
+Chess Check changes the JavaScript engine's zero-delay sleep to yield through
+MessageChannel. The WASM binary is unchanged. The GPL-3.0 build patch is here:
+https://github.com/ashtonaliu/chess-check/blob/b17be94/web/scripts/patchStockfish.mjs
+
+chess.js 1.4.0
+--------------
+Copyright (c) 2025, Jeff Hlywa. Distributed under the BSD 2-Clause License.
+See licenses/chess.js-BSD-2-Clause.txt.
+https://github.com/jhlywa/chess.js

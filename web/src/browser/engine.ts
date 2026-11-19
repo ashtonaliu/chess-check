@@ -13,6 +13,7 @@ export interface MoveRow {
   ply: number; move_no: number; san: string; best: string | null;
   mover: "white" | "black"; is_me: boolean; phase: "opening" | "middlegame" | "endgame";
   fen: string; cp_before: number; cp_after: number; wp_loss: number;
+  shallow_nodes?: number;   // before and after the move; older cache entries have no count
   clock: number | null; clock_frac: number | null; time_spent: number | null;
   legal_moves: number; in_check: number; captures_available: number;
   material_balance: number; non_pawn_material: number; is_capture: number;
@@ -88,10 +89,13 @@ export class Engine {
     this.w.postMessage("isready"); await ready;
   }
   /** Score (centipawns, side-to-move POV, mates as +/-MATE-n), best move and principal variation in UCI. */
-  async analyse(fen: string, depth: number): Promise<{ cp: number; best: string | null; pv: string[] }> {
-    let cp = 0, pv: string[] | null = null;
+  async analyse(fen: string, depth: number): Promise<{ cp: number; best: string | null; pv: string[]; nodes: number }> {
+    let cp = 0, pv: string[] | null = null, nodes = 0;
     const done = this.until(l => l.startsWith("bestmove"), l => {
-      if (!l.startsWith("info") || !l.includes(" score ")) return;
+      if (!l.startsWith("info")) return;
+      const count = l.match(/ nodes (\d+)/);
+      if (count) nodes = Math.max(nodes, Number(count[1]));
+      if (!l.includes(" score ")) return;
       if (/ (lower|upper)bound/.test(l)) return;
       const m = l.match(/ score (cp|mate) (-?\d+)/);
       if (m) {
@@ -105,7 +109,7 @@ export class Engine {
     this.w.postMessage(`go depth ${depth}`);
     const bm = await done;
     const best = bm.split(" ")[1];
-    return { cp, best: pv?.[0] ?? (best && best !== "(none)" ? best : null), pv: pv ?? [] };
+    return { cp, best: pv?.[0] ?? (best && best !== "(none)" ? best : null), pv: pv ?? [], nodes };
   }
   /** Stop the worker; anything still waiting on it is rejected with `reason`. */
   terminate(reason: Error = new DOMException("Cancelled", "AbortError")) {
@@ -226,12 +230,12 @@ async function analyseOne(eng: Engine, game: Game, depth: number): Promise<Store
   const clk = clocks(game.pgn);
   const base = baseSeconds(game.timeControl);
   const c = new Chess();
-  const evalWhite = async (): Promise<{ cpWhite: number; best: string | null }> => {
+  const evalWhite = async (): Promise<{ cpWhite: number; best: string | null; nodes: number }> => {
     const r = await eng.analyse(c.fen(), depth);
     const sign = c.turn() === "w" ? 1 : -1;
-    return { cpWhite: r.cp * sign, best: uciToSan(new Chess(c.fen()), r.best) };
+    return { cpWhite: r.cp * sign, best: uciToSan(new Chess(c.fen()), r.best), nodes: r.nodes };
   };
-  let { cpWhite, best } = await evalWhite();
+  let { cpWhite, best, nodes } = await evalWhite();
   const lastClock: Record<"w" | "b", number | null> = { w: base, b: base };
   const moves: MoveRow[] = [];
   let openingEval: number | null = null;
@@ -255,21 +259,21 @@ async function analyseOne(eng: Engine, game: Game, depth: number): Promise<Store
     const spent = clock !== null && prev !== null ? prev - clock : null;
     lastClock[mover] = clock;
     c.move(mv.san);
-    let cpAfterWhite: number, nextBest: string | null;
+    let cpAfterWhite: number, nextBest: string | null, nextNodes = 0;
     if (c.isCheckmate()) { cpAfterWhite = MATE * sign; nextBest = null; }
     else if (c.isGameOver()) { cpAfterWhite = 0; nextBest = null; }
-    else ({ cpWhite: cpAfterWhite, best: nextBest } = await evalWhite());
+    else ({ cpWhite: cpAfterWhite, best: nextBest, nodes: nextNodes } = await evalWhite());
     const before = cpWhite * sign, after = cpAfterWhite * sign;
     const drop = winPct(before) - winPct(after);
     moves.push({
       ply, move_no: Math.floor(ply / 2) + 1, san: mv.san, best,
       mover: mover === "w" ? "white" : "black", is_me: false, phase, fen,
-      cp_before: before, cp_after: after, wp_loss: Math.round(Math.max(drop, 0) * 10) / 10,
+      cp_before: before, cp_after: after, shallow_nodes: nodes + nextNodes, wp_loss: Math.round(Math.max(drop, 0) * 10) / 10,
       clock, clock_frac: clock !== null && base ? clock / base : null, time_spent: spent,
       is_capture: mv.captured ? 1 : 0, ...feats,
     });
     if (ply + 1 === OPENING_PLIES) openingEval = cpAfterWhite;
-    cpWhite = cpAfterWhite; best = nextBest;
+    cpWhite = cpAfterWhite; best = nextBest; nodes = nextNodes;
   }
   return { url: game.url, moves, opening_eval_white: openingEval };
 }
@@ -395,6 +399,11 @@ export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: 
   const tasks = analyses.flatMap((a, i) => a.moves
     .filter(m => m.wp_loss >= BLUNDER_DROP && (opts.only?.(m) ?? true) && !cached[i][String(m.ply)])
     .map(m => ({ i, m })));
+  // Launch the estimated long searches first so they can overlap with the short ones.
+  // Unmeasured rows from older caches get the median known cost, or keep their order if all are old.
+  const costs = tasks.flatMap(({ m }) => m.shallow_nodes ? [m.shallow_nodes] : []).sort((a, b) => a - b);
+  const typical = costs[Math.floor(costs.length / 2)] ?? 0;
+  tasks.sort((a, b) => (b.m.shallow_nodes || typical) - (a.m.shallow_nodes || typical));
   let done = 0;
   if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
   const left = new Map<number, number>();               // positions still to check, per game

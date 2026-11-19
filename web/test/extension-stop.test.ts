@@ -35,6 +35,10 @@ test("Play cancels a finished-game search and an in-flight warmup", async t => {
   const { handle } = await import("../src/extension/offscreen");
   const callback = JSON.parse(readFileSync(new URL("./fixtures/callback_187138001290.json", import.meta.url), "utf8")) as Callback;
   const recap = { type: "recap", username: "ashton-iwnl", kind: "live", gameId: "187138001290", callback } as const;
+  const unfinished = { ...callback, game: { ...callback.game, isFinished: false } };
+  assert.deepEqual(await handle({ ...recap, callback: unfinished }), { status: "pending" });
+  assert.equal(starts, 0);
+  assert.deepEqual(archiveSignals, []);
   const warmup = handle({ type: "warm", username: recap.username });
   try {
     assert.equal((await handle(recap)).status, "recap");

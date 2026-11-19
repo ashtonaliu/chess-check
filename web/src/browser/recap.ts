@@ -27,9 +27,7 @@ export interface Recap {
   odds: "exact" | "estimated" | "unknown";
   /** Why there is no turning point, when the engine could not analyze the game. */
   turningError?: string;
-  /** Parts still being worked out, so the card can show the result first: the game's own analysis
-   *  (turning point) and the player's history (opening record, patterns, opponent note). Absent on a
-   *  complete recap. */
+  /** Whether the game's turning point or the player's archive-based opening record is pending. */
   pending?: { turning?: boolean; history?: boolean };
 }
 

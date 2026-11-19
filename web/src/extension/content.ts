@@ -16,7 +16,7 @@ import { inRateRange } from "../browser/rateRange";
 import { addItems, grade, itemFromRecap, patchItems, type ReviewItem } from "../browser/reviewQueue";
 import { createRecapView, esc, moveLink, quizHint, tacticSentence } from "../ui/recapCard";
 import type { Callback } from "../browser/callbackGame";
-import { gameIdFromPage } from "./guard";
+import { gameIdFromPage, isPlayPage } from "./guard";
 import { queueKey, updateQueue, type QueueDeps } from "./queueStore";
 import {
   afterLookup, cubeLook, daysAgo, dueNow, markFind, markSeen, panelView, reviewAllowed, reviewCard, StallWatch,
@@ -84,16 +84,15 @@ async function fetchGame(id: string, url: string): Promise<Served | null> {
   return { kind, callback, players: { white: String(h.White), black: String(h.Black) } };
 }
 
-/** Pages where it is safe to build the profile: not a game and not the page games are played from. */
-const canWarm = (url: string) => !gameIdFromPage(url) && !/^\/play(\/|$)/.test(new URL(url).pathname);
-
 // ---------- DOM ----------
 
 const host = document.createElement("div");
 host.style.cssText = "position:fixed;z-index:2147483000;width:0;height:0;";
+host.classList.add("hidden");
 const root = host.attachShadow({ mode: "closed" });
 root.innerHTML = `<style>${siteCss.replace(/:root/g, ":host")}
   :host { all: initial; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); }
+  :host(.hidden) { display: none !important; }
   .cube { position: fixed; width: 44px; height: 44px; border-radius: 12px; border: none; padding: 0; display: grid; place-items: center;
     background: #5c6660; color: #fff; cursor: grab; box-shadow: 0 4px 14px rgba(0,0,0,.35); touch-action: none; user-select: none; }
   .cube.ready { background: var(--accent); }
@@ -123,13 +122,14 @@ root.innerHTML = `<style>${siteCss.replace(/:root/g, ":host")}
 </style>
 <button class="cube" title="Chess Check: post-game recap" aria-label="Chess Check" aria-expanded="false" aria-controls="cc-panel">${KNIGHT}</button>
 <div class="panel hidden" id="cc-panel" role="dialog" aria-label="Chess Check recap">
-  <div class="head"><span>Chess Check</span><span><button data-act="reset" title="Forget which player you are">Reset</button><button data-act="close" aria-label="Close">✕</button></span></div>
+  <div class="head"><span>Chess Check</span><span><button data-act="reset" hidden>Change player</button><button data-act="close" aria-label="Close">✕</button></span></div>
   <div class="body"></div>
   <p class="fine">Recaps appear only after Chess.com lists a game as finished. Nothing is shown or analyzed during a game.</p>
 </div>`;
 const cube = root.querySelector(".cube") as HTMLButtonElement;
 const panel = root.querySelector(".panel") as HTMLElement;
 const body = root.querySelector(".body") as HTMLElement;
+const reset = root.querySelector<HTMLButtonElement>('[data-act="reset"]')!;
 
 let state: State = "idle";
 let accounts: string[] = [];              // usernames the user has said are theirs (lowercase)
@@ -180,8 +180,7 @@ try {
     const c = area === "local" && queueOwner ? changes[queueKey(queueOwner)] : undefined;
     if (!c) return;
     queue = (c.newValue as ReviewItem[] | undefined) ?? [];
-    decorateCube();
-    if (!panel.classList.contains("hidden") && view === "review") renderPanel();
+    refreshReviewDisplay();
   });
 } catch { /* development harness */ }
 
@@ -213,6 +212,28 @@ function decorateCube() {
   cube.className = ["cube", ...look.classes].join(" ");
   cube.dataset.count = look.count;
   cube.title = look.title;
+  cube.setAttribute("aria-label", look.title);
+}
+
+/** Queue writes can finish after the recap has already been rendered. */
+function refreshReviewDisplay() {
+  decorateCube();
+  if (panel.classList.contains("hidden")) return;
+  if (state === "ready" && view === "game") {
+    updateRecapReviewLink();
+  } else if (view === "review" || state === "idle") {
+    renderPanel();
+  }
+}
+
+function updateRecapReviewLink() {
+  const link = body.querySelector<HTMLElement>(".recap-review");
+  if (!link) return;
+  const n = due().length;
+  const label = `${n} older position${n === 1 ? "" : "s"} to review`;
+  const button = link.querySelector("button")!;
+  if (button.textContent !== label) button.textContent = label;
+  link.hidden = !n;
 }
 
 let asked: ReviewItem | null = null;   // the entry as this tab asked it, to grade against
@@ -279,11 +300,12 @@ const rateAsked = new Set<string>();
 async function collect(r: Recap | null, user: string) {
   const u = user.toLowerCase();
   if (queueOwner !== u) await loadQueue(u);
+  if (!reviewAllowed(pageUrl(), state)) return;
   const it = r ? itemFromRecap(r, Date.now()) : null;
   if (it && !queue.some(q => q.id === it.id)) await changeQueue(q => addItems(q, [it]));
   // an empty queue starts from the profile; entries saved before positions were kept get theirs
   const missing = queue.some(q => !q.fen || q.timeClass === undefined);
-  if (!seedAsked.has(u) && (missing || !(await load<boolean>(`seeded:${u}`, false)))) {
+  if (!seedAsked.has(u) && (missing || !(await load<boolean>(`seeded:${u}`, false))) && reviewAllowed(pageUrl(), state)) {
     seedAsked.add(u);
     try {
       const reply = await ask({ type: "seed", username: user });
@@ -298,7 +320,7 @@ async function collect(r: Recap | null, user: string) {
   }
   // entries from before the find rate was stored get it from the analysis page
   const unrated = queue.filter(q => q.findRate === undefined && q.fen && q.rating);
-  if (unrated.length && !rateAsked.has(u)) {
+  if (unrated.length && !rateAsked.has(u) && reviewAllowed(pageUrl(), state)) {
     rateAsked.add(u);
     try {
       const reply = await ask({ type: "rate", items: unrated.map(q => ({ id: q.id, fen: q.fen!, best: q.best, rating: q.rating! })) });
@@ -308,7 +330,7 @@ async function collect(r: Recap | null, user: string) {
       }
     } catch { /* try again on the next page */ }
   }
-  decorateCube();
+  refreshReviewDisplay();
 }
 
 function setState(s: State, msg = "") {
@@ -319,6 +341,7 @@ function setState(s: State, msg = "") {
 }
 
 function renderPanel() {
+  reset.hidden = !accounts.length || !!signedIn;
   view = panelView(view, state, pageUrl(), due().length);
   if (view === "review") { renderReview(); return; }
   if (state === "ready" && recap) {
@@ -334,12 +357,7 @@ function renderPanel() {
     const status = partial || (basis < 150 ? `Based on your last ${basis} games so far. The rest are added between games.` : "");
     if (progress.textContent !== status) progress.textContent = status;
     progress.hidden = !status;
-    const n = due().length;
-    const review = body.querySelector<HTMLElement>(".recap-review")!;
-    const reviewText = `${n} older position${n === 1 ? "" : "s"} to review`;
-    const reviewButton = review.querySelector("button")!;
-    if (reviewButton.textContent !== reviewText) reviewButton.textContent = reviewText;
-    review.hidden = !n;
+    updateRecapReviewLink();
     return;
   }
   if (state === "choose" && players) {
@@ -355,20 +373,21 @@ function renderPanel() {
       const name = b.dataset.name!;
       if (!known.length) { accounts = [name.toLowerCase()]; void save("accounts", accounts); }
       viewer = name;
+      setState("loading", "Loading your recap…");
       void requestRecap();
     }));
     return;
   }
   const text: Record<State, string> = {
     choose: "", ready: "",
-    idle: `Open a finished game and its recap appears here.${queue.length && nextText() ? ` ${nextText()}` : ""}`,
-    loading: "Looking up this game…",
+    idle: ["Open one of your finished games to see its recap.", nextText()].filter(Boolean).join(" "),
+    loading: message || "Looking up this game…",
     finished: "",
     building: `Setting up for ${viewer}: ${message}`,
     pending: "<strong>Your recap will appear when this game ends.</strong>",
     error: `Something went wrong: ${message}`,
   };
-  body.innerHTML = `<p class="note">${state === "building" || state === "error" ? esc(text[state]) : text[state]}</p>`;
+  body.innerHTML = `<p class="note">${state === "pending" ? text[state] : esc(text[state])}</p>`;
 }
 
 // ---------- position and dragging ----------
@@ -429,7 +448,11 @@ function togglePanel(force?: boolean) {
   const wasOpen = !panel.classList.contains("hidden");
   panel.classList.toggle("hidden", !open);
   if (open && state === "ready") { markSeen(store, lastId); decorateCube(); }
-  if (open && state === "idle" && (!queue.length || queue.some(q => !q.fen || q.findRate === undefined || q.timeClass === undefined)) && whoAmI()) void collect(null, whoAmI()!).then(() => renderPanel());
+  if (open && state === "idle" && reviewAllowed(pageUrl(), state)
+      && (!queue.length || queue.some(q => !q.fen || q.findRate === undefined || q.timeClass === undefined))) {
+    const user = whoAmI();
+    if (user) void collect(null, user);
+  }
   cube.setAttribute("aria-expanded", String(open));
   if (open) renderPanel();
   else if (wasOpen) cube.focus();
@@ -447,7 +470,7 @@ panel.addEventListener("click", e => {
   const game = link && gameIdFromPage(link.href);
   if (game) markFind(store, game, link.dataset.review ?? null);
 });
-root.querySelector('[data-act="reset"]')!.addEventListener("click", () => {
+reset.addEventListener("click", () => {
   accounts = []; void save("accounts", accounts); lastId = null; void check();
 });
 
@@ -465,6 +488,8 @@ const whoAmI = () => signedInUser() ?? accounts[0] ?? null;
 async function check() {
   const url = pageUrl();
   const id = gameIdFromPage(url);
+  const onPlay = isPlayPage(new URL(url));
+  host.classList.toggle("hidden", onPlay);
   const intent = takeBoardIntent(store, id);
   // Same game as before (Chess.com rewrites /game/<id> to /live/game/<id> after loading): leave
   // any polling running. Clearing the timer first left the cube stuck on "Setting up" for good.
@@ -481,14 +506,19 @@ async function check() {
   lastId = id; players = null; served = null; viewer = ""; recap = null; partial = "";
   if (!id) {
     view = "game";
+    if (onPlay) {
+      togglePanel(false);
+      setState("idle");
+      void ask({ type: "stop" }).catch(() => {});
+      return;
+    }
     const me = whoAmI();
     if (me && queueOwner !== me.toLowerCase()) await loadQueue(me, isCurrent);
     if (!isCurrent()) return;
     setState("idle");
-    if (canWarm(url) && me) void ask({ type: "warm", username: me })
+    if (me) void ask({ type: "warm", username: me })
       .then(r => { if (r.status === "ready") void collect(null, me); })
       .catch(() => { /* try again next page */ });
-    else void ask({ type: "stop" }).catch(() => {});      // the play page: a game may be about to start
     return;
   }
   if (state !== "pending") setState("loading");      // a recheck of a game in progress stays on "pending"
@@ -543,8 +573,8 @@ async function requestRecap() {
     case "pending": setState("pending"); break;
     case "recap":
       recap = reply.recap; basis = reply.games; partial = reply.partial ?? "";
-      if (!reply.partial) void collect(recap, viewer);     // complete, so the profile exists too
       if (state !== "ready" || !panel.classList.contains("hidden")) setState("ready");
+      if (!reply.partial) void collect(recap, viewer);     // complete, so the profile exists too
       if (reply.partial && reply.retry !== false) timer = setTimeout(requestRecap, 1000);
       break;
     case "error": setState("error", reply.message); break;
@@ -559,7 +589,7 @@ try {
   const type = PerformanceObserver.supportedEntryTypes?.includes("long-animation-frame") ? "long-animation-frame" : "longtask";
   new PerformanceObserver(list => {
     for (const e of list.getEntries()) {
-      if (watch.frame(e.startTime + e.duration, e.duration, document.visibilityState === "visible")) {
+      if (!host.classList.contains("hidden") && watch.frame(e.startTime + e.duration, e.duration, document.visibilityState === "visible")) {
         void ask({ type: "stalls" }).catch(() => { /* no build to slow down */ });
       }
     }

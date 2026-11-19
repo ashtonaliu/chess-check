@@ -103,9 +103,9 @@ export class Follower {
 
 /** Stockfish on one finished game, with the player's blunders confirmed deeper (several at once)
  *  and classified. The opponent's are left to the profile build, which reuses these positions. */
-export async function analyzeGame(g: Game, engineUrl: string) {
-  const [analysis] = await analyseGames([g], { depth: 8, engineUrl, workers: 1 });
-  await recheckBlunders([analysis], { engineUrl, workers: Math.min(defaultWorkers(), 4), only: m => m.is_me });
+export async function analyzeGame(g: Game, engineUrl: string, signal?: AbortSignal) {
+  const [analysis] = await analyseGames([g], { depth: 8, engineUrl, signal, workers: 1 });
+  await recheckBlunders([analysis], { engineUrl, signal, workers: Math.min(defaultWorkers(), 4), only: m => m.is_me });
   return { analysis, blunders: classifyGame(g.pgn, analysis) };
 }
 

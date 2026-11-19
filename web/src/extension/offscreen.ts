@@ -22,7 +22,7 @@ import { loadProfile, saveProfile } from "./profileStore";
 
 export type Request =
   | { type: "warm"; username: string }
-  | { type: "stop" }                           // a game is starting: stop any profile build now
+  | { type: "stop" }                           // a game is starting: stop any analysis now
   | { type: "seed"; username: string }         // past blunders to start an empty review queue
   | { type: "stalls" }                         // the page the cube is on stuttered (pace.ts)
   | { type: "pace" }                           // the worker count now, for testing
@@ -62,14 +62,16 @@ interface GameJob {
   opponentGames: Game[] | null; opponentDone: boolean;   // for the opponent note, written at the end
 }
 const jobs = new Map<string, GameJob>();
+// A stop also cancels recap jobs and archive lookups that would otherwise start a build later.
+let pendingWork = new AbortController();
 
-function startJob(key: string, game: Game): GameJob {
+function startJob(key: string, game: Game, signal: AbortSignal): GameJob {
   const job: GameJob = { game, analysis: null, error: "", opponentGames: null, opponentDone: !game.opponent };
   jobs.set(key, job);
-  analyzeGame(game, ENGINE_URL).then(r => { job.analysis = r; })
+  analyzeGame(game, ENGINE_URL, signal).then(r => { job.analysis = r; })
     .catch(e => { job.error = (e as Error).message; });
   if (game.opponent) {
-    fetchGames(game.opponent, 100, game.timeClass)
+    fetchGames(game.opponent, 100, game.timeClass, signal)
       .then(gs => { job.opponentGames = gs.filter(g => g.url !== game.url); })
       .catch(() => { /* no opponent note */ })
       .finally(() => { job.opponentDone = true; });
@@ -95,6 +97,7 @@ function build(slot: Slot, key: string, username: string, timeClass: string, gam
   slot.building = analyzeInBrowser({ username, games, timeClass, depth: 8, engineUrl: ENGINE_URL, pace: share,
     signal: abort.signal, onProgress: (_s, _f, text) => { slot.progress = text; } })
     .then(async run => {
+      if (abort.signal.aborted) return;
       const profile: Profile = { username: run.username, timeClass, rows: run.gameRows, openings: run.openings,
                                  tactics: run.tactics, games: run.games };
       slot.profile = profile; slot.games = games; slot.refreshed = true;
@@ -102,7 +105,7 @@ function build(slot: Slot, key: string, username: string, timeClass: string, gam
     })
     .catch(e => { if (!abort.signal.aborted && !slot.profile) slot.error = (e as Error).message; })
     .finally(() => {
-      slot.building = null;
+      if (slot.abort === abort) slot.building = null;
       share.leave();
       if (shared.builds === 0 && budget === shared) {
         // the last build running: remember the count for the next one on this device
@@ -115,13 +118,14 @@ function build(slot: Slot, key: string, username: string, timeClass: string, gam
 /** Start or report the profile for this player and time class; null when one is ready to use.
  *  Order of preference: the one in memory, the saved one, a quick 50-game build. Whichever is
  *  used, a full refresh then runs in the background (until the next game stops it). */
-async function ensureProfile(username: string, timeClass: string, startNow = true): Promise<Reply | null> {
+async function ensureProfile(username: string, timeClass: string, signal: AbortSignal, startNow = true): Promise<Reply | null> {
   const key = `${username.toLowerCase()}|${timeClass}`;
   let s = slots.get(key);
   if (!s) slots.set(key, s = { profile: null, games: 0, building: null, progress: "Starting…", error: "", refreshed: false });
   if (s.error) { const message = s.error; slots.delete(key); return { status: "error", message }; }
   if (!s.profile && !s.building) {
     const saved = await loadProfile(key);
+    signal.throwIfAborted();
     if (saved && !s.profile) { s.profile = saved.profile; s.games = saved.games; }
   }
   if (s.profile) {
@@ -133,8 +137,12 @@ async function ensureProfile(username: string, timeClass: string, startNow = tru
 }
 
 export async function handle(req: Request): Promise<Reply> {
+  const signal = pendingWork.signal;
   try {
     if (req.type === "stop") {
+      pendingWork.abort();
+      pendingWork = new AbortController();
+      jobs.clear();
       // abort any build; a profile already in use (even a 50-game one) is kept
       for (const [key, slot] of slots) {
         if (!slot.building) continue;
@@ -167,14 +175,15 @@ export async function handle(req: Request): Promise<Reply> {
       // between games: get the profile for the time class this player plays most ready in advance
       const u = req.username.toLowerCase();
       if (!mainClass.has(u)) {
-        const recent = await fetchGames(req.username, 40, null);
+        const recent = await fetchGames(req.username, 40, null, signal);
+        signal.throwIfAborted();
         const counts = new Map<string, number>();
         for (const g of recent) counts.set(g.timeClass, (counts.get(g.timeClass) ?? 0) + 1);
         const top = [...counts.entries()].filter(([c]) => c !== "daily").sort((a, b) => b[1] - a[1])[0];
         if (!top) return { status: "ready" };
         mainClass.set(u, top[0]);
       }
-      return (await ensureProfile(req.username, mainClass.get(u)!)) ?? { status: "ready" };
+      return (await ensureProfile(req.username, mainClass.get(u)!, signal)) ?? { status: "ready" };
     }
     const key = `${req.username.toLowerCase()}|${req.gameId}`;
     // Fair-play guard: only a game Chess.com reports as finished. Its game endpoint does not even
@@ -188,13 +197,14 @@ export async function handle(req: Request): Promise<Reply> {
     const slotKey = `${req.username.toLowerCase()}|${probe.timeClass}`;
     // Any profile build (a first one, or a saved profile's refresh) waits until this game is
     // analyzed, so the two do not compete for the CPU while the player waits for the turning point.
-    const p = await ensureProfile(req.username, probe.timeClass, !!jobs.get(key)?.analysis);
+    const p = await ensureProfile(req.username, probe.timeClass, signal, !!jobs.get(key)?.analysis);
+    signal.throwIfAborted();
     const slot = slots.get(slotKey);
     const profile = p === null ? slot!.profile! : null, games = profile ? slot!.games : 0;
     const done = recaps.get(key);                // reuse a recap unless the profile has grown since
     if (done && (done.games >= games || !profile)) return { status: "recap", recap: done.recap, games: done.games };
     let job = jobs.get(key);
-    if (!job) job = startJob(key, gameFromCallback(req.callback, req.username, req.kind, slot?.profile?.games ?? [])!);
+    if (!job) job = startJob(key, gameFromCallback(req.callback, req.username, req.kind, slot?.profile?.games ?? [])!, signal);
     // name the opening from the profile's games once there are some
     const game = profile ? gameFromCallback(req.callback, req.username, req.kind, profile.games ?? [])! : job.game;
     const a = job.analysis, err = job.error;
@@ -225,7 +235,8 @@ export async function handle(req: Request): Promise<Reply> {
     if (failed && (a || err)) jobs.delete(key);
     return { status: "recap", recap, games, partial, retry: !(failed && (a || err)) };
   } catch (e) {
-    return { status: "error", message: (e as Error).message };
+    const message = signal.aborted ? "Analysis was paused. Reopen this finished game to try again." : (e as Error).message;
+    return { status: "error", message };
   }
 }
 

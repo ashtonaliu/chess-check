@@ -5,6 +5,7 @@
 // Scheduling is a fixed ladder: found it, and the position comes back 1, 3, 7 and then 21 days
 // later; after the last step it is learned and leaves the queue. Missed it, and it starts over
 // tomorrow.
+import { inRateRange } from "./rateRange";
 import type { Recap } from "./recap";
 import type { BlunderRec } from "./tactics";
 
@@ -89,9 +90,17 @@ export function addItems(queue: ReviewItem[], items: ReviewItem[]): ReviewItem[]
   return merged.filter(m => kept.has(m.id));
 }
 
-/** Positions to ask now, the longest-waiting first. */
+/** The find rate a position is ordered by: the model's estimate where it applies (blitz, ratings it
+ *  covers), else the typical rate in its training data, so unrated positions sit in the middle. */
+export const TYPICAL_FIND_RATE = 0.79;
+const orderRate = (q: ReviewItem) =>
+  q.timeClass === "blitz" && q.rating && inRateRange(q.rating) && typeof q.findRate === "number" ? q.findRate : TYPICAL_FIND_RATE;
+
+/** Positions to ask now. Those most players at your rating find come first: missing one of those is
+ *  a habit worth fixing, and it is what a short session should cover. Then the longest-waiting. */
 export const dueItems = (queue: ReviewItem[], now: number) =>
-  queue.filter(q => !q.done && q.due <= now).sort((a, b) => a.due - b.due || b.endTime - a.endTime);
+  queue.filter(q => !q.done && q.due <= now)
+    .sort((a, b) => orderRate(b) - orderRate(a) || a.due - b.due || b.endTime - a.endTime);
 
 /** When the next position comes due, or null when nothing is left to learn. */
 export function nextDue(queue: ReviewItem[]): number | null {

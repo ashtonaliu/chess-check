@@ -14,7 +14,7 @@ import siteCss from "../../style.css";
 import type { Recap } from "../browser/recap";
 import { inRateRange } from "../browser/rateRange";
 import { addItems, grade, itemFromRecap, patchItems, type ReviewItem } from "../browser/reviewQueue";
-import { esc, moveLink, quizHint, recapCard, tacticSentence } from "../ui/recapCard";
+import { createRecapView, esc, moveLink, quizHint, tacticSentence } from "../ui/recapCard";
 import type { Callback } from "../browser/callbackGame";
 import { gameIdFromPage } from "./guard";
 import { queueKey, updateQueue, type QueueDeps } from "./queueStore";
@@ -118,9 +118,6 @@ root.innerHTML = `<style>${siteCss.replace(/:root/g, ":host")}
   .panel .note { font-size: 13px; }
   .who { display: grid; gap: 8px; margin-top: 8px; }
   .recap { border: none; padding: 0; }
-  .recap-grid { grid-template-columns: 1fr !important; }
-  .meter .labels { gap: 8px; } .meter .labels span:nth-child(2) { text-align: center; }
-  .recap-grid svg.board { max-width: 260px; }
   .fine { font-size: 11px; color: var(--muted); margin: 10px 0 0; }
   .hidden { display: none !important; }
 </style>
@@ -142,7 +139,7 @@ let viewer = "";                          // whose recap to show for this game
 let recap: Recap | null = null;
 let basis = 150;                          // how many of your past games the recap's profile used
 let partial = "";                         // what the recap is still waiting for ("" when complete)
-let shown = "";                           // which version of the recap the panel shows
+let recapView: ReturnType<typeof createRecapView> | null = null;
 let message = "";
 let timer: ReturnType<typeof setTimeout> | null = null;
 
@@ -323,24 +320,28 @@ function setState(s: State, msg = "") {
 
 function renderPanel() {
   view = panelView(view, state, pageUrl(), due().length);
-  if (view === "review") { shown = ""; renderReview(); return; }
+  if (view === "review") { renderReview(); return; }
   if (state === "ready" && recap) {
-    // Redraw only when the recap itself changed; while it fills in, just update the progress line,
-    // so focus, scrolling and a revealed answer are not disturbed every second.
-    const version = JSON.stringify([recap.url, recap.pending ?? null, basis, recap.turning?.ply ?? null, !!recap.opponentNote, !!recap.pattern]);
-    const progress = body.querySelector<HTMLElement>(".progress");
-    if (version === shown && progress && body.contains(progress)) { progress.textContent = partial; return; }
-    shown = version;
-    // Chess.com's own board is on the page, so the recap points at it instead of drawing one.
-    body.replaceChildren(recapCard(recap, false, { sameTab: true }));
-    if (partial) body.insertAdjacentHTML("beforeend", `<p class="fine progress" role="status">${esc(partial)}</p>`);
-    else if (basis < 150) body.insertAdjacentHTML("beforeend",
-      `<p class="fine">Based on your last ${basis} games so far. The rest are added between games.</p>`);
+    // Keep the turning point and its controls mounted while the history fills in.
+    if (!recapView || !body.contains(recapView.element)) {
+      recapView = createRecapView({ sameTab: true });
+      body.replaceChildren(recapView.element);
+      body.insertAdjacentHTML("beforeend", `<p class="fine recap-progress" role="status"></p>
+        <p class="fine recap-review" hidden><button class="linkish" data-act="review"></button></p>`);
+    }
+    recapView.update(recap);
+    const progress = body.querySelector<HTMLElement>(".recap-progress")!;
+    const status = partial || (basis < 150 ? `Based on your last ${basis} games so far. The rest are added between games.` : "");
+    if (progress.textContent !== status) progress.textContent = status;
+    progress.hidden = !status;
     const n = due().length;
-    if (n) body.insertAdjacentHTML("beforeend", `<p class="fine"><button class="linkish" data-act="review">${n} older position${n === 1 ? "" : "s"} to review</button></p>`);
+    const review = body.querySelector<HTMLElement>(".recap-review")!;
+    const reviewText = `${n} older position${n === 1 ? "" : "s"} to review`;
+    const reviewButton = review.querySelector("button")!;
+    if (reviewButton.textContent !== reviewText) reviewButton.textContent = reviewText;
+    review.hidden = !n;
     return;
   }
-  shown = "";
   if (state === "choose" && players) {
     const names = [players.white, players.black];
     const me = signedInUser();
@@ -380,17 +381,22 @@ function place() {
   // open the panel on whichever side of the cube has room, or centered when neither does (narrow windows)
   const width = Math.min(340, window.innerWidth - 16);
   const cubeLeft = window.innerWidth - pos.right - 44, cubeRight = window.innerWidth - pos.right;
+  const beside = cubeLeft - 8 >= width || window.innerWidth - cubeRight - 8 >= width;
   if (cubeLeft - 8 >= width) { panel.style.right = `${pos.right + 52}px`; panel.style.left = ""; }
   else if (window.innerWidth - cubeRight - 8 >= width) { panel.style.left = `${cubeRight + 8}px`; panel.style.right = ""; }
   else { panel.style.left = `${Math.round((window.innerWidth - width) / 2)}px`; panel.style.right = ""; }
-  // and grow downward from a cube in the top half, upward from one in the bottom half
+  // When there is no room beside the cube, leave its button clear above or below the panel.
   const cubeTop = window.innerHeight - pos.bottom - 44;
+  const offset = beside ? 0 : 52;
+  const maxHeight = beside ? window.innerHeight : Math.max(240, window.innerHeight * 0.43);
   if (cubeTop < window.innerHeight / 2) {
-    panel.style.top = `${Math.max(cubeTop, 8)}px`; panel.style.bottom = "";
-    panel.style.maxHeight = `${window.innerHeight - Math.max(cubeTop, 8) - 8}px`;
+    const top = Math.max(cubeTop + offset, 8);
+    panel.style.top = `${top}px`; panel.style.bottom = "";
+    panel.style.maxHeight = `${Math.min(maxHeight, window.innerHeight - top - 8)}px`;
   } else {
-    panel.style.bottom = `${Math.max(pos.bottom, 8)}px`; panel.style.top = "";
-    panel.style.maxHeight = `${window.innerHeight - Math.max(pos.bottom, 8) - 8}px`;
+    const bottom = Math.max(pos.bottom + offset, 8);
+    panel.style.bottom = `${bottom}px`; panel.style.top = "";
+    panel.style.maxHeight = `${Math.min(maxHeight, window.innerHeight - bottom - 8)}px`;
   }
 }
 let drag: { x: number; y: number; right: number; bottom: number; moved: boolean } | null = null;

@@ -20,7 +20,7 @@ import { gameIdFromPage } from "./guard";
 import { queueKey, updateQueue, type QueueDeps } from "./queueStore";
 import {
   afterLookup, cubeLook, daysAgo, dueNow, markFind, markSeen, panelView, reviewAllowed, reviewCard, StallWatch,
-  takeReopen, takeReview, wasSeen, whenNext, type State, type View,
+  takeBoardIntent, wasSeen, whenNext, type BoardIntent, type State, type View,
 } from "./panelModel";
 import type { Reply, Request } from "./offscreen";
 
@@ -154,9 +154,11 @@ let queueOwner = "";                      // whose queue is loaded (lowercase)
 let current: string | null = null;        // the position being asked
 let reviewRevealed = false;
 
-async function loadQueue(user: string | null) {
+async function loadQueue(user: string | null, isCurrent = () => true) {
   const u = (user ?? "").toLowerCase();
-  queue = u ? await load<ReviewItem[]>(queueKey(u), []) : [];
+  const next = u ? await load<ReviewItem[]>(queueKey(u), []) : [];
+  if (!isCurrent()) return;
+  queue = next;
   queueOwner = u;
 }
 // Every change goes through queueStore.updateQueue: applied to the latest saved queue under a lock
@@ -434,8 +436,10 @@ for (const el of [panel, cube]) el.addEventListener("keydown", e => {
 
 // "Find it on the board" loads the game at the move; remember what to reopen once it is back.
 panel.addEventListener("click", e => {
-  const link = (e.target as HTMLElement).closest<HTMLElement>(".quiz-board");
-  if (link) markFind(store, view, lastId, link.dataset.review ?? null);
+  if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+  const link = (e.target as HTMLElement).closest<HTMLAnchorElement>(".quiz-board");
+  const game = link && gameIdFromPage(link.href);
+  if (game) markFind(store, game, link.dataset.review ?? null);
 });
 root.querySelector('[data-act="reset"]')!.addEventListener("click", () => {
   accounts = []; void save("accounts", accounts); lastId = null; void check();
@@ -444,6 +448,9 @@ root.querySelector('[data-act="reset"]')!.addEventListener("click", () => {
 // ---------- the game in the tab ----------
 
 let lastId: string | null = null;
+let checkVersion = 0;
+let boardIntent: BoardIntent | null = null;
+let retryBoardLookup = false;
 
 /** The signed-in user, or the one picked earlier when signed out. */
 const whoAmI = () => signedInUser() ?? accounts[0] ?? null;
@@ -452,16 +459,25 @@ const whoAmI = () => signedInUser() ?? accounts[0] ?? null;
 async function check() {
   const url = pageUrl();
   const id = gameIdFromPage(url);
+  const intent = takeBoardIntent(store, id);
   // Same game as before (Chess.com rewrites /game/<id> to /live/game/<id> after loading): leave
   // any polling running. Clearing the timer first left the cube stuck on "Setting up" for good.
   // Pages that are not games always run, to warm up or stop.
   if (id && id === lastId && state !== "error" && state !== "pending") return;
+  if (id !== lastId || intent) {
+    boardIntent = intent;
+    retryBoardLookup = !!intent;
+  }
+  const version = ++checkVersion;
+  const isCurrent = () => version === checkVersion
+    && (id ? gameIdFromPage(pageUrl()) === id : pageUrl() === url);
   if (timer) { clearTimeout(timer); timer = null; }
   lastId = id; players = null; served = null; viewer = ""; recap = null; partial = "";
   if (!id) {
     view = "game";
     const me = whoAmI();
-    if (me && queueOwner !== me.toLowerCase()) await loadQueue(me);
+    if (me && queueOwner !== me.toLowerCase()) await loadQueue(me, isCurrent);
+    if (!isCurrent()) return;
     setState("idle");
     if (canWarm(url) && me) void ask({ type: "warm", username: me })
       .then(r => { if (r.status === "ready") void collect(null, me); })
@@ -472,11 +488,11 @@ async function check() {
   if (state !== "pending") setState("loading");      // a recheck of a game in progress stays on "pending"
   try {
     const g = await fetchGame(id, url);
-    if (gameIdFromPage(pageUrl()) !== id) return;          // the page changed while we waited
-    // the markers left by "Find it on the board" are used only once the game is finished
+    if (!isCurrent()) return;
     const finished = !!g?.callback.game.isFinished;
+    const reopen = boardIntent && boardIntent.expires > Date.now() ? boardIntent : null;
     const step = afterLookup(g && { finished, ...g.players }, url, signedInUser(), accounts,
-                             finished ? takeReview(store, id) : null, finished && takeReopen(store, id));
+                             reopen?.item ?? null, !!reopen && !reopen.item);
     if (step.next === "pending") {
       // still being played: make sure no analysis is running, and ask again shortly
       void ask({ type: "stop" }).catch(() => {});
@@ -484,25 +500,38 @@ async function check() {
       timer = setTimeout(check, step.delay);
       return;
     }
+    boardIntent = null;
     served = g; players = g!.players;
     if (step.next === "choose") { setState("choose"); if (step.open) togglePanel(true); return; }
     viewer = step.viewer;
-    if (queueOwner !== viewer.toLowerCase()) await loadQueue(viewer);
+    if (queueOwner !== viewer.toLowerCase()) await loadQueue(viewer, isCurrent);
+    if (!isCurrent()) return;
     if (step.next === "review") { setState("finished"); openReview(step.item); return; }
     if (step.open) { view = "game"; togglePanel(true); }
-  } catch (e) { setState("error", (e as Error).message); return; }
+  } catch (e) {
+    if (!isCurrent()) return;
+    setState("error", (e as Error).message);
+    if (retryBoardLookup && boardIntent && boardIntent.expires > Date.now()) {
+      retryBoardLookup = false;
+      timer = setTimeout(check, 1_000);
+    } else {
+      boardIntent = null;
+    }
+    return;
+  }
   view = "game";
   await requestRecap();
 }
 
 async function requestRecap() {
   if (timer) { clearTimeout(timer); timer = null; }
-  const id = lastId, g = served;
+  const id = lastId, g = served, version = checkVersion;
   if (!id || !viewer || !g) return;
+  const isCurrent = () => version === checkVersion && gameIdFromPage(pageUrl()) === id;
   let reply: Reply;
   try { reply = await ask({ type: "recap", username: viewer, kind: g.kind, gameId: id, callback: g.callback }); }
-  catch (e) { setState("error", (e as Error).message); return; }
-  if (gameIdFromPage(pageUrl()) !== id) return;
+  catch (e) { if (isCurrent()) setState("error", (e as Error).message); return; }
+  if (!isCurrent()) return;
   switch (reply.status) {
     case "building": setState("building", reply.progress); timer = setTimeout(requestRecap, 1000); break;
     case "pending": setState("pending"); break;

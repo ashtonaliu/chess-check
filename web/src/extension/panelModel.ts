@@ -107,7 +107,7 @@ export function afterLookup(game: { finished: boolean; white: string; black: str
   // Back from "Find it on the board": the panel opens now, before the recap is ready, and fills in.
   // Waiting for the recap left it closed whenever that load ended another way (an error, the
   // player choice, a reply cut short by the page changing).
-  const open = reopen ? { open: true as const } : {};
+  const open = reopen || reviewing ? { open: true as const } : {};
   if (!viewer) return { next: "choose", ...open };
   return reviewing ? { next: "review", viewer, item: reviewing } : { next: "recap", viewer, ...open };
 }
@@ -115,33 +115,26 @@ export function afterLookup(game: { finished: boolean; white: string; black: str
 // ---------- markers kept across page loads (sessionStorage, per tab) ----------
 
 export type Store = Pick<Storage, "getItem" | "setItem" | "removeItem">;
-export const REOPEN = "chess-check-reopen";   // "Find it on the board" from a recap: reopen it
-export const REVIEW = "chess-check-review";   // the review position the page was opened at
+const BOARD_INTENT = "chess-check-board-intent";
+const BOARD_INTENT_MS = 30_000;
 export const SEEN = "chess-check-seen";       // recaps already opened in this tab
 
 const safe = <T>(f: () => T, fallback: T): T => { try { return f(); } catch { return fallback; } };
 
-/** Remember, as a page is left from the panel's "Find it on the board", what to reopen. */
-export function markFind(store: Store, view: View, gameOnPage: string | null, reviewItem: string | null) {
-  safe(() => {
-    if (view === "review" && reviewItem) store.setItem(REVIEW, reviewItem);
-    else if (view === "game" && gameOnPage) store.setItem(REOPEN, gameOnPage);
-  }, undefined);
+export interface BoardIntent { game: string; item: string | null; expires: number }
+
+/** Remember what to reopen on the board link's next navigation in this tab. */
+export function markFind(store: Store, game: string, item: string | null, now = Date.now()) {
+  safe(() => store.setItem(BOARD_INTENT, JSON.stringify({ game, item, expires: now + BOARD_INTENT_MS })), undefined);
 }
 
-/** Whether the recap for this game should open by itself (once). */
-export const takeReopen = (store: Store, id: string | null): boolean => safe(() => {
-  if (!id || store.getItem(REOPEN) !== id) return false;
-  store.removeItem(REOPEN);
-  return true;
-}, false);
-
-/** The review position this game's page was opened for (once), or null. */
-export const takeReview = (store: Store, id: string | null): string | null => safe(() => {
-  const item = store.getItem(REVIEW);
-  if (!id || !item || !item.startsWith(`${id}:`)) return null;
-  store.removeItem(REVIEW);
-  return item;
+/** Claim the intent before doing any asynchronous work, including a lookup that might fail. */
+export const takeBoardIntent = (store: Store, id: string | null, now = Date.now()): BoardIntent | null => safe(() => {
+  const raw = store.getItem(BOARD_INTENT);
+  if (!raw) return null;
+  store.removeItem(BOARD_INTENT);
+  const intent = JSON.parse(raw) as BoardIntent;
+  return id && intent.game === id && intent.expires > now ? intent : null;
 }, null);
 
 export const wasSeen = (store: Store, id: string | null): boolean =>

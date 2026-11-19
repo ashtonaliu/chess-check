@@ -22,7 +22,7 @@ RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/wh
     && pip install --no-cache-dir -r requirements.txt
 COPY chesscheck/ chesscheck/
 COPY server.py .
-COPY web/index.html web/style.css web/example_report.json web/
+COPY web/index.html web/style.css web/privacy.html web/example_report.json web/
 COPY --from=web /web/dist web/dist
 EXPOSE 8080
 CMD ["sh", "-c", "uvicorn server:app --host 0.0.0.0 --port ${PORT:-8080}"]

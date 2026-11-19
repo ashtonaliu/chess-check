@@ -4,8 +4,7 @@ import { test } from "node:test";
 
 import type { ReviewItem } from "../src/browser/reviewQueue";
 import {
-  afterLookup, cubeLook, dueNow, markFind, markSeen, panelView, pollDelay, REOPEN, REVIEW, reviewCard, StallWatch, takeReopen,
-  takeReview, wasSeen, whenNext, type Store,
+  afterLookup, cubeLook, dueNow, markFind, markSeen, panelView, pollDelay, reviewCard, StallWatch, takeBoardIntent, wasSeen, whenNext, type Store,
 } from "../src/extension/panelModel";
 
 const NOW = 1_800_000_000_000, DAY = 86_400_000;
@@ -77,31 +76,35 @@ test("'Next review' only when nothing is due now (it once said tomorrow while 4 
   assert.equal(whenNext([item("1:1", { done: true })], NOW, true), "");
 });
 
-test("Find it on the board from a review card reopens that card after the page loads, once", () => {
+test("a board link restores its review card or recap on the destination only once", () => {
   const s = memory();
-  markFind(s, "review", "187502325560", "222:29");
-  assert.equal(s.data.get(REVIEW), "222:29");
-  assert.equal(s.data.has(REOPEN), false, "a review link does not also reopen the recap");
-  assert.equal(takeReview(s, "111"), null, "another game's page leaves it");
-  assert.equal(takeReview(s, "222"), "222:29");
-  assert.equal(takeReview(s, "222"), null, "only once");
+  markFind(s, "222", "222:29", NOW);
+  assert.equal(takeBoardIntent(s, "222", NOW)?.item, "222:29");
+  assert.equal(takeBoardIntent(s, "222", NOW), null);
+  markFind(s, "187502325560", null, NOW);
+  assert.equal(takeBoardIntent(s, "187502325560", NOW)?.item, null);
+  assert.equal(takeBoardIntent(s, "187502325560", NOW), null);
 });
 
-test("Find it on the board from a recap reopens the recap, once", () => {
+test("a board intent cannot survive a different navigation or a failed lookup", async () => {
   const s = memory();
-  markFind(s, "game", "187502325560", null);
-  assert.equal(takeReopen(s, "999"), false);
-  assert.equal(takeReopen(s, "187502325560"), true);
-  assert.equal(takeReopen(s, "187502325560"), false);
-  markFind(s, "game", null, null);
-  assert.equal(s.data.size, 0, "nothing to reopen without a game on the page");
+  markFind(s, "222", "222:29", NOW);
+  assert.equal(takeBoardIntent(s, "111", NOW), null);
+  assert.equal(takeBoardIntent(s, "222", NOW), null);
+  markFind(s, "222", null, NOW);
+  await assert.rejects(async () => {
+    assert.ok(takeBoardIntent(s, "222", NOW));
+    throw new Error("game lookup failed");
+  }, /game lookup failed/);
+  assert.equal(takeBoardIntent(s, "222", NOW), null);
+  markFind(s, "222", null, NOW);
+  assert.equal(takeBoardIntent(s, "222", NOW + 60_000), null);
 });
 
 test("storage that throws (blocked by the page) leaves the panel closed instead of breaking", () => {
   const broken: Store = { getItem: () => { throw new Error("blocked"); }, setItem: () => { throw new Error("blocked"); }, removeItem: () => {} };
-  markFind(broken, "game", "1", null);
-  assert.equal(takeReopen(broken, "1"), false);
-  assert.equal(takeReview(broken, "1"), null);
+  markFind(broken, "1", null);
+  assert.equal(takeBoardIntent(broken, "1"), null);
   assert.equal(wasSeen(broken, "1"), false);
   markSeen(broken, "1");
 });
@@ -138,4 +141,14 @@ test("stutter: two long frames within 5 seconds make one report, ignoring page l
   assert.equal(w.frame(30_000, 400, false), false, "a hidden tab does not count");
   assert.equal(w.frame(30_500, 400, false), false);
   assert.equal(w.frame(40_000, 150, true), false, "an old stutter has expired");
+});
+
+test("back from \"Find it on the board\", the panel opens as soon as the game is looked up", () => {
+  const g = { finished: true, white: "YodaRampage", black: "ashton-iwnl" };
+  // opened before the recap is ready, so a slow, failed or cut-short recap request cannot leave it closed
+  assert.deepEqual(afterLookup(g, GAME, "ashton-iwnl", [], null, true), { next: "recap", viewer: "ashton-iwnl", open: true });
+  assert.deepEqual(afterLookup(g, GAME, null, [], null, true), { next: "choose", open: true }, "the player choice shows too");
+  // never while the game is in play
+  assert.deepEqual(afterLookup({ ...g, finished: false }, GAME, "ashton-iwnl", [], null, true), { next: "pending", delay: 5_000 });
+  assert.deepEqual(afterLookup(g, GAME, null, [], "187502325560:43"), { next: "choose", open: true });
 });

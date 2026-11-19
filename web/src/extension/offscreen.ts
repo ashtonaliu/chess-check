@@ -7,10 +7,10 @@
 // which it does only on pages that are not a game or the play page, and for a
 // finished game. Nothing here runs while the player is in a game.
 import { gameFromCallback, type Callback } from "../browser/callbackGame";
-import type { GameAnalysis } from "../browser/engine";
+import { defaultWorkers, pruneAnalysisCache, type GameAnalysis } from "../browser/engine";
 import { analyzeGame, type Profile } from "../browser/follow";
 import { fetchGames, type Game } from "../browser/games";
-import { defaultWorkers } from "../browser/engine";
+import { gameId } from "../browser/ids";
 import { Pace, SharedPace, startingWorkers } from "../browser/pace";
 import { analyzeInBrowser } from "../browser/pipeline";
 import { buildRecap, opponentNote, type Recap } from "../browser/recap";
@@ -18,7 +18,8 @@ import { findRate } from "../browser/findRate";
 import { itemsFromBlunders, type ReviewItem } from "../browser/reviewQueue";
 import type { BlunderRec } from "../browser/tactics";
 import { canShowRecap } from "./guard";
-import { loadProfile, saveProfile } from "./profileStore";
+import { loadProfile, profileGameIds, pruneProfiles, saveProfile, touchProfile, type Saved } from "./profileStore";
+import { ANALYSIS_LIMIT, PROFILE_LIMIT, rememberRecap, reviewDependencies } from "./storageRetention";
 
 export type Request =
   | { type: "warm"; username: string }
@@ -49,6 +50,7 @@ const FULL = 150, QUICK = 50;     // a first-ever build uses 50 games, then fill
 interface Slot {
   profile: Profile | null; games: number;      // the profile in use, and how many games it is based on
   building: Promise<void> | null; progress: string; error: string; abort?: AbortController;
+  loading?: Promise<Saved | null>;
   refreshed: boolean;                          // a saved profile is refreshed once per session
 }
 const slots = new Map<string, Slot>();         // one profile per player and time class
@@ -64,6 +66,34 @@ interface GameJob {
 const jobs = new Map<string, GameJob>();
 // A stop also cancels recap jobs and archive lookups that would otherwise start a build later.
 let pendingWork = new AbortController();
+let currentProfile: string | null = null;
+let checkedStorageAtStartup = false;
+let storageCleanup = Promise.resolve();
+
+function activeProfiles(): Set<string> {
+  const current = new Set<string>();
+  if (currentProfile) current.add(currentProfile);
+  for (const [key, slot] of slots) if (slot.building || slot.loading) current.add(key);
+  return current;
+}
+
+function scheduleStorageCleanup(signal: AbortSignal) {
+  if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) return;
+  storageCleanup = storageCleanup.then(async () => {
+    if (signal.aborted) return;
+    const queues = await chrome.runtime.sendMessage<Record<string, unknown> | null>({ target: "review-dependencies" });
+    if (!queues) return;
+    const { games, legacyByUser } = reviewDependencies(queues);
+    const keptGames = await pruneProfiles(activeProfiles, legacyByUser, PROFILE_LIMIT, signal);
+    for (const id of keptGames) games.add(id);
+    for (const key of activeProfiles()) {
+      const profile = slots.get(key)?.profile;
+      if (profile) for (const id of profileGameIds(profile)) games.add(id);
+    }
+    for (const job of jobs.values()) games.add(gameId(job.game.url));
+    await pruneAnalysisCache(games, ANALYSIS_LIMIT, signal);
+  }).catch(() => { /* storage unavailable or play resumed; try again after a safe build */ });
+}
 
 function startJob(key: string, game: Game, signal: AbortSignal): GameJob {
   const job: GameJob = { game, analysis: null, error: "", opponentGames: null, opponentDone: !game.opponent };
@@ -84,6 +114,7 @@ const mainClass = new Map<string, string>();   // the time class each player pla
 // (pace.ts) and the count that worked is remembered on this device for the next build.
 const WORKERS_KEY = "chess-check-workers";
 let budget: SharedPace | null = null;       // shared by every build running now
+let profileSaved = false;                  // coalesce overlapping builds into one cleanup
 function rememberedWorkers(): number | null {
   try { const n = Number(localStorage.getItem(WORKERS_KEY)); return n > 0 ? n : null; } catch { return null; }
 }
@@ -102,6 +133,7 @@ function build(slot: Slot, key: string, username: string, timeClass: string, gam
                                  tactics: run.tactics, games: run.games };
       slot.profile = profile; slot.games = games; slot.refreshed = true;
       await saveProfile(key, { profile, games, savedAt: Date.now() });
+      if (!abort.signal.aborted) profileSaved = true;
     })
     .catch(e => { if (!abort.signal.aborted && !slot.profile) slot.error = (e as Error).message; })
     .finally(() => {
@@ -111,6 +143,8 @@ function build(slot: Slot, key: string, username: string, timeClass: string, gam
         // the last build running: remember the count for the next one on this device
         budget = null;
         if (!abort.signal.aborted) { try { localStorage.setItem(WORKERS_KEY, String(shared.pace.remember)); } catch { /* not remembered */ } }
+        if (profileSaved) scheduleStorageCleanup(pendingWork.signal);
+        profileSaved = false;
       }
     });
 }
@@ -120,11 +154,20 @@ function build(slot: Slot, key: string, username: string, timeClass: string, gam
  *  used, a full refresh then runs in the background (until the next game stops it). */
 async function ensureProfile(username: string, timeClass: string, signal: AbortSignal, startNow = true): Promise<Reply | null> {
   const key = `${username.toLowerCase()}|${timeClass}`;
+  const switched = key !== currentProfile;
+  currentProfile = key;
+  if (!checkedStorageAtStartup) {
+    checkedStorageAtStartup = true;
+    scheduleStorageCleanup(signal);
+  }
   let s = slots.get(key);
   if (!s) slots.set(key, s = { profile: null, games: 0, building: null, progress: "Starting…", error: "", refreshed: false });
   if (s.error) { const message = s.error; slots.delete(key); return { status: "error", message }; }
+  if (switched && s.profile) void touchProfile(key);
   if (!s.profile && !s.building) {
-    const saved = await loadProfile(key);
+    const slot = s;
+    slot.loading ??= loadProfile(key).finally(() => { slot.loading = undefined; });
+    const saved = await slot.loading;
     signal.throwIfAborted();
     if (saved && !s.profile) { s.profile = saved.profile; s.games = saved.games; }
   }
@@ -142,6 +185,7 @@ export async function handle(req: Request): Promise<Reply> {
     if (req.type === "stop") {
       pendingWork.abort();
       pendingWork = new AbortController();
+      profileSaved = false;
       jobs.clear();
       // abort any build; a profile already in use (even a 50-game one) is kept
       for (const [key, slot] of slots) {
@@ -202,7 +246,10 @@ export async function handle(req: Request): Promise<Reply> {
     const slot = slots.get(slotKey);
     const profile = p === null ? slot!.profile! : null, games = profile ? slot!.games : 0;
     const done = recaps.get(key);                // reuse a recap unless the profile has grown since
-    if (done && (done.games >= games || !profile)) return { status: "recap", recap: done.recap, games: done.games };
+    if (done && (done.games >= games || !profile)) {
+      rememberRecap(recaps, key, done);
+      return { status: "recap", recap: done.recap, games: done.games };
+    }
     let job = jobs.get(key);
     if (!job) job = startJob(key, gameFromCallback(req.callback, req.username, req.kind, slot?.profile?.games ?? [])!, signal);
     // name the opening from the profile's games once there are some
@@ -220,7 +267,7 @@ export async function handle(req: Request): Promise<Reply> {
         recap.turningError = err;
         return { status: "recap", recap, games, partial: "Reopen this game to try the analysis again.", retry: false };
       }
-      recaps.set(key, { recap, games });
+      rememberRecap(recaps, key, { recap, games });
       return { status: "recap", recap, games };
     }
     const recap = buildRecap(game, a?.analysis ?? empty, a?.blunders ?? [], profile?.rows ?? [], profile?.tactics ?? null, null);

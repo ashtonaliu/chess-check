@@ -2,6 +2,7 @@
 // core; the multi-threaded build needs cross-origin isolation, which GitHub
 // Pages can't provide), plus the per-move analysis of chesscheck/engine.py.
 import { Chess, type Move } from "chess.js";
+import { enginePruneKeys, pruneTransaction } from "./cacheRetention";
 import type { Game } from "./games";
 
 export const OPENING_PLIES = 24;   // through move 12
@@ -125,6 +126,7 @@ export const defaultWorkers = () => Math.max(1, Math.min((navigator.hardwareConc
 // ---------- cache (IndexedDB) ----------
 
 const DB = "chess-check-engine-cache", STORE = "games", CACHE_VERSION = 1;
+const recordEndTimes = globalThis.location?.protocol === "chrome-extension:";
 let askedToPersist = false;
 function openDb(): Promise<IDBDatabase | null> {
   // Ask once that the browser not evict this cache when disk space runs low (losing it only costs a
@@ -143,6 +145,23 @@ function openDb(): Promise<IDBDatabase | null> {
       req.onerror = () => resolve(null);
     } catch { resolve(null); }
   });
+}
+
+/** Only the extension's offscreen page calls this. Count keys without reading the move rows. */
+export async function pruneAnalysisCache(protectedGames: ReadonlySet<string>, limit: number, signal: AbortSignal) {
+  if (signal.aborted) return;
+  const db = await openDb();
+  if (!db) return;
+  try {
+    await pruneTransaction(db, STORE, signal, store => {
+      const keys = store.getAllKeys();
+      const dates = store.getAll(IDBKeyRange.bound("end_", "end_\uffff"));
+      dates.onsuccess = () => {
+        const endTimes = new Map<string, number>(dates.result.map(({ id, endTime }) => [id, endTime]));
+        for (const key of enginePruneKeys(keys.result, endTimes, protectedGames, limit)) store.delete(key);
+      };
+    });
+  } finally { db.close(); }
 }
 
 /** One-time move of engine results saved under the cache's earlier name, so nobody loses them. */
@@ -364,7 +383,14 @@ export async function analyseGames(games: Game[], opts: PoolOptions): Promise<Ga
     const i = todo[t];
     const res = await analyseOne(eng, games[i], opts.depth);
     out[i] = res;
-    idb(db, "readwrite", s => s.put(res, key(games[i])));
+    const game = games[i];
+    idb(db, "readwrite", s => {
+      if (recordEndTimes) {
+        const id = game.url.split("/").pop()!;
+        s.put({ id, endTime: game.endTime }, `end_${id}`);
+      }
+      return s.put(res, key(game));
+    });
     opts.onProgress?.(++done, games.length, cached);
   });
   // "is_me" and the user's-POV opening eval depend on whose report this is

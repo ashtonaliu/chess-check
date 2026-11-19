@@ -7,7 +7,7 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REPO_URL="${REPO_URL:-https://github.com/ashtonaliu/chess-check}"
 OUT="$ROOT/site"
 rm -rf "$OUT" && mkdir -p "$OUT"
-cp "$ROOT/web/style.css" "$OUT/"
+cp "$ROOT/web/style.css" "$ROOT/web/privacy.html" "$OUT/"
 cp -R "$ROOT/web/dist" "$OUT/dist"
 cp "$ROOT/web/snapshot/analysis.json" "$OUT/analysis.json"
 cp "$ROOT/web/example_report.json" "$OUT/example_report.json"
@@ -15,7 +15,8 @@ cp "$ROOT/web/example_report.json" "$OUT/example_report.json"
 # ?v=<commit> makes browsers fetch new assets right after a deploy instead of
 # serving a cached main.js for up to 10 minutes (GitHub Pages: max-age=600).
 VER="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || date +%s)"
-sed -e "s#href=\"/static/style.css\"#href=\"style.css?v=${VER}\"#" \
+sed -e 's#href="/static/privacy.html"#href="privacy.html"#' \
+    -e "s#href=\"/static/style.css\"#href=\"style.css?v=${VER}\"#" \
     -e "s#src=\"/static/dist/main.js\"#src=\"dist/main.js?v=${VER}\"#" \
     -e "s#<script src=\"dist/main.js?v=${VER}\"#<script>window.CHESS_CHECK_STATIC={analysis:\"analysis.json\",report:\"example_report.json\",repo:\"${REPO_URL}\",browser:true};</script>\n  <script src=\"dist/main.js?v=${VER}\"#" \
     "$ROOT/web/index.html" > "$OUT/index.html"

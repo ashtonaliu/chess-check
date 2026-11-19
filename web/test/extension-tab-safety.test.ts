@@ -9,7 +9,7 @@ test("a Play or unconfirmed tab keeps other tabs paused across service worker re
   const session: Record<string, unknown> = {};
   const sent: string[] = [];
   let listener: (msg: object, sender: object, reply: (value: unknown) => void) => void;
-  let update: (id: number, change: { url: string }, tab: { id: number; url: string }) => void;
+  let update: (id: number, change: { url?: string; status?: "loading" | "complete" }, tab: { id: number; url: string }) => void;
   let remove: (id: number) => void;
   const previous = Object.getOwnPropertyDescriptor(globalThis, "chrome");
   Object.defineProperty(globalThis, "chrome", { configurable: true, value: {
@@ -58,6 +58,24 @@ test("a Play or unconfirmed tab keeps other tabs paused across service worker re
   assert.deepEqual(await send(2, warm), paused);
   assert.deepEqual(await send(1, { type: "page-state", url: game, finished: true }), ready);
   assert.deepEqual(await send(2, warm), ready);
+
+  update(1, { status: "loading" }, { id: 1, url: game });
+  assert.deepEqual(await send(2, warm), ready, "a loading event for the confirmed game keeps analysis running");
+  update(1, { status: "complete" }, { id: 1, url: game });
+  assert.deepEqual(await send(1, { type: "recap" }), ready);
+
+  const gameAtMove = `${game}?move=0`;
+  tabs.set(1, gameAtMove);
+  update(1, { url: gameAtMove, status: "loading" }, { id: 1, url: gameAtMove });
+  assert.deepEqual(await send(2, warm), ready, "the move parameter preserves the game confirmation");
+  assert.deepEqual(await send(1, { type: "page-state", url: gameAtMove, finished: false }), ready);
+  assert.deepEqual(await send(2, warm), paused, "a fresh content script can invalidate the confirmation");
+  assert.deepEqual(await send(1, { type: "page-state", url: gameAtMove, finished: true }), ready);
+  assert.deepEqual(await send(2, warm), ready);
+
+  navigate(1, "https://www.chess.com/game/live/187138001291");
+  await send(1, { type: "page-state", url: gameAtMove, finished: true });
+  assert.deepEqual(await send(2, warm), paused, "a different game requires its own confirmation");
 
   navigate(1, home);
   assert.deepEqual(await send(1, warm, game), ready, "the tab URL wins over the original frame URL");

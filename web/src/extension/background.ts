@@ -18,13 +18,13 @@ function stopAnalysis() {
   }).catch(() => { /* a closed offscreen document already stopped its workers */ });
 }
 
-function setTab(id: number, key: string | null, finished?: boolean, reloading = false) {
+function setTab(id: number, key: string | null, finished?: boolean, resetConfirmation = false) {
   const previous = tabStates.get(id);
   const wasPaused = hasPausedTab();
   if (key === null || key === "other") tabStates.delete(id);
   else {
     const paused = key === "play" || (finished === undefined
-      ? reloading || previous?.key !== key || previous.paused
+      ? resetConfirmation || previous?.key !== key || previous.paused
       : !finished);
     tabStates.set(id, { key, paused });
   }
@@ -52,7 +52,9 @@ chrome.tabs.onUpdated.addListener((id, change, tab) => {
   if (change.url === undefined && change.status === undefined) return;
   void safetyReady.then(() => {
     const key = pageSafetyKey(change.url ?? tab.url);
-    if (key || change.status === "complete") setTab(id, key, undefined, change.status === "loading");
+    // Chrome can report loading after the content script confirms the same game.
+    // A fresh content script reports finished: false before checking the game again.
+    if (key || change.status === "complete") setTab(id, key);
   }).catch(() => {});
 });
 chrome.tabs.onRemoved.addListener(id => { void safetyReady.then(() => setTab(id, null)).catch(() => {}); });

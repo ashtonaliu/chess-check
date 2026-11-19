@@ -125,19 +125,27 @@ function build(slot: Slot, key: string, username: string, timeClass: string, gam
   const max = defaultWorkers();
   if (!budget) budget = new SharedPace(new Pace({ max, start: startingWorkers(max, rememberedWorkers()) }));
   const shared = budget, share = shared.join();
+  let completed: Profile | null = null;
   slot.building = analyzeInBrowser({ username, games, timeClass, depth: 8, engineUrl: ENGINE_URL, pace: share,
     signal: abort.signal, onProgress: (_s, _f, text) => { slot.progress = text; } })
     .then(async run => {
       if (abort.signal.aborted) return;
       const profile: Profile = { username: run.username, timeClass, rows: run.gameRows, openings: run.openings,
                                  tactics: run.tactics, games: run.games };
-      slot.profile = profile; slot.games = games; slot.refreshed = true;
       await saveProfile(key, { profile, games, savedAt: Date.now() });
-      if (!abort.signal.aborted) profileSaved = true;
+      completed = profile;
     })
     .catch(e => { if (!abort.signal.aborted && !slot.profile) slot.error = (e as Error).message; })
     .finally(() => {
-      if (slot.abort === abort) slot.building = null;
+      if (slot.abort === abort) {
+        slot.building = null;
+        // Publish together with clearing the build. Otherwise a recap can finish polling
+        // while the quick save is still in progress and never request the 150-game refresh.
+        if (completed && !abort.signal.aborted) {
+          slot.profile = completed; slot.games = games; slot.refreshed = true;
+          profileSaved = true;
+        }
+      }
       share.leave();
       if (shared.builds === 0 && budget === shared) {
         // the last build running: remember the count for the next one on this device

@@ -373,7 +373,7 @@ export async function analyseGames(games: Game[], opts: PoolOptions): Promise<Ga
   const db = await openDb();
   const key = (g: Game) => `v${CACHE_VERSION}_${g.url.split("/").pop()}_d${opts.depth}`;
   const out: (Stored | undefined)[] = await readCached<Stored>(db, games.map(key));
-  const todo = games.map((g, i) => i).filter(i => !out[i]);
+  const todo = games.map((_g, i) => i).filter(i => !out[i]);
   const cached = games.length - todo.length;
   let done = cached;
   opts.onProgress?.(done, games.length, cached);

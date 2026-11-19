@@ -23,6 +23,7 @@ import { ANALYSIS_LIMIT, PROFILE_LIMIT, rememberRecap, reviewDependencies } from
 
 export type Request =
   | { type: "warm"; username: string }
+  | { type: "page-state"; url: string; finished: boolean }
   | { type: "stop" }                           // a game is starting: stop any analysis now
   | { type: "seed"; username: string }         // past blunders to start an empty review queue
   | { type: "stalls" }                         // the page the cube is on stuttered (pace.ts)
@@ -32,6 +33,7 @@ export type Request =
 export type Reply =
   | { status: "building"; progress: string }
   | { status: "ready" }
+  | { status: "paused" }
   | { status: "pending" }                      // not finished yet (or not this player's game)
   // games: how many past games the profile used. partial: what is still being added, when the recap
   // is not complete yet (ask again in a moment, unless retry is false).
@@ -190,6 +192,7 @@ async function ensureProfile(username: string, timeClass: string, signal: AbortS
 export async function handle(req: Request): Promise<Reply> {
   const signal = pendingWork.signal;
   try {
+    if (req.type === "page-state") return { status: "ready" }; // dev harness
     if (req.type === "stop") {
       pendingWork.abort();
       pendingWork = new AbortController();
@@ -249,7 +252,8 @@ export async function handle(req: Request): Promise<Reply> {
     const slotKey = `${req.username.toLowerCase()}|${probe.timeClass}`;
     // Any profile build (a first one, or a saved profile's refresh) waits until this game is
     // analyzed, so the two do not compete for the CPU while the player waits for the turning point.
-    const p = await ensureProfile(req.username, probe.timeClass, signal, !!jobs.get(key)?.analysis);
+    const existing = jobs.get(key);
+    const p = await ensureProfile(req.username, probe.timeClass, signal, !!(existing?.analysis || existing?.error));
     signal.throwIfAborted();
     const slot = slots.get(slotKey);
     const profile = p === null ? slot!.profile! : null, games = profile ? slot!.games : 0;

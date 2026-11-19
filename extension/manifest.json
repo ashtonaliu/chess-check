@@ -10,7 +10,9 @@
     "offscreen"
   ],
   "host_permissions": [
-    "https://api.chess.com/*"
+    "https://api.chess.com/*",
+    "https://www.chess.com/*",
+    "https://chess.com/*"
   ],
   "background": {
     "service_worker": "dist/background.js",

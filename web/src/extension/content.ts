@@ -495,6 +495,9 @@ async function check() {
   // any polling running. Clearing the timer first left the cube stuck on "Setting up" for good.
   // Pages that are not games always run, to warm up or stop.
   if (id && id === lastId && state !== "error" && state !== "pending") return;
+  const markPage = (finished: boolean) => ask({ type: "page-state", url, finished }).catch(() => {});
+  const changedGame = id !== lastId;
+  if (changedGame || onPlay) togglePanel(false);
   if (id !== lastId || intent) {
     boardIntent = intent;
     retryBoardLookup = !!intent;
@@ -504,20 +507,25 @@ async function check() {
     && (id ? gameIdFromPage(pageUrl()) === id : pageUrl() === url);
   if (timer) { clearTimeout(timer); timer = null; }
   lastId = id; players = null; served = null; viewer = ""; recap = null; partial = "";
+  const pageMarked = markPage(false);
   if (!id) {
     view = "game";
     if (onPlay) {
       togglePanel(false);
       setState("idle");
-      void ask({ type: "stop" }).catch(() => {});
       return;
     }
     const me = whoAmI();
     if (me && queueOwner !== me.toLowerCase()) await loadQueue(me, isCurrent);
+    await pageMarked;
     if (!isCurrent()) return;
     setState("idle");
     if (me) void ask({ type: "warm", username: me })
-      .then(r => { if (r.status === "ready") void collect(null, me); })
+      .then(r => {
+        if (!isCurrent()) return;
+        if (r.status === "ready") void collect(null, me);
+        if (r.status === "paused") timer = setTimeout(check, 3_000);
+      })
       .catch(() => { /* try again next page */ });
     return;
   }
@@ -525,17 +533,19 @@ async function check() {
   try {
     const g = await fetchGame(id, url);
     if (!isCurrent()) return;
-    const finished = !!g?.callback.game.isFinished;
+    const finished = !!g?.callback.game.isFinished && String(g.callback.game.id) === id;
     const reopen = boardIntent && boardIntent.expires > Date.now() ? boardIntent : null;
     const step = afterLookup(g && { finished, ...g.players }, url, signedInUser(), accounts,
                              reopen?.item ?? null, !!reopen && !reopen.item);
     if (step.next === "pending") {
-      // still being played: make sure no analysis is running, and ask again shortly
-      void ask({ type: "stop" }).catch(() => {});
       setState("pending");
       timer = setTimeout(check, step.delay);
       return;
     }
+    await pageMarked;
+    if (!isCurrent()) return;
+    await markPage(true);
+    if (!isCurrent()) return;
     boardIntent = null;
     served = g; players = g!.players;
     if (step.next === "choose") { setState("choose"); if (step.open) togglePanel(true); return; }
@@ -571,6 +581,10 @@ async function requestRecap() {
   switch (reply.status) {
     case "building": setState("building", reply.progress); timer = setTimeout(requestRecap, 1000); break;
     case "pending": setState("pending"); break;
+    case "paused":
+      setState("loading", "Recap paused while Play or an unconfirmed game is open.");
+      timer = setTimeout(requestRecap, 3_000);
+      break;
     case "recap":
       recap = reply.recap; basis = reply.games; partial = reply.partial ?? "";
       if (state !== "ready" || !panel.classList.contains("hidden")) setState("ready");
@@ -613,7 +627,12 @@ try {
 
 // Chess.com changes pages without reloading, so watch the address.
 let lastUrl = "";
-setInterval(() => { if (pageUrl() !== lastUrl) { lastUrl = pageUrl(); void check(); } }, 1000);
+function checkRoute() {
+  if (pageUrl() !== lastUrl) { lastUrl = pageUrl(); void check(); }
+}
+(window as Window & { navigation?: EventTarget }).navigation?.addEventListener("currententrychange", checkRoute);
+window.addEventListener("popstate", checkRoute);
+setInterval(checkRoute, 1000);
 
 try {
   chrome.runtime.onMessage.addListener((msg: { type?: string }) => {

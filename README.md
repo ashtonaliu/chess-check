@@ -136,7 +136,7 @@ The analysis runs twice from the same design: in Python (`chesscheck/`) as the r
 
 ## Run it locally
 
-You need Python 3.11+, Node 18+, and Stockfish (`brew install stockfish`).
+You need Python 3.11+, Node 22.15+, and Stockfish (`brew install stockfish`).
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
@@ -144,7 +144,9 @@ python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/uvicorn server:app --port 8765
 ```
 
-Then open http://localhost:8765. For the AI coach, either log in to [Claude Code](https://claude.com/claude-code) or put `ANTHROPIC_API_KEY=...` in a `.env` file (see `.env.example`). To run with MySQL instead, set the passwords in `.env` and run `docker compose up --build`.
+Then open http://localhost:8765. To enable the AI coach on that loopback-only server, set `CHESS_CHECK_LOCAL_COACH=1` and either log in to [Claude Code](https://claude.com/claude-code) or put `ANTHROPIC_API_KEY=...` in `.env` (see `.env.example`).
+
+For Docker or a hosted instance, set a strong `CHESS_CHECK_COACH_TOKEN` in the server environment and enter that token in the web app. Use HTTPS when accessing the server remotely. The server admits one coaching request at a time by default. To run with MySQL, set the database passwords in `.env` and run `docker compose up --build`.
 
 Tests: `.venv/bin/python -m pytest -q` and `cd web && npm test`. GitHub Actions runs both, plus the site and extension builds, on every pull request.
 

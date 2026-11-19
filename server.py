@@ -4,16 +4,18 @@ Run locally:  uvicorn server:app --reload
 """
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
 import re
+import secrets
 import threading
 import time
 from collections import OrderedDict
 from concurrent.futures import Future
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -35,6 +37,7 @@ _cache: OrderedDict[tuple, tuple[float, Analysis]] = OrderedDict()
 _inflight: dict[tuple, Future] = {}
 _state = threading.Lock()
 _jobs = threading.BoundedSemaphore(MAX_JOBS)
+_coach_jobs = threading.BoundedSemaphore(max(1, int(os.environ.get("CHESS_CHECK_MAX_COACH_JOBS", 1))))
 # Small hosts (e.g. Render's free tier) set these to keep requests fast.
 MAX_GAMES = int(os.environ.get("CHESS_CHECK_MAX_GAMES", 400))
 ENGINE_DEPTH = int(os.environ.get("CHESS_CHECK_ENGINE_DEPTH", 10))
@@ -116,25 +119,52 @@ def _backend() -> str | None:
     return None
 
 
+def _coach_access(request: Request) -> str | None:
+    if os.environ.get("CHESS_CHECK_COACH_TOKEN"):
+        return "token"
+    if os.environ.get("CHESS_CHECK_LOCAL_COACH") == "1" and request.client:
+        try:
+            if ipaddress.ip_address(request.client.host).is_loopback:
+                return "local"
+        except ValueError:
+            pass
+    return None
+
+
 @app.get("/api/coach/status")
-def coach_status():
-    return {"backend": _backend(), "example": EXAMPLE.exists()}
+def coach_status(request: Request):
+    access = _coach_access(request)
+    backend = _backend() if access else None
+    return {"backend": backend, "example": EXAMPLE.exists(), "token_required": bool(backend and access == "token")}
 
 
 @app.post("/api/coach")
-async def api_coach(r: AnalyzeReq):
-    if _backend() is None:
-        raise HTTPException(503, "Live coaching isn't enabled on this server. It runs "
-                                 "locally with Claude Code or with an API key.")
-    a = await run_in_threadpool(_get, r)
+async def api_coach(r: AnalyzeReq, request: Request):
+    access = _coach_access(request)
+    if access is None:
+        raise HTTPException(403, "Live coaching is disabled for this client.")
+    if access == "token":
+        scheme, _, token = request.headers.get("authorization", "").partition(" ")
+        expected = os.environ["CHESS_CHECK_COACH_TOKEN"]
+        if scheme.lower() != "bearer" or not secrets.compare_digest(token.encode(), expected.encode()):
+            raise HTTPException(401, "A valid coaching access token is required.",
+                                headers={"WWW-Authenticate": "Bearer"})
+    backend = _backend()
+    if backend is None:
+        raise HTTPException(503, "Live coaching needs a configured model provider.")
+    if not _coach_jobs.acquire(blocking=False):
+        raise HTTPException(429, "The coach is busy. Try again shortly.", headers={"Retry-After": "5"})
     try:
+        a = await run_in_threadpool(_get, r)
         res = await run_in_threadpool(lambda: run_coach_auto(a.username, a.facts, a.games, a.moves,
                                                              summaries=a.summaries))
     except RuntimeError as e:
         raise HTTPException(502, str(e))
+    finally:
+        _coach_jobs.release()
     return {"report": res.report, "verification": res.verification,
             "first_verification": res.first_verification, "repaired": res.repaired,
-            "tool_calls": res.tool_calls, "usage": res.usage, "backend": _backend(),
+            "tool_calls": res.tool_calls, "usage": res.usage, "backend": backend,
             "facts": [{"id": f["id"], "text": f["text"]} for f in res.facts]}
 
 

@@ -67,8 +67,10 @@ function setStatus(msg: string, error = false) {
   el.className = "status" + (error ? " error" : "");
 }
 
-async function post<T>(url: string, body: unknown): Promise<T> {
-  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+async function post<T>(url: string, body: unknown, options: { signal?: AbortSignal; token?: string } = {}): Promise<T> {
+  const headers = new Headers({ "Content-Type": "application/json" });
+  if (options.token) headers.set("Authorization", `Bearer ${options.token}`);
+  const r = await fetch(url, { method: "POST", headers, body: JSON.stringify(body), signal: options.signal });
   if (!r.ok) {
     let detail = r.statusText;
     try { detail = (await r.json()).detail ?? detail; } catch { /* not JSON */ }
@@ -425,18 +427,24 @@ async function analyze(ev: Event) {
   const time_class = ($("time_class") as HTMLSelectElement).value || null;
   const games = Number(($("games") as HTMLSelectElement).value);
   stopFollow(true);
-  await runAnalysis(username, games, time_class);
-  if (current && new URLSearchParams(location.search).get("follow") === "1") void startFollow();
+  const completed = await runAnalysis(username, games, time_class);
+  if (completed && new URLSearchParams(location.search).get("follow") === "1") void startFollow();
 }
 
 let running: AbortController | null = null;
 
 async function runAnalysis(username: string, games: number, time_class: string | null): Promise<boolean> {
+  if (running) return false;
   const btn = $("go") as HTMLButtonElement;
   btn.disabled = true;
   $("coach").innerHTML = "";
   setStatus("");
   const run = running = new AbortController();
+  coaching?.abort();
+  coaching = null;
+  browserRun = null;
+  lastReq = null;
+  updateCoachControls();
   let early = false;              // whether the openings are already on screen
   try {
     let p: Payload;
@@ -458,9 +466,8 @@ async function runAnalysis(username: string, games: number, time_class: string |
           early = true;
           $("results").scrollIntoView({ behavior: "smooth", block: "start" });
         } });
+      run.signal.throwIfAborted();
       browserRun = p as Awaited<ReturnType<typeof analyzeInBrowser>>;
-      $("keyBox").hidden = false;
-      ($("coachBtn") as HTMLButtonElement).textContent = `Write ${p.username}'s coaching report`;
       $("snapshot").innerHTML = `<span><strong>Analyzed in your browser.</strong> Stockfish ran on your computer over ${p.overall.games} games
         (depth ${BROWSER_DEPTH}, with blunders double-checked deeper). Nothing was sent anywhere except the requests to Chess.com.
         The browser uses Stockfish's smaller network, so its numbers run slightly lower than the saved example's.</span>`;
@@ -469,6 +476,7 @@ async function runAnalysis(username: string, games: number, time_class: string |
       showProgress(1, null, "Running Stockfish on every move. This takes 15 to 60 seconds…");
       p = await post<Payload>("/api/analyze", { username, games, time_class });
     }
+    run.signal.throwIfAborted();
     lastReq = { username, games, time_class };
     render(p);
     if (!early) {
@@ -493,6 +501,7 @@ async function runAnalysis(username: string, games: number, time_class: string |
     $("progress").classList.remove("sticky");
     showProgress(null, null, "");
     btn.disabled = false;
+    updateCoachControls();
   }
 }
 $("cancelBtn").addEventListener("click", () => running?.abort());
@@ -573,62 +582,81 @@ $("notifyBtn").addEventListener("click", async () => {
   ($("notifyBtn") as HTMLButtonElement).disabled = p === "granted";
 });
 
-let coachBackend: string | null | undefined = undefined;  // undefined until /api/coach/status answers
-// The latest in-browser analysis, which the bring-your-own-key coach works from.
+let coachBackend: string | null = null;
+let coachExample = !!STATIC;
+let coachTokenRequired = false;
+let coaching: AbortController | null = null;
 let browserRun: Awaited<ReturnType<typeof analyzeInBrowser>> | null = null;
 
-async function browserCoach() {
-  const run = browserRun!;
-  const key = ($("apiKey") as HTMLInputElement).value.trim();
-  if (!key) { $("coach").innerHTML = `<p class="weak">Paste an Anthropic API key above first.</p>`; return; }
+function updateCoachControls() {
   const btn = $("coachBtn") as HTMLButtonElement;
-  btn.disabled = true;
-  const status = (m: string) => { $("coach").innerHTML = `<p class="note">${esc(m)}</p>`; };
-  try {
-    const res = await runCoach({ client: await makeClient(key), username: run.username, facts: run.facts,
-      games: run.gameRows, moves: run.moveRows, engineUrl: ENGINE_URL, onStatus: status, summaries: run.summaries });
-    renderCoach({ ...res, username: run.username }, false,
-      `Cost: about $${costUsd(res.usage).toFixed(3)} on your key (${res.usage.input_tokens.toLocaleString()} input and ` +
-      `${res.usage.output_tokens.toLocaleString()} output tokens, Claude Haiku 5.5).`);
-  } catch (e) {
-    $("coach").innerHTML = `<p class="weak">${esc(describeError(e))}</p>`;
-  } finally {
-    btn.disabled = false;
-  }
+  const canCoach = !!(browserRun || (coachBackend && lastReq));
+  const waiting = !!(running || current?.pending);
+  $("keyBox").hidden = !browserRun;
+  $("coachTokenBox").hidden = !coachTokenRequired || !lastReq;
+  btn.disabled = waiting || !!coaching || (!canCoach && !coachExample);
+  btn.textContent = waiting ? "Finish the analysis to write a report"
+    : canCoach ? `Write ${browserRun?.username ?? lastReq?.username}'s coaching report`
+    : coachExample ? "Show the saved coaching report" : "Coaching unavailable";
 }
 
 async function coach() {
-  if (STATIC?.browser && browserRun) { await browserCoach(); return; }
-  if (coachBackend === null) { await showExample(); return; }
-  if (!lastReq) return;
-  const btn = $("coachBtn") as HTMLButtonElement;
-  btn.disabled = true;
-  $("coach").innerHTML = `<p class="note">The coach is querying your games and writing the report…</p>`;
-  try { renderCoach(await post<CoachResp>("/api/coach", lastReq)); }
-  catch (e) { $("coach").innerHTML = `<p class="weak">${esc((e as Error).message)}</p>`; }
-  finally { btn.disabled = false; }
-}
+  if (running || current?.pending || coaching) return;
+  const run = browserRun;
+  const req = coachBackend ? lastReq : null;
+  if (!run && !req && !coachExample) return;
+  const key = run ? ($("apiKey") as HTMLInputElement).value.trim() : "";
+  const token = req && coachTokenRequired ? ($("coachToken") as HTMLInputElement).value.trim() : "";
+  if ((run && !key) || (req && coachTokenRequired && !token)) {
+    $("coach").textContent = run ? "Enter your Anthropic API key first." : "Enter the coaching access token first.";
+    return;
+  }
 
-async function showExample() {
+  const job = coaching = new AbortController();
+  const signal = job.signal;
+  const status = (message: string) => {
+    if (!signal.aborted) $("coach").innerHTML = `<p class="note">${esc(message)}</p>`;
+  };
+  updateCoachControls();
   try {
-    const r = await fetch(STATIC ? STATIC.report : "/api/coach/example");
-    if (!r.ok) throw new Error("Live coaching isn't enabled on this server.");
-    renderCoach(await r.json() as CoachResp, true);
+    if (run) {
+      const res = await runCoach({ client: await makeClient(key), username: run.username, facts: run.facts,
+        games: run.gameRows, moves: run.moveRows, engineUrl: ENGINE_URL, onStatus: status, summaries: run.summaries, signal });
+      if (!signal.aborted) renderCoach({ ...res, username: run.username }, false,
+        `Cost: about $${costUsd(res.usage).toFixed(3)} on your key (${res.usage.input_tokens.toLocaleString()} input and ` +
+        `${res.usage.output_tokens.toLocaleString()} output tokens, Claude Haiku 5.5).`);
+    } else if (req) {
+      status("The coach is querying your games and writing the report…");
+      const report = await post<CoachResp>("/api/coach", req, { signal, token });
+      if (!signal.aborted) renderCoach(report);
+    } else {
+      const resp = await fetch(STATIC ? STATIC.report : "/api/coach/example", { signal });
+      if (!resp.ok) throw new Error("Live coaching isn't enabled on this server.");
+      const report = await resp.json() as CoachResp;
+      if (!signal.aborted) renderCoach(report, true);
+    }
   } catch (e) {
-    $("coach").innerHTML = `<p class="weak">${esc((e as Error).message)}</p>`;
+    if (!signal.aborted) $("coach").innerHTML = `<p class="weak">${esc(run ? describeError(e) : (e as Error).message)}</p>`;
+  } finally {
+    if (coaching === job) {
+      coaching = null;
+      updateCoachControls();
+    }
   }
 }
 
 async function initCoach() {
-  if (STATIC) { coachBackend = null; ($("coachBtn") as HTMLButtonElement).textContent = "Show the saved coaching report"; return; }
+  updateCoachControls();
+  if (STATIC) return;
   try {
-    const s = await (await fetch("/api/coach/status")).json() as { backend: string | null; example: boolean };
+    const r = await fetch("/api/coach/status");
+    if (!r.ok) return;
+    const s = await r.json() as { backend: string | null; example: boolean; token_required?: boolean };
     coachBackend = s.backend;
-    if (s.backend === null) {
-      ($("coachBtn") as HTMLButtonElement).textContent = s.example ? "Show an example report" : "Coaching unavailable";
-      ($("coachBtn") as HTMLButtonElement).disabled = !s.example;
-    }
-  } catch { /* leave defaults */ }
+    coachExample = s.example;
+    coachTokenRequired = s.token_required === true;
+    updateCoachControls();
+  } catch { /* the controls stay unavailable */ }
 }
 
 // Static demo (GitHub Pages): opens on a saved analysis; any username runs in the browser.

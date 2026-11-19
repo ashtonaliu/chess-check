@@ -104,3 +104,18 @@ test("half-way values round like Python (to even)", async () => {
   const { pyRound } = await import("../src/browser/facts");
   assert.deepEqual([36.5, 37.5, 22.5, 20.5, -0.5, 2.4, 2.6].map(pyRound), [36, 38, 22, 20, -0, 2, 3]);
 });
+
+test("a cancelled coaching request cannot start another provider turn", async () => {
+  const { runCoach } = await import("../src/browser/coach");
+  const controller = new AbortController();
+  let calls = 0;
+  const client = { beta: { messages: { create: async (_params: object, options?: { signal?: AbortSignal }) => {
+    calls++;
+    assert.equal(options?.signal, controller.signal);
+    controller.abort();
+    return { stop_reason: "pause_turn", content: [], usage: { input_tokens: 0, output_tokens: 0 } };
+  } } } };
+  await assert.rejects(runCoach({ client, username: "player", facts: [], games: [], moves: [],
+    engineUrl: "unused", signal: controller.signal }), { name: "AbortError" });
+  assert.equal(calls, 1);
+});

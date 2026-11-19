@@ -5,13 +5,13 @@ declare namespace chrome {
     function reload(): void;
     function sendMessage<T = unknown>(msg: unknown): Promise<T>;
     const onMessage: {
-      addListener(cb: (msg: any, sender: unknown, sendResponse: (r: unknown) => void) => boolean | void): void;
+      addListener(cb: (msg: any, sender: { url?: string }, sendResponse: (r: unknown) => void) => boolean | void): void;
     };
     const onInstalled: { addListener(cb: () => void): void };
   }
   namespace storage {
     const local: {
-      get(keys: string[]): Promise<Record<string, unknown>>;
+      get(keys: string[] | null): Promise<Record<string, unknown>>;
       set(items: Record<string, unknown>): Promise<void>;
     };
     const onChanged: {

@@ -28,7 +28,14 @@ async function toOffscreen(msg: object): Promise<unknown> {
 // reload by hand. An install from the Chrome Web Store has installType "normal" and ignores both.
 const isDevInstall = () => chrome.management.getSelf().then(s => s.installType === "development", () => false);
 
-chrome.runtime.onMessage.addListener((msg: { target?: string; type?: string }, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg: { target?: string; type?: string }, sender, sendResponse) => {
+  if (msg.target === "review-dependencies" && sender.url === chrome.runtime.getURL("offscreen.html")) {
+    // Chrome only exposes the runtime API to the offscreen page.
+    void chrome.storage.local.get(null).then(storage => {
+      sendResponse(Object.fromEntries(Object.entries(storage).filter(([key]) => key.startsWith("queue:"))));
+    }, () => sendResponse(null));
+    return true;
+  }
   if (msg.target === "dev") {
     void (async () => {
       if (!(await isDevInstall())) { sendResponse({ dev: false }); return; }

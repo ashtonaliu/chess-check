@@ -28,11 +28,16 @@ export function canShowRecap(gameId: string | null, finishedIds: Set<string>): b
   return gameId !== null && finishedIds.has(gameId);
 }
 
+/** Chess.com's Play pages can lead straight into a new game. */
+export function isPlayPage(url: URL): boolean {
+  return /^\/play(\/|$)/.test(url.pathname);
+}
+
 /** The review queue is never shown on the page games are played from, or on a game page until
  *  Chess.com has confirmed that game is over. Other pages (home, profiles, puzzles) are fine. */
 export function canReview(pageUrl: string, gameConfirmedOver: boolean): boolean {
   let u: URL;
   try { u = new URL(pageUrl); } catch { return false; }
-  if (/^\/play(\/|$)/.test(u.pathname)) return false;
+  if (isPlayPage(u)) return false;
   return !gameIdFromPage(pageUrl) || gameConfirmedOver;
 }

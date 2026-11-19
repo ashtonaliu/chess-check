@@ -7,7 +7,7 @@ import { parseGame, type Game } from "../src/browser/games";
 import { withExpected } from "../src/browser/stats";
 import type { Callback } from "../src/browser/callbackGame";
 
-test("the recap shows archive details early and keeps polling through the first profile save", { timeout: 5000 }, async t => {
+test("the recap shows archive details after the turning point and keeps polling through the first profile save", { timeout: 5000 }, async t => {
   const { promise: saving, resolve: saveStarted } = Promise.withResolvers<void>();
   const { promise: saved, resolve: finishSave } = Promise.withResolvers<void>();
   const { promise: archive, resolve: loadArchive } = Promise.withResolvers<Game[]>();
@@ -80,29 +80,32 @@ test("the recap shows archive details early and keeps polling through the first 
     assert.equal(first.status, "recap");
     assert.equal(first.recap.pending?.history, true);
     assert.equal(first.recap.opponentNote, null);
+    // the player's archive waits for the turning point, so it does not slow that search
+    await new Promise(resolve => setImmediate(resolve));
+    const searching = await handle(recap);
+    assert.equal(searching.status, "recap");
+    assert.equal(searching.recap.pending?.turning, true);
+    assert.equal(searching.recap.pending?.history, true);
+    assert.deepEqual(requests, ["dallen6"], "only the opponent's archive is read during the search");
+    assert.deepEqual(fixture.builds, []);
+
+    finishEngine();
+    await new Promise(resolve => setImmediate(resolve));
+    await handle(recap);             // the turning point is in: the quick build reads the archive
+    assert.deepEqual(requests.sort(), ["ashton-iwnl", "dallen6"]);
+    assert.deepEqual(fixture.builds, [50]);
 
     loadArchive(playerGames);
+    await saving;
     const early = await handle(recap);
     assert.equal(early.status, "recap");
     assert.equal(early.games, 0);
     assert.equal(early.retry, true);
-    assert.equal(early.recap.pending?.turning, true);
+    assert.equal(early.recap.pending?.turning, false);
     assert.equal(early.recap.pending?.history, false);
     assert.equal(early.recap.opening.history?.n, 1, "only the game before this one counts");
     assert.match(early.recap.opponentNote ?? "", /dallen6 has played/);
-    assert.deepEqual(fixture.builds, [], "the player archive does not start the profile engine");
-
-    finishEngine();
-    await new Promise(resolve => setImmediate(resolve));
-    await handle(recap);
-    await saving;
-    const duringSave = await handle(recap);
-    assert.equal(duringSave.status, "recap");
-    assert.equal(duringSave.games, 0);
-    assert.equal(duringSave.retry, true);
-    assert.deepEqual(duringSave.recap.opening, early.recap.opening);
-    assert.deepEqual(requests.sort(), ["ashton-iwnl", "dallen6"]);
-    assert.deepEqual(fixture.builds, [50]);
+    assert.deepEqual(fixture.builds, [50], "the refresh waits for the first profile to be saved");
 
     finishSave();
     await new Promise(resolve => setImmediate(resolve));

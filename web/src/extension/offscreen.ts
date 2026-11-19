@@ -129,7 +129,7 @@ function prepareQuickGames(slot: Slot, username: string, timeClass: string, sign
       slot.archive = { games, rows: withExpected(games) };
       return games;
     });
-    // The recap can start this before there's a profile build to handle failures.
+    // The build reports a failure itself; the recap only reads `slot.archive`.
     void slot.quickGames.catch(() => {});
   }
   return slot.quickGames;
@@ -269,8 +269,8 @@ export async function handle(req: Request): Promise<Reply> {
     if (!probe) return { status: "pending" };
     const slotKey = `${req.username.toLowerCase()}|${probe.timeClass}`;
     const previousArchive = slots.get(slotKey)?.archive;
-    // Keep the finished game's search ahead of the profile engine work. Archive lookups can
-    // overlap it, and the first profile uses the same games as the early recap.
+    // Keep the finished game's search ahead of the profile build and the player's archive, which
+    // the quick build reads first. The recap shows the archive's details before the patterns.
     const p = await ensureProfile(req.username, probe.timeClass, signal, !!(job?.analysis || job?.error));
     signal.throwIfAborted();
     const slot = slots.get(slotKey);
@@ -281,7 +281,6 @@ export async function handle(req: Request): Promise<Reply> {
       return { status: "recap", recap: done.recap, games: done.games };
     }
     job = jobs.get(key) ?? startJob(key, probe, signal);
-    if (slot && p?.status === "building") void prepareQuickGames(slot, req.username, probe.timeClass, signal);
     const archive = slot?.archive ?? previousArchive;
     const openingGames = profile?.games ?? archive?.games;
     const game = openingGames ? nameCallbackOpening(job.game, openingGames) : job.game;

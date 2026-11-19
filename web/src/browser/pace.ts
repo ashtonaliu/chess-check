@@ -56,22 +56,74 @@ export function startingWorkers(max: number, remembered: number | null): number 
 
 /**
  * One worker budget for all background builds at once. Builds for different time classes can run
- * together (a blitz warm-up and a rapid recap's profile), and with a count per build they could use
- * twice the limit while only the newest heard about stutter. Each build joins with `join()`, which
- * hands it a share of the budget (the count divided by the builds running, at least one each), and
- * calls `leave()` when it ends. A stutter lowers the shared count, so every build eases off.
+ * together (a blitz warm-up and a rapid recap's profile). The budget is a set of slots, as many as
+ * the adaptive count allows: a build takes a slot before each search task and gives it back after,
+ * and waits when every slot is taken, so all builds together never search on more workers than the
+ * count. A stutter lowers the count, and slots given back above it stay empty. Each build joins
+ * with `join()` and calls `leave()` when it ends, so the last one out can remember the count.
  */
 export class SharedPace {
   private running = 0;
+  private busy = 0;
+  private nextOwner = 0;
+  private waiting: Waiter[] = [];
   constructor(readonly pace: Pace) {}
   get builds(): number { return this.running; }
-  join(): { max: number; active(): number; leave(): void } {
+  /** Slots in use now, across every build. */
+  get inUse(): number { return this.busy; }
+
+  join(): BuildShare {
     this.running++;
+    const owner = this.nextOwner++;
     let left = false;
     return {
       max: this.pace.max,
-      active: () => Math.max(1, Math.floor(this.pace.active() / Math.max(1, this.running))),
+      acquire: signal => this.acquire(owner, signal),
+      keep: () => this.busy <= this.pace.active() && !this.waiting.some(w => w.owner !== owner),
+      release: () => this.release(owner),
       leave: () => { if (!left) { left = true; this.running--; } },
     };
   }
+
+  private acquire(owner: number, signal?: AbortSignal): Promise<void> {
+    if (signal?.aborted) return Promise.reject(new DOMException("Cancelled", "AbortError"));
+    if (!this.waiting.length && this.busy < this.pace.active()) { this.busy++; return Promise.resolve(); }
+    return new Promise((resolve, reject) => {
+      const w: Waiter = { owner, go: resolve, signal };
+      if (signal) {
+        w.stop = () => {
+          this.waiting = this.waiting.filter(x => x !== w);
+          reject(new DOMException("Cancelled", "AbortError"));
+        };
+        signal.addEventListener("abort", w.stop, { once: true });
+      }
+      this.waiting.push(w);
+    });
+  }
+
+  private release(owner: number): void {
+    this.busy = Math.max(0, this.busy - 1);
+    // A slot given back goes to another build when one is waiting (first come, first served among
+    // them), so builds running together take turns; otherwise to this build's own next worker.
+    while (this.waiting.length && this.busy < this.pace.active()) {
+      const k = Math.max(0, this.waiting.findIndex(w => w.owner !== owner));
+      const [w] = this.waiting.splice(k, 1);
+      if (w.stop) w.signal?.removeEventListener("abort", w.stop);
+      this.busy++;
+      w.go();
+    }
+  }
+}
+
+interface Waiter { owner: number; go: () => void; signal?: AbortSignal; stop?: () => void }
+
+/** One build's view of the shared slots. */
+export interface BuildShare {
+  max: number;
+  acquire(signal?: AbortSignal): Promise<void>;
+  /** Whether this build may keep a slot it holds for its next task: yes, unless the budget has
+   *  dropped below the slots in use or another build is waiting for one. */
+  keep(): boolean;
+  release(): void;
+  leave(): void;
 }

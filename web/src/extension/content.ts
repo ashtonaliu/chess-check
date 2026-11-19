@@ -12,6 +12,7 @@
 // still running is stopped.
 import siteCss from "../../style.css";
 import type { Recap } from "../browser/recap";
+import { inRateRange } from "../browser/rateRange";
 import { addItems, grade, itemFromRecap, patchItems, type ReviewItem } from "../browser/reviewQueue";
 import { esc, moveLink, quizHint, recapCard, tacticSentence } from "../ui/recapCard";
 import type { Callback } from "../browser/callbackGame";
@@ -215,6 +216,7 @@ function decorateCube() {
   cube.title = look.title;
 }
 
+let asked: ReviewItem | null = null;   // the entry as this tab asked it, to grade against
 function openReview(id: string | null = null) {
   view = "review"; current = id; reviewRevealed = false;
   if (panel.classList.contains("hidden")) togglePanel(true); else renderPanel();
@@ -230,11 +232,12 @@ function renderReview() {
     return;
   }
   const { item: it, position: pos, total, here } = card;
-  current = it.id;
+  current = it.id; asked = it;
   const tags = tacticSentence(it.tactics.filter(x => x.kind === "missed"));   // the hint already said what it allowed
   // how hard it was: the find-rate model, fitted on blitz positions with one clearly best move, so
   // shown only for blitz games and worded as an estimate for moves like this one
-  const rate = it.timeClass === "blitz" ? it.findRate ?? null : null;
+  // and for ratings the model covers (entries saved earlier held other ratings to its range)
+  const rate = it.timeClass === "blitz" && it.rating && inRateRange(it.rating) ? it.findRate ?? null : null;
   const odds = rate === null || !it.rating ? ""
     : ` In blitz, players near ${Math.round(it.rating / 50) * 50} find moves like this about ${Math.round(rate * 20) * 5}% of the time.`;
   body.innerHTML = `<div class="review">
@@ -259,10 +262,11 @@ panel.addEventListener("click", e => {
   if (el.closest(".quiz-board")) return;   // marked by the listener below; the link loads the game
   if (el.closest(".quiz-reveal")) { reviewRevealed = true; renderPanel(); body.querySelector<HTMLButtonElement>("[data-grade]")?.focus(); return; }
   const g = el.closest<HTMLElement>("[data-grade]");
-  if (g && current) {
-    const found = g.dataset.grade === "1", id = current, now = Date.now();
-    queue = grade(queue, id, found, now); addTally(found);           // shown at once,
-    void changeQueue(q => grade(q, id, found, now)).then(decorateCube);  // and saved onto the latest
+  if (g && current && asked?.id === current) {
+    const found = g.dataset.grade === "1", id = current, now = Date.now(), shown = { step: asked.step, due: asked.due };
+    queue = grade(queue, id, found, now, shown); addTally(found);           // shown at once,
+    // and saved onto the latest, unless another tab already answered this same question
+    void changeQueue(q => grade(q, id, found, now, shown)).then(decorateCube);
     current = null; reviewRevealed = false; renderPanel(); decorateCube();
     return;
   }

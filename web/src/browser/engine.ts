@@ -280,8 +280,8 @@ async function analyseOne(eng: Engine, game: Game, depth: number): Promise<Store
 export interface Pacer {
   readonly max: number;
   acquire(signal?: AbortSignal): Promise<void>;
-  /** Take a slot only if one is free now and nobody is waiting for it. */
-  tryAcquire(): boolean;
+  /** Whether the pool may keep a slot it holds for its next task (no other build needs it). */
+  keep(): boolean;
   release(): void;
 }
 
@@ -324,7 +324,8 @@ export async function runPool<E extends PoolEngine = Engine>(count: number,
         if (!eng) { eng = make(); engines.add(eng); await eng.init(); }
         if (quit.signal.aborted) break;
         await task(eng, t);
-        if (o.pace) { o.pace.release(); holding = o.pace.tryAcquire(); }
+        // keep the slot, and the engine, unless another build needs it or the budget dropped
+        if (o.pace && !o.pace.keep()) { o.pace.release(); holding = false; }
       }
     } catch (e) {
       fail(e);

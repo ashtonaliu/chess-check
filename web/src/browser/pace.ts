@@ -65,29 +65,31 @@ export function startingWorkers(max: number, remembered: number | null): number 
 export class SharedPace {
   private running = 0;
   private busy = 0;
-  private waiting: { go: () => void; signal?: AbortSignal; stop?: () => void }[] = [];
+  private nextOwner = 0;
+  private waiting: Waiter[] = [];
   constructor(readonly pace: Pace) {}
   get builds(): number { return this.running; }
   /** Slots in use now, across every build. */
   get inUse(): number { return this.busy; }
 
-  join(): { max: number; acquire(signal?: AbortSignal): Promise<void>; tryAcquire(): boolean; release(): void; leave(): void } {
+  join(): BuildShare {
     this.running++;
+    const owner = this.nextOwner++;
     let left = false;
     return {
       max: this.pace.max,
-      acquire: signal => this.acquire(signal),
-      tryAcquire: () => this.tryAcquire(),
-      release: () => this.release(),
+      acquire: signal => this.acquire(owner, signal),
+      keep: () => this.busy <= this.pace.active() && !this.waiting.some(w => w.owner !== owner),
+      release: () => this.release(owner),
       leave: () => { if (!left) { left = true; this.running--; } },
     };
   }
 
-  private acquire(signal?: AbortSignal): Promise<void> {
+  private acquire(owner: number, signal?: AbortSignal): Promise<void> {
     if (signal?.aborted) return Promise.reject(new DOMException("Cancelled", "AbortError"));
     if (!this.waiting.length && this.busy < this.pace.active()) { this.busy++; return Promise.resolve(); }
     return new Promise((resolve, reject) => {
-      const w: { go: () => void; signal?: AbortSignal; stop?: () => void } = { go: resolve, signal };
+      const w: Waiter = { owner, go: resolve, signal };
       if (signal) {
         w.stop = () => {
           this.waiting = this.waiting.filter(x => x !== w);
@@ -99,20 +101,29 @@ export class SharedPace {
     });
   }
 
-  private tryAcquire(): boolean {
-    if (this.waiting.length || this.busy >= this.pace.active()) return false;
-    this.busy++;
-    return true;
-  }
-
-  private release(): void {
+  private release(owner: number): void {
     this.busy = Math.max(0, this.busy - 1);
-    // first come, first served, so builds running together take turns
+    // A slot given back goes to another build when one is waiting (first come, first served among
+    // them), so builds running together take turns; otherwise to this build's own next worker.
     while (this.waiting.length && this.busy < this.pace.active()) {
-      const w = this.waiting.shift()!;
+      const k = Math.max(0, this.waiting.findIndex(w => w.owner !== owner));
+      const [w] = this.waiting.splice(k, 1);
       if (w.stop) w.signal?.removeEventListener("abort", w.stop);
       this.busy++;
       w.go();
     }
   }
+}
+
+interface Waiter { owner: number; go: () => void; signal?: AbortSignal; stop?: () => void }
+
+/** One build's view of the shared slots. */
+export interface BuildShare {
+  max: number;
+  acquire(signal?: AbortSignal): Promise<void>;
+  /** Whether this build may keep a slot it holds for its next task: yes, unless the budget has
+   *  dropped below the slots in use or another build is waiting for one. */
+  keep(): boolean;
+  release(): void;
+  leave(): void;
 }

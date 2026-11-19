@@ -72,3 +72,27 @@ test("cancelling stops the pool and its engines", async () => {
   await assert.rejects(run, { name: "AbortError" });
   assert.equal(FakeEngine.live, 0);
 });
+
+test("a build throttled to one slot reuses one engine for every task", async () => {
+  reset();
+  const shared = new SharedPace(new Pace({ max: 4, start: 1 }));
+  let ran = 0;
+  await runPool(12, { engineUrl: "", pace: shared.join() }, async () => { ran++; await tick(); }, () => new FakeEngine());
+  assert.equal(ran, 12);
+  assert.equal(FakeEngine.made, 1, "not one engine start per task");
+  assert.equal(shared.inUse, 0);
+});
+
+test("a stutter mid-build gives back the slots above the new budget", async () => {
+  reset();
+  const clock = { t: 0 };
+  const shared = new SharedPace(new Pace({ max: 4, start: 3, now: () => clock.t }));
+  let most = 0, after = 0, stalled = false;
+  await runPool(30, { engineUrl: "", pace: shared.join() }, async (_e, t) => {
+    if (t === 6 && !stalled) { stalled = true; shared.pace.stall(); clock.t += 5000; shared.pace.stall(); }   // down to 1
+    if (stalled && t > 12) after = Math.max(after, shared.inUse);
+    most = Math.max(most, shared.inUse); await tick();
+  }, () => new FakeEngine());
+  assert.equal(most, 3);
+  assert.equal(after, 1, "back to one search at a time");
+});

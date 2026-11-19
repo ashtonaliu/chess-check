@@ -12,6 +12,7 @@ enabled with CHESS_CHECK_SQL_BACKEND=mysql plus CHESS_CHECK_MYSQL_WRITER_URL / C
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import os
 from urllib.parse import unquote, urlparse
@@ -66,12 +67,6 @@ def _connect(url: str, database: str | None = None) -> pymysql.connections.Conne
                            database=database, charset="utf8mb4", autocommit=True)
 
 
-def schema_for(games: pd.DataFrame) -> str:
-    """Stable schema name for one analysis (same games -> same schema)."""
-    key = "|".join(sorted(games.url)) if not games.empty else "empty"
-    return "chesscheck_" + hashlib.sha1(key.encode()).hexdigest()[:16]
-
-
 def _clean(v):
     if v is None:
         return None
@@ -84,28 +79,49 @@ def _clean(v):
     return v
 
 
+def _snapshot_rows(frame: pd.DataFrame | None, columns: list[str], order: list[str]) -> list[tuple]:
+    if frame is None or frame.empty:
+        return []
+    ordered = frame.reindex(columns=columns).sort_values(order)
+    return [tuple(_clean(v) for v in row) for row in ordered.itertuples(index=False, name=None)]
+
+
+def _snapshot_schema(games: list[tuple], moves: list[tuple]) -> str:
+    # Include the data as written, including the player's perspective and engine results.
+    contents = json.dumps([1, GAMES_COLS, MOVES_COLS, games, moves], separators=(",", ":"))
+    return "chesscheck_" + hashlib.sha256(contents.encode()).hexdigest()[:48]
+
+
 def load(games: pd.DataFrame, moves: pd.DataFrame | None, writer_url: str | None = None) -> str:
-    """Write one analysis into its own schema and return the schema name."""
-    schema = schema_for(games)
+    """Publish an immutable snapshot. Only its first successful writer creates the tables."""
+    game_rows = _snapshot_rows(games, GAMES_COLS, ["url"])
+    move_rows = _snapshot_rows(moves, MOVES_COLS, ["url", "ply"])
+    schema = _snapshot_schema(game_rows, move_rows)
     conn = _connect(writer_url or os.environ["CHESS_CHECK_MYSQL_WRITER_URL"])
     try:
         with conn.cursor() as cur:
+            cur.execute("SELECT GET_LOCK(%s, 30)", (schema,))
+            if cur.fetchone()[0] != 1:
+                raise RuntimeError("Timed out waiting for a MySQL analysis snapshot.")
             cur.execute(f"CREATE DATABASE IF NOT EXISTS `{schema}`")
             cur.execute(f"USE `{schema}`")
-            cur.execute("DROP TABLE IF EXISTS moves")
-            cur.execute("DROP TABLE IF EXISTS games")
+            cur.execute("SELECT 1 FROM information_schema.tables WHERE table_schema = %s "
+                        "AND table_name = 'analysis_ready'", (schema,))
+            if cur.fetchone():
+                return schema
+
+            # An interrupted writer can leave tables behind. No reader receives the schema
+            # until its marker is present. Closing the connection releases the named lock.
+            cur.execute("DROP TABLE IF EXISTS moves, games")
             cur.execute(GAMES_DDL)
             cur.execute(MOVES_DDL)
-            g = games.reindex(columns=GAMES_COLS)
             cur.executemany(
                 f"INSERT INTO games ({', '.join(GAMES_COLS)}) VALUES ({', '.join(['%s'] * len(GAMES_COLS))})",
-                [tuple(_clean(v) for v in row) for row in g.itertuples(index=False, name=None)])
-            if moves is not None and not moves.empty:
-                m = moves.reindex(columns=MOVES_COLS)
-                rows = [tuple(_clean(v) for v in row) for row in m.itertuples(index=False, name=None)]
-                sql = f"INSERT INTO moves ({', '.join(MOVES_COLS)}) VALUES ({', '.join(['%s'] * len(MOVES_COLS))})"
-                for i in range(0, len(rows), 2000):
-                    cur.executemany(sql, rows[i:i + 2000])
+                game_rows)
+            sql = f"INSERT INTO moves ({', '.join(MOVES_COLS)}) VALUES ({', '.join(['%s'] * len(MOVES_COLS))})"
+            for i in range(0, len(move_rows), 2000):
+                cur.executemany(sql, move_rows[i:i + 2000])
+            cur.execute("CREATE TABLE analysis_ready (completed BOOL NOT NULL)")
     finally:
         conn.close()
     return schema

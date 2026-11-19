@@ -130,3 +130,38 @@ def test_coach_toolbox_runs_on_mysql(monkeypatch, urls, frames):
     assert "MySQL 8 SQL" in coach.tools_for(box.sql.dialect)[0]["description"]
     out, err = box.run("run_sql", {"query": "SELECT COUNT(*) AS n FROM games"})
     assert not err and out.startswith("[T1]") and f"\n{len(games)}\n" in out
+
+
+def test_readers_keep_their_snapshot_while_other_views_load(urls, frames):
+    from concurrent.futures import ThreadPoolExecutor
+
+    games, _ = frames
+    white = games.iloc[[0]].assign(color="white", score=1.0)
+    black = games.iloc[[0]].assign(color="black", score=0.0)
+    schemas = set()
+    readers = []
+    try:
+        with ThreadPoolExecutor(4) as pool:
+            copies = list(pool.map(lambda _: mysql_store.load(white, None, urls[0]), range(4)))
+        schemas.update(copies)
+        assert len(schemas) == 1
+        white_reader = mysql_store.MySQLReadOnlySQL(copies[0], urls[1])
+        readers.append(white_reader)
+        black_key = mysql_store.load(black, None, urls[0])
+        schemas.add(black_key)
+        black_reader = mysql_store.MySQLReadOnlySQL(black_key, urls[1])
+        readers.append(black_reader)
+        assert black_key != copies[0]
+        assert mysql_store.load(white, None, urls[0]) == copies[0]
+        assert white_reader.run("SELECT color, score FROM games") == "color,score\nwhite,1.0\n"
+        assert black_reader.run("SELECT color, score FROM games") == "color,score\nblack,0.0\n"
+    finally:
+        for reader in readers:
+            reader.close()
+        conn = mysql_store._connect(urls[0])
+        try:
+            with conn.cursor() as cur:
+                for schema in schemas:
+                    cur.execute(f"DROP DATABASE IF EXISTS `{schema}`")
+        finally:
+            conn.close()

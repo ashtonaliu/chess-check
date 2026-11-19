@@ -94,3 +94,16 @@ test("older entries also get their time control from fresh copies", () => {
   assert.equal(out[0].timeClass, "blitz");
   assert.equal(out[0].fen, "x", "what an entry already has is kept");
 });
+
+test("due positions most players find come first; unrated ones count as typical", () => {
+  const blitz = (id: string, findRate: number | null, due: number, rating = 1500) =>
+    item(id, { due, findRate, rating, timeClass: "blitz" });
+  const q = [
+    blitz("1:1", 0.55, NOW - 90),                        // hard: most players miss it
+    blitz("2:1", 0.95, NOW - 10),                        // a habit to fix
+    item("3:1", { due: NOW - 50, timeClass: "rapid", findRate: 0.99, rating: 1500 }),  // not blitz: typical
+    blitz("4:1", 0.95, NOW - 40, 900),                   // rating outside the model: typical
+    blitz("5:1", 0.9, NOW + DAY),                        // not due yet
+  ];
+  assert.deepEqual(dueItems(q, NOW).map(i => i.id), ["2:1", "3:1", "4:1", "1:1"]);
+});

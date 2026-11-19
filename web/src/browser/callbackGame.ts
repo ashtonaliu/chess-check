@@ -40,6 +40,12 @@ function openingFrom(eco: string, moves: string[], history: Game[]): [string, st
   return best ? [best.opening, best.family] : [`ECO ${eco}`, `ECO ${eco}`];
 }
 
+/** Name the opening once the archive is ready, without decoding the finished game again. */
+export function nameCallbackOpening(game: Game, history: Game[]): Game {
+  const [opening, family] = openingFrom(game.eco, game.moves, history);
+  return opening === game.opening && family === game.family ? game : { ...game, opening, family };
+}
+
 /** The game as `user` saw it, or null if it is not finished or `user` did not play in it. Ratings
  *  are the ones going into the game (the endpoint's ratings already include the game's change). */
 export function gameFromCallback(cb: Callback, user: string, kind: "live" | "daily", history: Game[]): Game | null {

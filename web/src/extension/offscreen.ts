@@ -6,7 +6,7 @@
 // When the engine runs: the profile is built when the cube asks to "warm" it,
 // which it does only on pages that are not a game or the play page, and for a
 // finished game. Nothing here runs while the player is in a game.
-import { gameFromCallback, type Callback } from "../browser/callbackGame";
+import { gameFromCallback, nameCallbackOpening, type Callback } from "../browser/callbackGame";
 import { defaultWorkers, pruneAnalysisCache, type GameAnalysis } from "../browser/engine";
 import { analyzeGame, type Profile } from "../browser/follow";
 import { fetchGames, type Game } from "../browser/games";
@@ -14,6 +14,7 @@ import { gameId } from "../browser/ids";
 import { Pace, SharedPace, startingWorkers } from "../browser/pace";
 import { analyzeInBrowser } from "../browser/pipeline";
 import { buildRecap, opponentNote, type Recap } from "../browser/recap";
+import { withExpected, type GameRow } from "../browser/stats";
 import { findRate } from "../browser/findRate";
 import { itemsFromBlunders, type ReviewItem } from "../browser/reviewQueue";
 import type { BlunderRec } from "../browser/tactics";
@@ -51,6 +52,8 @@ interface Slot {
   profile: Profile | null; games: number;      // the profile in use, and how many games it is based on
   building: Promise<void> | null; progress: string; error: string; abort?: AbortController;
   loading?: Promise<Saved | null>;
+  quickGames?: Promise<Game[]>;
+  archive?: { games: Game[]; rows: GameRow[] };
   refreshed: boolean;                          // a saved profile is refreshed once per session
 }
 const slots = new Map<string, Slot>();         // one profile per player and time class
@@ -61,7 +64,7 @@ const recaps = new Map<string, { recap: Recap; games: number }>();
 interface GameJob {
   game: Game;
   analysis: { analysis: GameAnalysis; blunders: BlunderRec[] } | null; error: string;
-  opponentGames: Game[] | null; opponentDone: boolean;   // for the opponent note, written at the end
+  opponentGames: Game[] | null; opponentDone: boolean;   // the note can appear before the profile is ready
 }
 const jobs = new Map<string, GameJob>();
 // A stop also cancels recap jobs and archive lookups that would otherwise start a build later.
@@ -119,6 +122,19 @@ function rememberedWorkers(): number | null {
   try { const n = Number(localStorage.getItem(WORKERS_KEY)); return n > 0 ? n : null; } catch { return null; }
 }
 
+function prepareQuickGames(slot: Slot, username: string, timeClass: string, signal: AbortSignal): Promise<Game[]> {
+  if (!slot.quickGames) {
+    slot.quickGames = fetchGames(username, QUICK, timeClass, signal).then(games => {
+      signal.throwIfAborted();
+      slot.archive = { games, rows: withExpected(games) };
+      return games;
+    });
+    // The recap can start this before there's a profile build to handle failures.
+    void slot.quickGames.catch(() => {});
+  }
+  return slot.quickGames;
+}
+
 function build(slot: Slot, key: string, username: string, timeClass: string, games: number) {
   slot.progress = `Analyzing ${username}'s last ${games} ${timeClass} games…`;
   const abort = slot.abort = new AbortController();
@@ -127,7 +143,9 @@ function build(slot: Slot, key: string, username: string, timeClass: string, gam
   const shared = budget, share = shared.join();
   let completed: Profile | null = null;
   slot.building = analyzeInBrowser({ username, games, timeClass, depth: 8, engineUrl: ENGINE_URL, pace: share,
-    signal: abort.signal, onProgress: (_s, _f, text) => { slot.progress = text; } })
+    signal: abort.signal,
+    prefetchedGames: games === QUICK ? prepareQuickGames(slot, username, timeClass, abort.signal) : undefined,
+    onProgress: (_s, _f, text) => { slot.progress = text; } })
     .then(async run => {
       if (abort.signal.aborted) return;
       const profile: Profile = { username: run.username, timeClass, rows: run.gameRows, openings: run.openings,
@@ -143,6 +161,8 @@ function build(slot: Slot, key: string, username: string, timeClass: string, gam
         // while the quick save is still in progress and never request the 150-game refresh.
         if (completed && !abort.signal.aborted) {
           slot.profile = completed; slot.games = games; slot.refreshed = true;
+          slot.quickGames = undefined;
+          slot.archive = undefined;
           profileSaved = true;
         }
       }
@@ -197,8 +217,10 @@ export async function handle(req: Request): Promise<Reply> {
       jobs.clear();
       // abort any build; a profile already in use (even a 50-game one) is kept
       for (const [key, slot] of slots) {
-        if (!slot.building) continue;
-        slot.abort?.abort(); slot.building = null;
+        if (slot.building) {
+          slot.abort?.abort();
+          slot.building = null;
+        }
         if (!slot.profile) slots.delete(key);
       }
       return { status: "ready" };
@@ -242,14 +264,14 @@ export async function handle(req: Request): Promise<Reply> {
     // serve a live game until it is over.
     const finished = new Set(req.callback.game.isFinished ? [String(req.callback.game.id)] : []);
     if (!canShowRecap(req.gameId, finished)) return { status: "pending" };
-    const probe = gameFromCallback(req.callback, req.username, req.kind, []);
+    let job = jobs.get(key);
+    const probe = job?.game ?? gameFromCallback(req.callback, req.username, req.kind, []);
     if (!probe) return { status: "pending" };
-    // The game is over: show what is known now and add the rest as it arrives. The game's own
-    // analysis runs alongside the profile build, which a first install has to wait for.
     const slotKey = `${req.username.toLowerCase()}|${probe.timeClass}`;
-    // Any profile build (a first one, or a saved profile's refresh) waits until this game is
-    // analyzed, so the two do not compete for the CPU while the player waits for the turning point.
-    const p = await ensureProfile(req.username, probe.timeClass, signal, !!jobs.get(key)?.analysis);
+    const previousArchive = slots.get(slotKey)?.archive;
+    // Keep the finished game's search ahead of the profile engine work. Archive lookups can
+    // overlap it, and the first profile uses the same games as the early recap.
+    const p = await ensureProfile(req.username, probe.timeClass, signal, !!(job?.analysis || job?.error));
     signal.throwIfAborted();
     const slot = slots.get(slotKey);
     const profile = p === null ? slot!.profile! : null, games = profile ? slot!.games : 0;
@@ -258,17 +280,18 @@ export async function handle(req: Request): Promise<Reply> {
       rememberRecap(recaps, key, done);
       return { status: "recap", recap: done.recap, games: done.games };
     }
-    let job = jobs.get(key);
-    if (!job) job = startJob(key, gameFromCallback(req.callback, req.username, req.kind, slot?.profile?.games ?? [])!, signal);
-    // name the opening from the profile's games once there are some
-    const game = profile ? gameFromCallback(req.callback, req.username, req.kind, profile.games ?? [])! : job.game;
+    job = jobs.get(key) ?? startJob(key, probe, signal);
+    if (slot && p?.status === "building") void prepareQuickGames(slot, req.username, probe.timeClass, signal);
+    const archive = slot?.archive ?? previousArchive;
+    const openingGames = profile?.games ?? archive?.games;
+    const game = openingGames ? nameCallbackOpening(job.game, openingGames) : job.game;
+    const note = game.opponent && job.opponentGames && !game.family.startsWith("ECO ")
+      ? opponentNote(game.opponent, job.opponentGames, game.family, game.color === "white" ? "black" : "white") : null;
     const a = job.analysis, err = job.error;
     const empty: GameAnalysis = { url: game.url, color: game.color, moves: [], opening_eval: null };
+    const recap = buildRecap(game, a?.analysis ?? empty, a?.blunders ?? [],
+      profile?.rows ?? archive?.rows ?? [], profile?.tactics ?? null, note);
     if (profile && (a || err) && job.opponentDone) {
-      // the note names the opening, so it is written now that the profile has named it
-      const note = game.opponent && job.opponentGames
-        ? opponentNote(game.opponent, job.opponentGames, game.family, game.color === "white" ? "black" : "white") : null;
-      const recap = buildRecap(game, a?.analysis ?? empty, a?.blunders ?? [], profile.rows, profile.tactics, note);
       jobs.delete(key);
       if (err) {
         // keep everything else; the next visit to this game tries the analysis again
@@ -278,11 +301,10 @@ export async function handle(req: Request): Promise<Reply> {
       rememberRecap(recaps, key, { recap, games });
       return { status: "recap", recap, games };
     }
-    const recap = buildRecap(game, a?.analysis ?? empty, a?.blunders ?? [], profile?.rows ?? [], profile?.tactics ?? null, null);
-    recap.pending = { turning: !a && !err, history: !profile || !job.opponentDone };
+    recap.pending = { turning: !a && !err, history: !profile && !archive };
     if (err) recap.turningError = err;
     const failed = p?.status === "error" ? p.message : "";
-    const partial = failed ? `Your past games could not be loaded (${failed}), so this recap has no patterns.`
+    const partial = failed ? `Your patterns could not be loaded (${failed}).`
       : !a && !err ? "Stockfish is analyzing this game."
       : !profile ? `Adding your patterns. ${p?.status === "building" ? p.progress : ""}`.trim()
       : "Reading your opponent's recent games…";

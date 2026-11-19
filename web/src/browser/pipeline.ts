@@ -2,7 +2,7 @@
 // Python server's /api/analyze (chesscheck/pipeline.py to_payload), so the page
 // renders either one.
 import { analyseGames, BLUNDER_DROP, DEEP_DEPTH_BROWSER, moveLabel, phaseSummary, recheckBlunders, worstBlunders, type Pacer } from "./engine";
-import { fetchGames } from "./games";
+import { fetchGames, type Game } from "./games";
 import { buildFacts } from "./facts";
 import { summarize } from "./summary";
 import { summarizeInBackground } from "./tacticsBackground";
@@ -14,6 +14,8 @@ export const STAGES = ["Fetch games", "Run Stockfish", "Double-check blunders", 
 export interface BrowserOptions {
   username: string; games: number; timeClass: string | null; depth: number; engineUrl: string;
   onStatus?: (msg: string) => void; signal?: AbortSignal;
+  /** The extension can share its first archive lookup with the recap while Stockfish runs. */
+  prefetchedGames?: Promise<Game[]>;
   /** An adaptive worker count (pace.ts) for builds that run in the background; fixed otherwise. */
   pace?: Pacer;
   /** stage = index into STAGES; frac = progress within it (null if unknown) */
@@ -50,7 +52,8 @@ const eta = (t0: number, done: number, total: number, cached = 0) => {
 export async function analyzeInBrowser(o: BrowserOptions) {
   const report = (stage: number, frac: number | null, text: string) => { o.onStatus?.(text); o.onProgress?.(stage, frac, text); };
   report(0, null, `Fetching ${o.username}'s games from Chess.com…`);
-  const games = await fetchGames(o.username, o.games, o.timeClass, o.signal);
+  const games = await (o.prefetchedGames ?? fetchGames(o.username, o.games, o.timeClass, o.signal));
+  o.signal?.throwIfAborted();
   if (games.length < 5) throw new Error(`Only ${games.length} standard games found for "${o.username}".`);
   const rows = withExpected(games);
   const openings = openingRows(rows);

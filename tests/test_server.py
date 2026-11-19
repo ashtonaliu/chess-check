@@ -103,3 +103,67 @@ def test_cache_files_are_written_whole(tmp_path):
     engine._write_atomic(target, '{"ok": true}')
     assert target.read_text() == '{"ok": true}'
     assert [p.name for p in tmp_path.iterdir()] == ["game.json"]   # no temporary file left behind
+
+
+def test_hosted_coach_requires_token_and_limits_work(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+
+    from starlette.requests import Request
+
+    monkeypatch.setenv("CHESS_CHECK_COACH_TOKEN", "test-coaching-token")
+    monkeypatch.setattr(server, "_backend", lambda: "api")
+    monkeypatch.setattr(server, "_coach_jobs", threading.BoundedSemaphore(1))
+    calls = []
+    started = threading.Event()
+    release = threading.Event()
+
+    def fake_analysis(request):
+        calls.append(request.username)
+        return SimpleNamespace(username=request.username, facts=[], games=[], moves=[], summaries=[])
+
+    def fake_coach(*args, **kwargs):
+        started.set()
+        assert release.wait(5)
+        return SimpleNamespace(report="report", verification={}, first_verification={}, repaired=False,
+                               tool_calls=[], usage={}, facts=[])
+
+    monkeypatch.setattr(server, "_get", fake_analysis)
+    monkeypatch.setattr(server, "run_coach_auto", fake_coach)
+
+    def request(token=None):
+        headers = [] if token is None else [(b"authorization", f"Bearer {token}".encode())]
+        return Request({"type": "http", "client": ("192.0.2.1", 10000), "headers": headers})
+
+    async def exercise():
+        data = req()
+        for token in (None, "wrong"):
+            with pytest.raises(server.HTTPException) as rejected:
+                await server.api_coach(data, request(token))
+            assert rejected.value.status_code == 401
+        assert not calls
+        accepted = asyncio.create_task(server.api_coach(data, request("test-coaching-token")))
+        try:
+            assert await asyncio.to_thread(started.wait, 5)
+            with pytest.raises(server.HTTPException) as busy:
+                await server.api_coach(data, request("test-coaching-token"))
+            assert busy.value.status_code == 429
+            assert calls == ["someone"]
+        finally:
+            release.set()
+        assert (await accepted)["report"] == "report"
+
+    asyncio.run(exercise())
+
+
+def test_local_coach_is_explicit_and_loopback_only(monkeypatch):
+    from starlette.requests import Request
+
+    monkeypatch.delenv("CHESS_CHECK_COACH_TOKEN", raising=False)
+    monkeypatch.delenv("CHESS_CHECK_LOCAL_COACH", raising=False)
+    local = Request({"type": "http", "client": ("127.0.0.1", 10000)})
+    remote = Request({"type": "http", "client": ("192.0.2.1", 10000)})
+    assert server._coach_access(local) is None
+    monkeypatch.setenv("CHESS_CHECK_LOCAL_COACH", "1")
+    assert server._coach_access(local) == "local"
+    assert server._coach_access(remote) is None

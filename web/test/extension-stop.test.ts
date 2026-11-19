@@ -59,3 +59,32 @@ test("Play cancels a finished-game search and an in-flight warmup", async t => {
     await warmup;
   }
 });
+
+
+test("a failed cold game search settles when the profile also cannot be built", async t => {
+  t.mock.method(globalThis, "fetch", async () => Response.json({ archives: [] }));
+  const original = Object.getOwnPropertyDescriptor(globalThis, "Worker");
+  Object.defineProperty(globalThis, "Worker", { configurable: true, value: class {
+    constructor() { throw new Error("fixture engine unavailable"); }
+  } });
+  t.after(() => {
+    if (original) Object.defineProperty(globalThis, "Worker", original);
+    else Reflect.deleteProperty(globalThis, "Worker");
+  });
+  const { handle } = await import("../src/extension/offscreen");
+  const callback = JSON.parse(readFileSync(new URL("./fixtures/callback_187138001290.json", import.meta.url), "utf8")) as Callback;
+  const recap = { type: "recap", username: "ashton-iwnl", kind: "live", gameId: "187138001290", callback } as const;
+  try {
+    await handle(recap);
+    await new Promise(resolve => setImmediate(resolve));
+    await handle(recap);  // an unsuccessful game search still lets the independent profile start
+    await new Promise(resolve => setImmediate(resolve));
+    const reply = await handle(recap);
+    assert.equal(reply.status, "recap");
+    assert.equal(reply.recap.turningError, "fixture engine unavailable");
+    assert.match(reply.partial ?? "", /Only 0 standard games/);
+    assert.equal(reply.retry, false);
+  } finally {
+    await handle({ type: "stop" });
+  }
+});

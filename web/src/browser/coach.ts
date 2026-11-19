@@ -30,7 +30,7 @@ Format (Markdown, under 350 words): a one-sentence summary, then "## Biggest wea
 
 /** The slice of the SDK the coach uses, so tests can pass a fake. */
 export interface CoachClient {
-  beta: { messages: { create(params: Record<string, unknown>): Promise<CoachResponse> } };
+  beta: { messages: { create(params: Record<string, unknown>, options?: { signal?: AbortSignal }): Promise<CoachResponse> } };
 }
 interface Block { type: string; text?: string; id?: string; name?: string; input?: unknown; }
 interface CoachResponse { stop_reason: string | null; content: Block[]; usage: { input_tokens: number; output_tokens: number }; }
@@ -59,7 +59,7 @@ export function describeError(e: unknown): string {
 
 export async function runCoach(opts: {
   client: CoachClient; username: string; facts: Fact[]; games: GameRow[]; moves: Row[];
-  engineUrl: string; repair?: boolean; onStatus?: (msg: string) => void; summaries?: [string, string][];
+  engineUrl: string; signal?: AbortSignal; repair?: boolean; onStatus?: (msg: string) => void; summaries?: [string, string][];
 }): Promise<CoachResult> {
   const facts = opts.facts.map(f => ({ ...f }));       // tool results get appended
   const box = new ToolBox(opts.games, opts.moves, facts, opts.engineUrl, opts.summaries ?? []);
@@ -69,11 +69,13 @@ export async function runCoach(opts: {
 
   const turns = async (): Promise<CoachResponse> => {
     for (let i = 0; i <= MAX_TOOL_TURNS; i++) {
+      opts.signal?.throwIfAborted();
       const resp = await opts.client.beta.messages.create({
         model: MODEL, max_tokens: 16000, system: SYSTEM, tools: TOOLS, messages,
         output_config: { effort: "medium" },
         ...(FALLBACK_MODELS.has(MODEL) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
-      });
+      }, { signal: opts.signal });
+      opts.signal?.throwIfAborted();
       usage.input_tokens += resp.usage?.input_tokens ?? 0;
       usage.output_tokens += resp.usage?.output_tokens ?? 0;
       if (resp.stop_reason === "refusal") throw new Error("The model declined to write this report.");
@@ -83,6 +85,7 @@ export async function runCoach(opts: {
       if (resp.stop_reason !== "tool_use" || !uses.length) return resp;
       const results = [];
       for (const u of uses) {
+        opts.signal?.throwIfAborted();
         opts.onStatus?.(`The coach is using ${(u.name ?? "a tool").replace("_", " ")}…`);
         const { out, isError } = await box.run(u.name!, (u.input ?? {}) as Record<string, unknown>);
         results.push({ type: "tool_result", tool_use_id: u.id, content: out, is_error: isError });

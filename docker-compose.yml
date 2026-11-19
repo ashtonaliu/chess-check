@@ -27,6 +27,8 @@ services:
       CHESS_CHECK_MYSQL_WRITER_URL: mysql://chesscheck_writer:${CHESS_CHECK_WRITER_PASSWORD}@mysql:3306
       CHESS_CHECK_MYSQL_READER_URL: mysql://chesscheck_reader:${CHESS_CHECK_READER_PASSWORD}@mysql:3306
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CHESS_CHECK_COACH_TOKEN: ${CHESS_CHECK_COACH_TOKEN:-}
+      CHESS_CHECK_MAX_COACH_JOBS: ${CHESS_CHECK_MAX_COACH_JOBS:-1}
     depends_on:
       mysql:
         condition: service_healthy

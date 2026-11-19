@@ -15,7 +15,7 @@
     <p>This policy covers the Chrome extension. Its purpose is to recap finished Chess.com games and let you practice positions from those games.</p>
 
     <h2>What the extension uses</h2>
-    <p>On Chess.com, the extension reads the game ID from the page address and looks for your Chess.com username in the page’s account information or profile link. Signed out, you can pick a player from the game. It reads game results, moves, ratings, clocks, openings and public game history to build recaps and a review queue.</p>
+    <p>On Chess.com, the extension reads the game ID from the page address and looks for your Chess.com username in the page’s account information or profile link. Signed out, you can pick a player from the game. It reads game results, moves, ratings, clocks, openings and public game history to build recaps and a review queue. It also checks open Chess.com tab addresses so that a Play page or an unconfirmed game pauses analysis across tabs.</p>
     <p>The extension also uses frame timings on visible Chess.com pages to reduce background engine work if the page stutters.</p>
 
     <h2>What leaves this browser</h2>
@@ -23,7 +23,7 @@
     <p>Stockfish analysis runs in Chrome. The extension has no analytics service and sends no game data, analysis or review results to the Chess Check developer. The developer does not sell or use extension data for advertising.</p>
 
     <h2>Local storage and deletion</h2>
-    <p>The extension stores preferences, player selections, game history used for profiles, analysis caches and review progress in your Chrome profile. These records may remain until Chrome clears the relevant storage or you uninstall the extension. Per-tab recap and review markers are stored in the tab’s session storage, which Chrome normally clears when that tab closes.</p>
+    <p>The extension stores preferences, player selections, game history used for profiles, analysis caches and review progress in your Chrome profile. These records may remain until Chrome clears the relevant storage or you uninstall the extension. The cross-tab pause state stays in extension session storage. Per-tab recap and review markers are stored in the tab’s session storage, which Chrome normally clears when that tab closes.</p>
 
     <h2>Limited Use and contact</h2>
     <p>Chess Check’s use of information adheres to the Chrome Web Store User Data Policy, including the Limited Use requirements.</p>

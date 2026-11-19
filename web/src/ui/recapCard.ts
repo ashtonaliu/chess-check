@@ -57,44 +57,60 @@ export interface RecapOptions {
   sameTab?: boolean;
 }
 
-/** The recap card as a DOM element. Its only side effect is remembering a revealed answer. */
-export function recapCard(r: Recap, isNew: boolean, opts: RecapOptions = {}): HTMLElement {
+/** Move consequences are expressed on the same scale at both ends of the move. */
+export function describeTurningPoint(t: NonNullable<Recap["turning"]>): string {
+  return t.chances
+    ? `dropped your estimated winning chances from ${Math.round(t.chances.before)}% to ${Math.round(t.chances.after)}%`
+    : `cost ${Math.round(t.loss)} percentage points of estimated winning chances`;
+}
 
-  const col = r.color === "white" ? "White" : "Black";
+function renderTurningPoint(section: HTMLElement, r: Recap, opts: RecapOptions) {
+  const t = r.turning;
+  if (r.turningError || r.pending?.turning || !t) {
+    section.className = "recap-turning noboard";
+    section.innerHTML = `<p><span class="lbl">Turning point</span>${r.turningError
+      ? "Stockfish could not analyze this game."
+      : r.pending?.turning ? '<span class="pending">Finding the turning point</span>' : "No major mistakes in this game."}</p>`;
+    return;
+  }
+  const quiz = t.loss >= 20 && !!t.best && t.best !== t.san;
+  const boardFor = (withAnswer: boolean) =>
+    opts.drawBoard?.(t.fen, t.ply % 2 === 1, t.san, withAnswer && t.best !== t.san ? t.best : null) ?? "";
+  const revealed = !quiz || wasRevealed(r);
+  const board = boardFor(revealed);
+  const clock = t.clockFrac !== null && t.clockFrac <= 0.3
+    ? (t.clockFrac <= 0.1 ? ", in time trouble" : ", low on time") : "";
+  const tags = tacticSentence(t.tactics);
+  const consequence = `<strong class="moves">${esc(t.label)}</strong> ${describeTurningPoint(t)}.`;
+  const context = `<span class="recap-context">${esc(t.phase[0].toUpperCase() + t.phase.slice(1))}${clock}</span>`;
+  section.className = "recap-turning recap-grid" + (board ? "" : " noboard");
+  section.innerHTML = `<div class="recap-lines"><p><span class="lbl">Turning point</span>
+      ${t.loss < 20 ? "No blunders. " : ""}${consequence}${context}
+      ${quiz ? `<span class="quiz-q">${esc(quizHint(t.tactics))}</span>` : esc(tags)}</p>
+      ${quiz ? `<div class="quiz-actions">
+        <a class="quiz-board" href="${esc(moveLink(r.url, t.ply))}"${opts.sameTab ? "" : ' target="_blank" rel="noopener"'}>Find it on the board</a>
+        <button type="button" class="quiz-reveal">Reveal the move</button>
+      </div>
+      <p class="quiz-answer" tabindex="-1"><span class="lbl">Answer</span>Better was <span class="moves">${esc(t.best!)}</span>.${esc(tags)}</p>` : ""}
+    </div>${board ? `<div class="recap-board">${board}</div>` : ""}`;
+  section.classList.toggle("revealed", revealed);
+  section.querySelector(".quiz-reveal")?.addEventListener("click", () => {
+    rememberReveal(r);
+    section.classList.add("revealed");
+    const diagram = section.querySelector<HTMLElement>(".recap-board");
+    if (diagram) diagram.innerHTML = boardFor(true);
+    section.querySelector<HTMLElement>(".quiz-answer")?.focus();
+  });
+}
+
+function recapDetails(r: Recap, col: string): string {
   const resultPos = r.score * 100, expPos = r.expected * 100;
   const resultColor = r.score === 1 ? "var(--good)" : r.score === 0 ? "var(--weak)" : "var(--neutral)";
-  const t = r.turning;
-  // A real blunder with a better move becomes a question: find the move, then reveal it.
-  const quiz = !!(t && t.loss >= 20 && t.best && t.best !== t.san);
-  let revealed = !quiz || wasRevealed(r);
-  const boardFor = (withAnswer: boolean) => {
-    if (!t || !opts.drawBoard) return "";
-    return opts.drawBoard(t.fen, t.ply % 2 === 1, t.san, withAnswer && t.best && t.best !== t.san ? t.best : null);
-  };
-  const board = boardFor(revealed);
-  const clock = t?.clockFrac !== null && t?.clockFrac !== undefined
-    ? (t.clockFrac <= 0.1 ? ", in time trouble" : t.clockFrac <= 0.3 ? ", low on time" : "") : "";
-  // Before the reveal: what went wrong with your move ("allowed") and a hint ("missed").
-  const tags = t ? tacticSentence(t.tactics) : "";
-  const question = t ? quizHint(t.tactics) : "";
-  const link = t ? moveLink(r.url, t.ply) : r.url;
-  const turning = r.turningError
-    ? `<p><span class="lbl">Turning point</span>Unavailable: Stockfish could not analyze this game.</p>`
-    : r.pending?.turning
-    ? `<p><span class="lbl">Turning point</span><span class="pending">Finding the turning point</span></p>`
-    : !t ? `<p>Clean game: no mistakes worth noting.</p>`
-    : quiz
-      ? `<div class="quiz"><p><span class="lbl">Turning point</span><span class="moves">${esc(t.label)}</span> lost <strong class="weak">${Math.round(t.loss)}%</strong>
-           winning chances (${esc(t.phase)}${clock}). There was a much better move.<span class="quiz-q">${esc(question)}</span></p>
-         <div class="quiz-actions">
-           <a class="quiz-board" href="${esc(link)}"${opts.sameTab ? "" : ` target="_blank" rel="noopener"`}>Find it on the board</a>
-           <button type="button" class="quiz-reveal">Reveal the move</button>
-         </div>
-         <p class="quiz-answer"><span class="lbl">Answer</span>Better was <span class="moves">${esc(t.best!)}</span>.${esc(tags)}</p></div>`
-      : t.loss >= 20
-        ? `<p><span class="lbl">Turning point</span><span class="moves">${esc(t.label)}</span> lost <strong class="weak">${Math.round(t.loss)}%</strong>
-           winning chances (${esc(t.phase)}${clock}).${esc(tags)}</p>`
-        : `<p><span class="lbl">Turning point</span>No blunders. Your biggest slip, <span class="moves">${esc(t.label)}</span>, cost ${Math.round(t.loss)}%.</p>`;
+  const meter = r.odds === "unknown" ? "" : `<div class="meter" title="A win is 1 point and a draw is half a point. The line marks the expected score. The dot marks the result.">
+    <p><span class="lbl">Expected score</span>Before the game, ratings expected you to score ${r.odds === "estimated" ? "about " : ""}${Math.round(expPos)}%.</p>
+    <div class="track" aria-hidden="true"><span class="mark" style="left:${expPos.toFixed(1)}%"></span>
+      <span class="result" style="left:${resultPos}%;background:${resultColor}"></span></div>
+    <div class="labels" aria-hidden="true"><span>Loss</span><span>Draw</span><span>Win</span></div></div>`;
   const h = r.opening.history;
   const variation = r.opening.name.toLowerCase().replace(/[^a-z]/g, "") !== r.opening.family.toLowerCase().replace(/[^a-z]/g, "")
     ? ` <span class="ci">(${esc(r.opening.name)})</span>` : "";
@@ -111,32 +127,48 @@ export function recapCard(r: Recap, isNew: boolean, opts: RecapOptions = {}): HT
        ${esc(PLURAL[r.pattern.motif] ?? r.pattern.motif)}. That makes ${r.pattern.count} in your analyzed games.
        <a href="https://lichess.org/training/${esc(PUZZLE[r.pattern.motif] ?? r.pattern.motif)}" target="_blank" rel="noopener">Practice →</a></p>` : "";
   const opp = r.opponentNote ? `<p><span class="lbl">Your opponent</span>${esc(r.opponentNote)}</p>` : "";
-  const card = document.createElement("article");
-  card.className = "recap" + (isNew ? " new" : "");
-  card.innerHTML = `<div class="recap-head"><span class="chip ${VERDICT_CLASS(r)}">${esc(r.verdict)}</span>
-      <strong>You ${esc(r.how)}</strong> vs ${esc(r.opponent)} (${r.oppRating}) as ${col}
-      <span class="when">${esc(r.timeClass)} · ${ago(r.endTime)} · <a href="${esc(r.url)}" target="_blank" rel="noopener">open game</a></span></div>
-    ${r.odds === "unknown" ? "" : `<div class="meter" title="${r.odds === "estimated"
-        ? "Pre-game expected score, from ratings estimated from your previous game (the game archive only stores ratings after each game), shown only after the game"
-        : "Pre-game expected score from both ratings, shown only after the game"}">
-      <div class="track"><span class="mark" style="left:${expPos.toFixed(1)}%"></span>
-        <span class="result" style="left:${resultPos}%;background:${resultColor}"></span></div>
-      <div class="labels"><span>loss</span><span>Before the game you had ${r.odds === "estimated" ? "about " : ""}a ${Math.round(expPos)}% expected score</span><span>win</span></div></div>`}
-    <div class="recap-grid${board ? "" : " noboard"}">${board ? `<div class="recap-board">${board}</div>` : ""}
-      <div class="recap-lines">${turning}${pat}${opening}${opp}</div></div>`;
-  if (!board) (card.querySelector(".recap-grid") as HTMLElement).style.gridTemplateColumns = "1fr";
-  const show = () => {
-    card.classList.toggle("revealed", revealed);
-    const b = card.querySelector<HTMLElement>(".recap-board");
-    if (b) b.innerHTML = boardFor(revealed);
-  };
-  card.querySelector(".quiz-reveal")?.addEventListener("click", () => {
-    revealed = true; rememberReveal(r); show();
-    card.querySelector<HTMLElement>(".quiz-answer")?.focus();
-  });
-  card.querySelector<HTMLElement>(".quiz-answer")?.setAttribute("tabindex", "-1");
-  show();
-  return card;
+  return `${meter}${pat}${opening}${opp}`;
+}
+
+/** Recap sections update independently so a history update leaves the turning point in place. */
+export function createRecapView(opts: RecapOptions = {}) {
+  const element = document.createElement("article");
+  element.innerHTML = '<header class="recap-head"></header><div class="recap-turning"></div><div class="recap-details" hidden></div>';
+  const head = element.querySelector<HTMLElement>(".recap-head")!;
+  const turning = element.querySelector<HTMLElement>(".recap-turning")!;
+  const details = element.querySelector<HTMLElement>(".recap-details")!;
+  let shownHead = "", shownTurning = "", shownDetails = "";
+
+  function update(r: Recap, isNew = false) {
+    element.className = "recap" + (isNew ? " new" : "");
+    const col = r.color === "white" ? "White" : "Black";
+    const badge = ["Win", "Loss", "Draw"].includes(r.verdict) ? "" : `<span class="chip ${VERDICT_CLASS(r)}">${esc(r.verdict)}</span>`;
+    const headerMarkup = `${badge}<span><strong>You ${esc(r.how)}</strong> vs ${esc(r.opponent)} (${r.oppRating}) as ${col}</span>
+      <span class="when">${esc(r.timeClass)} · ${ago(r.endTime)} · <a href="${esc(r.url)}" target="_blank" rel="noopener">Open game</a></span>`;
+    if (headerMarkup !== shownHead) {
+      shownHead = headerMarkup;
+      head.innerHTML = headerMarkup;
+    }
+    const turningKey = JSON.stringify([r.url, r.turning, r.pending?.turning, r.turningError]);
+    if (turningKey !== shownTurning) {
+      shownTurning = turningKey;
+      renderTurningPoint(turning, r, opts);
+    }
+    const detailsMarkup = recapDetails(r, col);
+    if (detailsMarkup !== shownDetails) {
+      shownDetails = detailsMarkup;
+      details.innerHTML = detailsMarkup;
+      details.hidden = !detailsMarkup;
+    }
+  }
+
+  return { element, update };
+}
+
+export function recapCard(r: Recap, isNew: boolean, opts: RecapOptions = {}): HTMLElement {
+  const view = createRecapView(opts);
+  view.update(r, isNew);
+  return view.element;
 }
 
 /** Short text for a browser notification about a new recap. */

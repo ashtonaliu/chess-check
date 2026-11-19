@@ -2,7 +2,7 @@
 // player's history. Everything here is about a game that is already over;
 // nothing is computed or shown before or during a game (Chess.com's fair-play
 // rules forbid outside help while playing).
-import { BLUNDER_DROP, moveLabel, type GameAnalysis } from "./engine";
+import { BLUNDER_DROP, moveLabel, winPct, type GameAnalysis } from "./engine";
 import { findRate } from "./findRate";
 import { gameId } from "./ids";
 import type { Game } from "./games";
@@ -16,6 +16,7 @@ export interface Recap {
   opening: { name: string; family: string; history: { n: number; score: number; expected: number } | null; flag: string | null };
   turning: null | { label: string; loss: number; phase: string; best: string | null; fen: string; ply: number; moveNo: number; san: string;
                     tactics: { kind: "allowed" | "missed"; motif: string }[]; clockFrac: number | null;
+                    chances?: { before: number; after: number };
                     /** How often players near your rating find the best move (findRate.ts), when there is one. */
                     findRate?: number | null };
   pattern: null | { kind: string; motif: string; count: number; verdict: string };
@@ -71,8 +72,10 @@ export function buildRecap(game: Game, analysis: GameAnalysis, blunders: Blunder
 
   // turning point: the user's biggest mistake, by the confirmed (deep) loss when available
   const mine = analysis.moves.filter(m => m.is_me).map(m => {
-    const d = m as typeof m & { deep_loss?: number; deep_best?: string | null };
-    return { m, loss: d.deep_loss ?? m.wp_loss, best: d.deep_loss !== undefined ? (d.deep_best ?? null) : m.best };
+    const d = m as typeof m & { deep_loss?: number; deep_best?: string | null; deep_cp_before?: number; deep_cp_after?: number };
+    const deep = d.deep_loss !== undefined;
+    return { m, loss: d.deep_loss ?? m.wp_loss, best: deep ? (d.deep_best ?? null) : m.best,
+      before: deep ? d.deep_cp_before : m.cp_before, after: deep ? d.deep_cp_after : m.cp_after };
   });
   let worst = mine[0] ?? null;
   for (const x of mine) if (x.loss > (worst?.loss ?? -1)) worst = x;
@@ -81,8 +84,11 @@ export function buildRecap(game: Game, analysis: GameAnalysis, blunders: Blunder
     const rec = blunders.find(b => b.ply === worst!.m.ply && b.is_me);
     const tags = rec ? [...rec.missed.map(motif => ({ kind: "missed" as const, motif })),
                         ...rec.allowed.map(motif => ({ kind: "allowed" as const, motif }))] : [];
+    const { before, after } = worst;
+    const chances = typeof before === "number" && Number.isFinite(before) && typeof after === "number" && Number.isFinite(after)
+      ? { before: winPct(before), after: winPct(after) } : undefined;
     turning = { label: moveLabel(worst.m), loss: worst.loss, phase: worst.m.phase, best: worst.best, fen: worst.m.fen,
-      ply: worst.m.ply, moveNo: worst.m.move_no, san: worst.m.san, tactics: tags, clockFrac: worst.m.clock_frac,
+      ply: worst.m.ply, moveNo: worst.m.move_no, san: worst.m.san, tactics: tags, clockFrac: worst.m.clock_frac, chances,
       findRate: worst.best && worst.best !== worst.m.san ? findRate(worst.m.fen, worst.best, game.myRating) : null };
     // does it match one of the player's known patterns? (only problems: rates above the opponents')
     for (const t of tags) {

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import type { GameAnalysis } from "../src/browser/engine";
+import { winPct, type GameAnalysis } from "../src/browser/engine";
 import type { Game } from "../src/browser/games";
 import { buildRecap, opponentNote, upset } from "../src/browser/recap";
 import { pregameExpected, withExpected } from "../src/browser/stats";
@@ -61,6 +61,18 @@ test("recap of a real game: expected score, opening history without the game its
     assert.ok(stat.higher && stat.verdict !== "no difference");
     assert.equal(r.pattern.count, stat.me);
   }
+});
+
+test("the turning point uses before and after scores from the depth that set its loss", () => {
+  const a = analyses[0];
+  const m = { ...a.moves[0], is_me: true, cp_before: 230, cp_after: -135, wp_loss: 32 };
+  const build = (moves: GameAnalysis["moves"]) => buildRecap(games[0], { ...a, moves }, [], [], null).turning;
+  assert.deepEqual(build([m])?.chances, { before: winPct(230), after: winPct(-135) });
+
+  const deep = { ...m, deep_cp_before: 100, deep_cp_after: -100, deep_loss: 18 };
+  assert.deepEqual(build([deep])?.chances, { before: winPct(100), after: winPct(-100) });
+  const old = { ...m, deep_loss: 18 };
+  assert.equal(build([old])?.chances, undefined);
 });
 
 test("opponent note: their record in this opening as their color, from their own games", () => {

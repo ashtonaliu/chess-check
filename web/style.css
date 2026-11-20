@@ -26,7 +26,7 @@ a { color: var(--accent); }
 .brand { font-weight: 700; color: var(--ink); text-decoration: none; display: flex; align-items: center; gap: 8px; }
 .logo { display: inline-grid; place-items: center; width: 30px; height: 30px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); }
 .topbar nav { display: flex; gap: 18px; font-size: 14px; }
-.topbar nav a { color: var(--muted); text-decoration: none; }
+.topbar nav a { color: var(--muted); text-decoration: none; white-space: nowrap; }
 .topbar nav a:hover { color: var(--ink); }
 
 .hero, .progress, .status, .notice, main, .how, footer { max-width: 1040px; margin-left: auto; margin-right: auto; padding-left: 16px; padding-right: 16px; }
@@ -177,7 +177,9 @@ footer { color: var(--muted); font-size: 13px; padding-top: 24px; padding-bottom
   .hero { text-align: left; } .lede, .hero h1 { margin-left: 0; }
   .search { padding: 6px; } .search button { flex: 1 1 100%; }
   .row { grid-template-columns: 96px 1fr; } .row .num { grid-column: 2; text-align: left; }
+  .topbar { flex-wrap: wrap; row-gap: 6px; }
   .topbar nav { gap: 12px; }
+  .brand { white-space: nowrap; }
 }
 
 /* ---------- example positions you can step through ---------- */

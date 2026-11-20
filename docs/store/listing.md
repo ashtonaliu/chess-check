@@ -43,6 +43,7 @@ Help Chess.com players learn from finished games with on-device Stockfish recaps
 - `offscreen` runs bundled workers for Stockfish and tactics analysis outside the Chess.com page’s rendering thread.
 - Chess.com content script access is limited to `www.chess.com` and `chess.com`. The script reads the game ID and player identity, checks the game’s status and moves with Chess.com, and mounts the recap panel on the page.
 - `https://api.chess.com/*` allows the offscreen document to retrieve historical games via the public archive API.
+- `https://www.chess.com/*` and `https://chess.com/*` host access (added in 0.7.1) lets the service worker read the addresses of open Chess.com tabs. While any tab is on the Play page or on a game not yet confirmed finished, it pauses analysis in every tab. It reads only the address, not page content.
 
 **Remote code**
 

@@ -7,7 +7,7 @@ use shakmaty::{
 };
 use xxhash_rust::xxh3::xxh3_64;
 
-use crate::parquet::table;
+use lichess_ingest::parquet::table;
 
 table! {
     Game {
@@ -182,11 +182,14 @@ impl Visitor for GameReader {
         state: &mut Movetext,
         comment: RawComment<'_>,
     ) -> ControlFlow<Self::Output> {
+        if state.plies == 0 || (state.clock && state.board.is_none()) {
+            return ControlFlow::Continue(());
+        }
         let Ok(comment) = std::str::from_utf8(comment.as_bytes()) else {
             return ControlFlow::Continue(());
         };
         let clock = marker(comment, "[%clk ").and_then(clock_seconds);
-        state.clock |= state.plies > 0 && clock.is_some();
+        state.clock |= clock.is_some();
         if state.board.is_some() && !state.positions.is_empty() {
             let ply = state.positions.len() - 1;
             let previous = ply

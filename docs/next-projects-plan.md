@@ -133,6 +133,10 @@ Build with `cargo build --locked --release --manifest-path tools/lichess-ingest/
 Run `python scripts/lichess_data.py fetch games evals`, then
 `python scripts/lichess_data.py ingest`. The ingest prints its projection and saves its counters in
 `data/lichess/2026-10/run.json`. Add `--one-percent` for the comparison run.
+`python scripts/lichess_data.py convert-evals` scans the evaluation archive once and records its
+conversion results in `data/lichess/evaluations/run.json`. Subsequent runs reuse that table.
+With `requirements-dev.txt` installed, `python scripts/label_lichess.py` joins it to the main
+position sample and writes the training table and coverage report to `data/lichess/2026-10-labels/`.
 
 ### Tests
 

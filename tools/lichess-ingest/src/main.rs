@@ -1,5 +1,4 @@
 mod games;
-mod parquet;
 
 use std::{
     collections::BTreeMap,
@@ -11,6 +10,7 @@ use std::{
 use anyhow::{Context, Result, ensure};
 use clap::Parser;
 use games::{Game, GameReader, MoveRow};
+use lichess_ingest::{parquet, peak_rss_bytes};
 use serde::Serialize;
 
 #[derive(Parser)]
@@ -67,15 +67,6 @@ fn flush(
     games.clear();
     positions.clear();
     Ok(())
-}
-
-fn peak_rss_bytes() -> u64 {
-    let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
-    if unsafe { libc::getrusage(libc::RUSAGE_SELF, &mut usage) } != 0 {
-        return 0;
-    }
-    let units = if cfg!(target_os = "macos") { 1 } else { 1024 };
-    usage.ru_maxrss as u64 * units
 }
 
 fn ingest(args: Args) -> Result<()> {

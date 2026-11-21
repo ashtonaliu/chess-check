@@ -839,6 +839,24 @@ python scripts/label_lichess.py
 python scripts/audit_lichess_labels.py
 ```
 
+## Native chess move generation
+
+I represent a standard chess position with one bitboard per color and piece type. For a sliding
+piece, the generator looks up the ray in each direction and trims it past the nearest blocker.
+It tests king safety on the resulting board. Unmake restores the saved board, castling rights,
+en passant target and clocks.
+
+I ran `bash scripts/check_engine_core.sh` on one thread on my M5 Pro Mac with 6 super cores and
+12 performance cores. All six published perft positions and the mirror of position 4 matched
+through depth 5. At depth 5, the initial position counted 4,865,609 nodes and Kiwipete counted
+193,690,690. [Published perft results](https://www.chessprogramming.org/Perft_Results)
+
+In one fixed-seed run I played 4,096 random games, half from the initial position and half from the
+other perft positions, with a 256-ply limit. I compared sorted UCI lists and FENs with shakmaty at
+each of the 943,932 positions, including each game's final position. All 23,593,115 legal moves
+matched, and undo restored the previous position after each of the 939,836 played moves. These tests
+cover native correctness. The offscreen profile, WebAssembly and performance measurements are pending.
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

@@ -16,6 +16,14 @@ jobs:
       - uses: actions/checkout@v4
       - run: rustup toolchain install 1.99.1 --profile minimal
       - run: cargo +1.99.1 test --locked --manifest-path tools/lichess-ingest/Cargo.toml
+      - run: cargo +1.99.1 build --locked --manifest-path tools/lichess-ingest/Cargo.toml
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install chess==1.11.2 duckdb pytest requests
+      - run: python -m pytest -q tests/test_lichess_dataset.py
+        env:
+          LICHESS_INGEST_BIN: tools/lichess-ingest/target/debug/lichess-ingest
 
   python:
     name: Python tests

@@ -30,7 +30,7 @@ def register_labels(con, games, evals):
                 coalesce(CASE WHEN mate > 0 THEN 3000 WHEN mate < 0 THEN -3000 END, cp) *
                 CASE WHEN mover = 'white' THEN 1 ELSE -1 END));
 
-        CREATE TEMP VIEW lichess_scored AS
+        CREATE TEMP VIEW lichess_moves AS
         WITH positions AS (
             SELECT p.shard, p.game_id, p.ply, p.fen, p.mover, p.move_uci,
                    p.clock_after, p.time_spent, p.source,
@@ -38,26 +38,38 @@ def register_labels(con, games, evals):
                    regexp_extract(p.fen, '^([^ ]+ [^ ]+ [^ ]+ [^ ]+)', 1) AS fen_key
             FROM lichess_positions p WHERE p.move_uci IS NOT NULL
         ), scored AS (
-            SELECT p.* EXCLUDE (placement, fen_key),
+            SELECT p.* EXCLUDE (placement),
                    CASE WHEN p.ply < {OPENING_PLIES} THEN 'opening'
                         WHEN {material} <= 26 THEN 'endgame' ELSE 'middlegame' END AS phase,
                    g.time_class, g.base_seconds, g.increment_seconds,
                    lower(CASE WHEN p.mover = 'white' THEN g.white ELSE g.black END) AS player,
                    CASE WHEN p.mover = 'white' THEN g.white_rating_before
                         ELSE g.black_rating_before END AS pregame_rating,
-                   p.clock_after::BIGINT + p.time_spent - g.increment_seconds AS clock_before,
-                   e.best_uci, e.second_uci, e.depth, e.knodes,
-                   lichess_wp(e.cp, e.mate, p.mover) AS best_wp,
-                   lichess_wp(e.second_cp, e.second_mate, p.mover) AS second_wp
+                   p.clock_after::BIGINT + p.time_spent - g.increment_seconds AS clock_before
             FROM positions p
-            LEFT JOIN read_parquet({_literal(str(evals / 'part-*.parquet'))}) e ON e.fen = p.fen_key
             JOIN (SELECT * FROM lichess_games WHERE position_sampled) g USING (shard, game_id)
         )
-        SELECT *, best_wp - second_wp AS gap, move_uci = best_uci AS found,
+        SELECT *,
                floor(pregame_rating / 200)::INTEGER * 200 AS rating_band,
                CASE WHEN clock_before IS NOT NULL AND base_seconds > 0
                     THEN least(1.5, greatest(0, clock_before::DOUBLE / base_seconds)) END AS clock_frac
-        FROM scored
+        FROM scored;
+
+        CREATE TEMP VIEW lichess_eval_scores AS
+        WITH with_mover AS (
+            SELECT *, CASE WHEN split_part(fen, ' ', 2) = 'w' THEN 'white' ELSE 'black' END AS mover
+            FROM read_parquet({_literal(str(evals / 'part-*.parquet'))})
+        ), scores AS (
+            SELECT fen, best_uci, second_uci, depth, knodes,
+                   lichess_wp(cp, mate, mover) AS best_wp,
+                   lichess_wp(second_cp, second_mate, mover) AS second_wp
+            FROM with_mover
+        )
+        SELECT *, best_wp - second_wp AS gap FROM scores;
+
+        CREATE TEMP VIEW lichess_scored AS
+        SELECT p.* EXCLUDE (fen_key), e.* EXCLUDE (fen)
+        FROM lichess_moves p LEFT JOIN lichess_eval_scores e ON e.fen = p.fen_key
     """)
 
 
@@ -96,10 +108,11 @@ def write_training(con, output, budget):
     from pyarrow.parquet import ParquetWriter
 
     training = con.sql(f"""
-        SELECT *, 'lichess_cloud' AS evaluation_source
-        FROM lichess_scored
-        WHERE gap >= {CRITICAL_GAP} AND ply >= 2
-          AND pregame_rating IS NOT NULL AND player IS NOT NULL
+        SELECT p.* EXCLUDE (fen_key), e.* EXCLUDE (fen),
+               p.move_uci = e.best_uci AS found, 'lichess_cloud' AS evaluation_source
+        FROM lichess_moves p
+        JOIN (SELECT * FROM lichess_eval_scores WHERE gap >= {CRITICAL_GAP}) e ON e.fen = p.fen_key
+        WHERE p.ply >= 2 AND p.pregame_rating IS NOT NULL AND p.player IS NOT NULL
     """)
     arrow_reader = getattr(training, "to_arrow_reader", training.fetch_record_batch)
     with arrow_reader(65_536) as batches, BudgetedWriter(output.open("wb", buffering=0), budget) as sink:

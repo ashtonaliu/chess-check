@@ -9,6 +9,14 @@ permissions:
   contents: read
 
 jobs:
+  lichess-ingest:
+    name: Lichess ingest tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install 1.99.1 --profile minimal
+      - run: cargo +1.99.1 test --locked --manifest-path tools/lichess-ingest/Cargo.toml
+
   python:
     name: Python tests
     runs-on: ubuntu-latest

@@ -29,7 +29,8 @@ still a finished phase: report it the way the odds study reports its null result
 - **Data and privacy.** Large data goes under `data/` (already in `.gitignore`). Never commit raw
   downloads, Parquet shards or model checkpoints. Small test fixtures are fine. Lichess data is
   released under CC0; record the source URL, file name, size and SHA-256 of every download in a
-  manifest like `data/engine/v1/runs.json`.
+  manifest like `data/engine/v1/runs.json`. For Phase A the existing files, archives, outputs and
+  temporary files together must fit within 150 GB under `data/`.
 - **Write-ups.** Each phase adds a section to `docs/methods.md` and, where there is a headline
   number, a row or table to the README's Results. Follow the existing voice: first person, plain,
   specific numbers, few contractions, American spelling, no em dashes, no ellipses, and no "not X,
@@ -63,6 +64,8 @@ November 20, 2026. Record the exact inputs used for the runs in the write-up.
 2. **Evaluations.** `lichess_db_eval.jsonl.zst` was 22.5 GB compressed. Each record has a four-field
    FEN and evaluations from different Stockfish searches. Some have a single principal variation.
    An eligible search supplies at least two lines with centipawn or mate scores and UCI_Chess960 moves.
+   Stream this export once into Parquet keyed by normalized FEN, keeping only the deepest eligible
+   search at depth 10 or higher per position. Report row count, Parquet bytes and conversion time.
    The export has depth and node counts. Engine version and WDL are absent from its schema.
    [Evaluation export](https://database.lichess.org/#evals)
 3. **Puzzles.** `lichess_db_puzzle.csv.zst` was 310 MB compressed. Apply the first UCI move to the
@@ -102,11 +105,12 @@ evaluation join first and use the local engine if the join leaves too few usable
   under about 256 MB. Never hold a whole month in memory. Python with python-chess is too slow at this
   scale; if you think otherwise, time both on the same 100,000 games and put the numbers in the
   write-up.
-- **Sampling while streaming.** A flag keeps games whose ID hashes into a chosen bucket. The 1% mode
-  still scans the compressed month and skips replay and writes for games outside that bucket.
+- **Sampling while streaming.** Scan the whole archive and write every game to the games table.
+  Choose a game-ID hash bucket for position rows and print the size projection before writing.
+  The 1% comparison keeps the same games table and uses a smaller position bucket.
 - **Filters.** Rated standard games only. Exclude games where either player is flagged as a computer
-  account (the `BOT` title), games aborted before move 2, and games without clock comments. Record how
-  many games each filter removed.
+  account (the `BOT` title), unfinished games, and games without clock comments from position rows.
+  Store the reason on the game row and report counts. Illegal moves are detected on replay.
 - **Schema.** Match v1 where it can, so one reader works for both: `game_id`, `url`, `white`,
   `black`, ratings before the game (Lichess headers give these directly, unlike Chess.com), the time
   control as base and increment seconds, a source-native `time_class`, `start_ts`, `eco`, the opening
@@ -125,6 +129,11 @@ evaluation join first and use the local engine if the join leaves too few usable
   they were. Keep `source` on every row, and if you need a conversion for a figure, fit it from data
   and say how.
 
+Build with `cargo build --locked --release --manifest-path tools/lichess-ingest/Cargo.toml`.
+Run `python scripts/lichess_data.py fetch games evals`, then
+`python scripts/lichess_data.py ingest`. The ingest prints its projection and saves its counters in
+`data/lichess/2026-10/run.json`. Add `--one-percent` for the comparison run.
+
 ### Tests
 
 - Rust unit tests on a handful of PGNs, including promotions, castling, en passant, games with and
@@ -136,7 +145,7 @@ evaluation join first and use the local engine if the join leaves too few usable
 ### What to measure and report
 
 - Throughput in games scanned and kept per second and positions written per second on the same
-  month at 1% and at 100%, with wall time, peak memory and output size.
+  month for the 1% and budgeted position buckets, with wall time, peak memory and output size.
 - How many games each filter removed.
 - Label coverage and critical-row yield from option 1 by ply, phase, time control and rating, and
   the decision they led to.

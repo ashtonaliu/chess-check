@@ -35,7 +35,7 @@ still a finished phase: report it the way the odds study reports its null result
   specific numbers, few contractions, American spelling, no em dashes, no ellipses, and no "not X,
   but Y". Report what was measured, on what machine, how many runs, and what was not tested.
 - **Measure before claiming.** Every number in a write-up comes from a script in `scripts/` that can
-  be rerun. State the hardware (Ashton's Mac: 18 cores, 6 performance and 12 efficiency).
+  be rerun. State the hardware (Ashton's M5 Pro Mac: 18 cores, 6 super and 12 performance).
 - **Resume bullet.** End each phase's PR description with one draft resume bullet that uses only
   numbers from that phase's write-up.
 
@@ -46,36 +46,43 @@ still a finished phase: report it the way the odds study reports its null result
 ### Goal
 
 Build a pipeline that streams Lichess's public game exports into partitioned Parquet with
-per-move rows, at a scale that does not fit in memory, and produce labeled training data for phase B
-that covers every time control and a wide rating range. The current find-rate model only covers
-Chess.com blitz from 1200 to 2000, because that is all `data/engine/v1` has.
+per-move rows at a scale that does not fit in memory. Aim for labeled training data for phase B
+across all five clocked Lichess speeds and a wide rating range. The current find-rate model only
+covers Chess.com blitz from 1200 to 2000, because that is all `data/engine/v1` has.
 
-### Sources (verify each before relying on it)
+### Sources
 
-Check database.lichess.org for the current formats and sizes before writing code, and note them in
-the write-up.
+I checked the Lichess documentation, HTTP sizes and a small prefix of each compressed export on
+November 20, 2026. Record the exact inputs used for the runs in the write-up.
+[Lichess open database](https://database.lichess.org/)
 
-1. **Rated standard games**, monthly `.pgn.zst` files. Recent months are tens of gigabytes
-   compressed. PGN headers carry both ratings (Glicko-2), the time control, the opening and the
-   result. Moves carry `[%clk]` comments, and the minority of games that were computer-analyzed on
-   Lichess also carry `[%eval]` comments.
-2. **Evaluations**, a JSONL export of Stockfish evaluations of positions from Lichess's cloud
-   analysis, with several principal variations per position. If it has at least two lines per
-   position, it can supply the best move and the second-best score without running Stockfish.
-3. **Puzzles**, a CSV with each puzzle's position, solution and a difficulty rating fitted from
-   millions of attempts. `data/puzzles_50k.csv` is a sample of this file.
+1. **Rated standard games.** The October 2026 `.pgn.zst` is 31.0 GB compressed with 95,395,628 games
+   listed. PGN headers include pregame Glicko-2 ratings, UTC start time, time control, opening and
+   result. Lichess documents whole-second `[%clk]` comments since April 2017 and White-perspective
+   `[%eval]` comments in about 6% of games. [Game export](https://database.lichess.org/#standard_games)
+2. **Evaluations.** `lichess_db_eval.jsonl.zst` was 22.5 GB compressed. Each record has a four-field
+   FEN and evaluations from different Stockfish searches. Some have a single principal variation.
+   An eligible search supplies at least two lines with centipawn or mate scores and UCI_Chess960 moves.
+   The export has depth and node counts. Engine version and WDL are absent from its schema.
+   [Evaluation export](https://database.lichess.org/#evals)
+3. **Puzzles.** `lichess_db_puzzle.csv.zst` was 310 MB compressed. Apply the first UCI move to the
+   exported FEN to reach the position shown to the solver. The solution starts with the second move.
+   The rating reflects Glicko-2 results of solving attempts. `data/puzzles_50k.csv` is a sample.
+   [Puzzle export](https://database.lichess.org/#puzzles)
 
 ### Labels: the main design question
 
 A find-rate row needs a position where one move clearly beats the others, the move the player
-chose, and Stockfish's best move. Game PGNs do not include the best move. Measure these options in
-order and stop at the first one that gives enough rows:
+chose, and Stockfish's best move. The game PGNs lack a consistent pair of scored lines. Try the
+evaluation join first and use the local engine if the join leaves too few usable labels.
 
 1. **Join game positions to the evaluations export by position.** Normalize FENs the same way on both
-   sides (piece placement, side to move, castling and en passant only). Measure the coverage: the
-   share of positions, and of critical positions, that have an evaluation with at least two lines at
-   depth 10 or more. Coverage is likely highest in the opening and low later in the game, so report
-   it by ply and by phase, and say whether that makes the joined sample unrepresentative.
+   sides (piece placement, side to move, castling and en passant only). Measure the share of
+   eligible move rows with at least two lines from the same search at depth 10 or more, plus the
+   critical rows yielded by the join. Use the deepest qualifying search and normalize castling
+   moves before comparing them. Report coverage and yield by ply, phase, time control and rating.
+   Unmatched moves have unknown criticality. Estimate coverage among critical positions only with
+   a reference sample drawn independently of the join, using the budget in option 2 if needed.
 2. **Run Stockfish on a sample of new Lichess positions** with the same settings as v1
    (`data/engine/v1/runs.json`: Stockfish 19, depth 10, two lines, win/draw/loss on, 32 MB hash,
    one thread per worker). Budget: at most 12 hours of wall time on Ashton's Mac. Before the full
@@ -83,9 +90,8 @@ order and stop at the first one that gives enough rows:
    reproducible, and stratify so each time control and each 200-point rating band has at least
    20,000 critical positions where possible. Store results in a new dataset, `data/engine/lichess-v1`,
    with the same position columns as v1, so `chesscheck.dataset` can read both.
-3. **Puzzles as a separate difficulty signal.** Puzzle ratings measure how hard a position is for
-   Lichess players. They are useful as an extra input or an extra evaluation in phase B, but puzzles
-   are not positions from real games, so do not mix them into the find-rate rows themselves.
+3. **Puzzles as a separate difficulty signal.** Lichess selects puzzles from real games and rates
+   them from solve attempts. Keep these ratings as a separate input or evaluation in phase B.
 
 ### Pipeline design
 
@@ -96,18 +102,22 @@ order and stop at the first one that gives enough rows:
   under about 256 MB. Never hold a whole month in memory. Python with python-chess is too slow at this
   scale; if you think otherwise, time both on the same 100,000 games and put the numbers in the
   write-up.
-- **Sampling while streaming.** A flag keeps games whose hash is in a chosen bucket, so a month can be
-  processed at 1% for development and fully later.
+- **Sampling while streaming.** A flag keeps games whose ID hashes into a chosen bucket. The 1% mode
+  still scans the compressed month and skips replay and writes for games outside that bucket.
 - **Filters.** Rated standard games only. Exclude games where either player is flagged as a computer
   account (the `BOT` title), games aborted before move 2, and games without clock comments. Record how
   many games each filter removed.
 - **Schema.** Match v1 where it can, so one reader works for both: `game_id`, `url`, `white`,
   `black`, ratings before the game (Lichess headers give these directly, unlike Chess.com), the time
-  control as base and increment seconds, a `time_class` mapped to Chess.com's classes (bullet, blitz,
-  rapid, classical; document the mapping), `start_ts`, `eco`, the opening name, the result, and
-  `source = 'lichess'`. Per position: `ply`, `fen`, `mover`, `move_uci`, `move_san`, `clock_after`,
-  `time_spent`, and `eval_cp` and `eval_mate` from `[%eval]` where present. Leave Stockfish columns
-  null until a labeling step fills them.
+  control as base and increment seconds, a source-native `time_class`, `start_ts`, `eco`, the opening
+  name, the result, and `source = 'lichess'`. Per position: `ply`, `fen`, `mover`, `move_uci`,
+  `move_san`, `clock_after`, `time_spent`, and `eval_cp` and `eval_mate` from `[%eval]` where present.
+  Leave Stockfish columns null until a labeling step fills them. Lichess includes UltraBullet and
+  Classical in its clocked speeds and starts Rapid at eight minutes of estimated time. Chess.com
+  starts Rapid at ten minutes and has Daily separate from its three live rating classes. Count
+  correspondence and other non-clocked games separately from the clocked sample.
+  [Lichess speeds](https://lichess.org/faq)
+  [Chess.com time classes](https://support.chess.com/en/articles/8705367-why-are-there-different-ratings-in-live-chess)
 - **Python side.** Extend `chesscheck.dataset` (or add `chesscheck/lichess_dataset.py`) with DuckDB
   views over the new Parquet, using the same conventions: shards read in place, a games shard is the
   completion marker, temporary files ignored.
@@ -125,10 +135,11 @@ order and stop at the first one that gives enough rows:
 
 ### What to measure and report
 
-- Throughput in games per second and positions per second on one month at 1% and at 100%, with
-  memory use and output size.
+- Throughput in games scanned and kept per second and positions written per second on the same
+  month at 1% and at 100%, with wall time, peak memory and output size.
 - How many games each filter removed.
-- Label coverage from option 1, by ply and phase, and the decision it led to.
+- Label coverage and critical-row yield from option 1 by ply, phase, time control and rating, and
+  the decision they led to.
 - If option 2 runs: positions searched, wall time, and the stratified counts per time control and
   rating band.
 - The final training table for phase B: rows, players, and counts by source, time control and rating

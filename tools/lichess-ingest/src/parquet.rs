@@ -30,6 +30,7 @@ primitive!(bool, BooleanArray);
 primitive!(i32, Int32Array);
 primitive!(i64, Int64Array);
 
+#[macro_export]
 macro_rules! table {
     ($name:ident { $($field:ident: $type:ty),+ $(,)? }) => {
         #[derive(Default, Debug)]
@@ -49,7 +50,7 @@ macro_rules! table {
     };
 }
 
-pub(crate) use table;
+pub use crate::table;
 
 pub fn encode(batch: RecordBatch) -> Result<Vec<u8>> {
     let props = WriterProperties::builder()

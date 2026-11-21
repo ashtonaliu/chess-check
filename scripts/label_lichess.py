@@ -1,0 +1,147 @@
+#!/usr/bin/env python3
+"""Measure evaluation coverage and write find-rate rows from the cached Lichess table."""
+import argparse
+import fcntl
+import json
+from pathlib import Path
+import sys
+import tempfile
+import time
+
+import duckdb
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from chesscheck.dataset import CRITICAL_GAP, _literal
+from chesscheck.engine import OPENING_PLIES, PIECE_VALUES
+from chesscheck.lichess_dataset import register_views
+from scripts.lichess_data import LICHESS, LIMIT, OCTOBER, data_bytes, limit_file_size
+
+
+def register_labels(con, games, evals):
+    register_views(con, games)
+    material = " + ".join(
+        f"{PIECE_VALUES[piece]} * (length(placement) - length(translate(placement, '{letters}', '')))"
+        for piece, letters in enumerate(("Nn", "Bb", "Rr", "Qq"), 2)
+    )
+    con.execute(f"""
+        CREATE TEMP MACRO lichess_wp(cp, mate, mover) AS
+            100.0 / (1.0 + exp(-0.00368208 *
+                coalesce(CASE WHEN mate > 0 THEN 3000 WHEN mate < 0 THEN -3000 END, cp) *
+                CASE WHEN mover = 'white' THEN 1 ELSE -1 END));
+
+        CREATE TEMP VIEW lichess_scored AS
+        WITH positions AS (
+            SELECT p.shard, p.game_id, p.ply, p.fen, p.mover, p.move_uci,
+                   p.clock_after, p.time_spent, p.source,
+                   split_part(p.fen, ' ', 1) AS placement,
+                   regexp_extract(p.fen, '^([^ ]+ [^ ]+ [^ ]+ [^ ]+)', 1) AS fen_key
+            FROM lichess_positions p WHERE p.move_uci IS NOT NULL
+        ), scored AS (
+            SELECT p.* EXCLUDE (placement, fen_key),
+                   CASE WHEN p.ply < {OPENING_PLIES} THEN 'opening'
+                        WHEN {material} <= 26 THEN 'endgame' ELSE 'middlegame' END AS phase,
+                   g.time_class, g.base_seconds, g.increment_seconds,
+                   lower(CASE WHEN p.mover = 'white' THEN g.white ELSE g.black END) AS player,
+                   CASE WHEN p.mover = 'white' THEN g.white_rating_before
+                        ELSE g.black_rating_before END AS pregame_rating,
+                   p.clock_after::BIGINT + p.time_spent - g.increment_seconds AS clock_before,
+                   e.best_uci, e.second_uci, e.depth, e.knodes,
+                   lichess_wp(e.cp, e.mate, p.mover) AS best_wp,
+                   lichess_wp(e.second_cp, e.second_mate, p.mover) AS second_wp
+            FROM positions p
+            LEFT JOIN read_parquet({_literal(str(evals / 'part-*.parquet'))}) e ON e.fen = p.fen_key
+            JOIN lichess_games g USING (shard, game_id)
+        )
+        SELECT *, best_wp - second_wp AS gap, move_uci = best_uci AS found,
+               floor(pregame_rating / 200)::INTEGER * 200 AS rating_band,
+               CASE WHEN clock_before IS NOT NULL AND base_seconds > 0
+                    THEN least(1.5, greatest(0, clock_before::DOUBLE / base_seconds)) END AS clock_frac
+        FROM scored
+    """)
+
+
+COVERAGE = f"""
+    SELECT ply, phase, time_class, rating_band,
+           grouping(ply, phase, time_class, rating_band) AS grouping_mask,
+           count(*) AS positions, count(best_uci) AS matched,
+           count(best_uci)::DOUBLE / nullif(count(*), 0) AS coverage,
+           count(*) FILTER (WHERE gap >= {CRITICAL_GAP}) AS critical_rows
+    FROM lichess_scored
+    GROUP BY GROUPING SETS ((), (ply), (phase), (time_class, rating_band))
+    ORDER BY grouping_mask DESC, ply, phase, time_class, rating_band
+"""
+
+
+def query_rows(con, sql):
+    cursor = con.execute(sql)
+    columns = [column[0] for column in cursor.description]
+    return [dict(zip(columns, row)) for row in cursor.fetchall()]
+
+
+def build(month):
+    games = LICHESS / month
+    evals = LICHESS / "evaluations"
+    destination = LICHESS / f"{month}-labels"
+    if destination.exists():
+        raise FileExistsError(destination)
+    games_run = json.loads((games / "run.json").read_text())
+    evals_run = json.loads((evals / "run.json").read_text())
+    started = time.perf_counter()
+    available = LIMIT - data_bytes() - 1_000_000
+    if available <= 0:
+        raise ValueError("No disk space remains within the data budget")
+    with tempfile.TemporaryDirectory(prefix=".labels-", dir=LICHESS) as working:
+        root = Path(working)
+        labels = root / "labels"
+        labels.mkdir()
+        output = labels / "training.parquet"
+        scratch = available // 2
+        with duckdb.connect() as con:
+            con.execute("SET memory_limit = '8GB'")
+            con.execute("SET threads = 8")
+            con.execute("SET preserve_insertion_order = false")
+            con.execute(f"SET temp_directory = {_literal(str(root / 'spill'))}")
+            con.execute(f"SET max_temp_directory_size = '{scratch}B'")
+            register_labels(con, games, evals)
+            coverage = query_rows(con, COVERAGE)
+            with limit_file_size(available - scratch):
+                con.execute(f"""
+                    COPY (
+                        SELECT *, 'lichess_cloud' AS evaluation_source
+                        FROM lichess_scored
+                        WHERE gap >= {CRITICAL_GAP} AND ply >= 2
+                          AND pregame_rating IS NOT NULL AND player IS NOT NULL
+                    ) TO {_literal(str(output))} (FORMAT PARQUET, COMPRESSION ZSTD)
+                """)
+            con.execute(f"CREATE TEMP VIEW training AS SELECT * FROM read_parquet({_literal(str(output))})")
+            summary = query_rows(con, """
+                SELECT source, time_class, rating_band,
+                       grouping(source, time_class, rating_band) AS grouping_mask,
+                       count(*) AS rows, count(DISTINCT player) AS players
+                FROM training
+                GROUP BY GROUPING SETS ((), (source), (time_class), (rating_band),
+                                        (source, time_class, rating_band))
+                ORDER BY grouping_mask DESC, source, time_class, rating_band
+            """)
+        report = {"month": month, "position_mod": games_run["projection"]["position_mod"],
+                  "evaluations": evals_run["source"], "training_bytes": output.stat().st_size,
+                  "seconds": time.perf_counter() - started, "coverage": coverage, "training": summary}
+        (labels / "run.json").write_text(json.dumps(report, indent=2) + "\n")
+        labels.rename(destination)
+    print(json.dumps({"seconds": report["seconds"], "overall_coverage": coverage[0],
+                      "overall_training": summary[0], "report": str(destination / "run.json")}), flush=True)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--month", default=OCTOBER)
+    args = parser.parse_args()
+    if len(args.month) != 7 or args.month[4] != "-" or not (args.month[:4] + args.month[5:]).isdigit():
+        parser.error("month must use YYYY-MM")
+    with (LICHESS / ".lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        build(args.month)
+
+
+if __name__ == "__main__":
+    main()

@@ -72,3 +72,47 @@ def test_reads_completed_shards_only(ingested):
 
 def test_replay_matches_python_chess(ingested):
     assert check(*ingested, count=1) == 5
+
+
+def test_evaluations_are_reused_and_label_the_pre_move_board(ingested, tmp_path, monkeypatch):
+    import json
+
+    from scripts import lichess_data
+    from scripts.label_lichess import COVERAGE, register_labels
+
+    default = Path(__file__).resolve().parents[1] / "tools/lichess-ingest/target/release/lichess-ingest"
+    binary = Path(os.environ.get("LICHESS_INGEST_BIN", str(default)))
+    if not binary.with_name("lichess-evals").is_file():
+        pytest.skip("build the Rust evaluation binary to generate the test fixture")
+    _, games = ingested
+    monkeypatch.setattr(lichess_data, "BINARY", binary)
+    monkeypatch.setattr(lichess_data, "LICHESS", tmp_path)
+    monkeypatch.setattr(lichess_data, "DATA", tmp_path)
+    downloads = tmp_path / "downloads"
+    downloads.mkdir()
+    archive = downloads / lichess_data.EVAL_FILE
+    board = "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq"
+    entries = [
+        {"fen": f"{board} {ep}", "evals": [
+            {"depth": depth, "knodes": 120, "pvs": [{"cp": 400, "line": "g1f3"}, {"cp": 0, "line": "f1c4"}]}
+        ]}
+        for ep, depth in (("-", 11), ("e6", 15), ("-", 9))
+    ]
+    subprocess.run(["zstd", "-q", "-o", str(archive)],
+                   input="\n".join(map(json.dumps, entries)).encode(), check=True)
+    (downloads / "runs.json").write_text(json.dumps({archive.name: {"size": archive.stat().st_size}}))
+    lichess_data.convert_evaluations()
+    table = tmp_path / "evaluations"
+    report = json.loads((table / "run.json").read_text())
+    assert (report["records"], report["eligible"], report["rows"]) == (3, 2, 1)
+    assert report["parquet_bytes"] == sum(path.stat().st_size for path in table.glob("part-*.parquet"))
+    monkeypatch.setattr(lichess_data, "BINARY", tmp_path / "missing-binary")
+    lichess_data.convert_evaluations()
+    with duckdb.connect() as con:
+        register_labels(con, games, table)
+        assert con.execute("""
+            SELECT ply, best_uci, depth, found, pregame_rating FROM lichess_scored
+            WHERE best_uci IS NOT NULL
+        """).fetchall() == [(2, "g1f3", 15, True, 1701)]
+        overall = con.execute(COVERAGE).fetchone()
+        assert overall[-4:] == (4, 1, 0.25, 1)

@@ -7,7 +7,7 @@ use shakmaty::{
 };
 use xxhash_rust::xxh3::xxh3_64;
 
-use crate::parquet::table;
+use lichess_ingest::parquet::table;
 
 table! {
     Game {

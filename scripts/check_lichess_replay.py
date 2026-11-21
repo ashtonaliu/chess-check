@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""Check all board FENs, including the final board, for sampled Lichess games."""
+"""Compare Rust and python-chess boards across the full month's Lichess archive."""
 import argparse
+from datetime import datetime, timezone
 from itertools import groupby
+import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -9,60 +12,66 @@ import sys
 import chess.pgn
 import duckdb
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
 from chesscheck.lichess_dataset import register_views
 
 
 def check(archive, ingested, count):
+    strata = min(10, count)
     with duckdb.connect() as con:
+        con.execute("SET memory_limit = '8GB'; SET max_temp_directory_size = '0B'")
         register_views(con, ingested)
-        rows = con.execute("""
-            WITH chosen AS (
-                SELECT DISTINCT game_id
+        chosen = con.execute("""
+            WITH ordered AS (
+                SELECT game_id, start_ts,
+                       ntile(?) OVER (ORDER BY start_ts, shard, game_id) AS stratum
                 FROM lichess_games WHERE position_sampled
-                ORDER BY hash(game_id), game_id LIMIT ?
             )
+            SELECT game_id, start_ts, stratum FROM ordered
+            QUALIFY row_number() OVER (
+                PARTITION BY stratum ORDER BY hash(game_id, 'replay'), game_id
+            ) <= ? + (stratum <= ?)::INTEGER
+        """, [strata, count // strata, count % strata]).fetchall()
+        ids = [game_id for game_id, _, _ in chosen]
+        rows = con.execute("""
             SELECT game_id, ply, fen FROM lichess_positions
-            SEMI JOIN chosen USING (game_id)
+            WHERE game_id IN (SELECT unnest(?::VARCHAR[]))
             ORDER BY game_id, ply
-        """, [count]).fetchall()
+        """, [ids]).fetchall()
     expected = {game_id: [(ply, fen) for _, ply, fen in positions]
                 for game_id, positions in groupby(rows, key=lambda row: row[0])}
-    if len(expected) != count:
+    if len(chosen) != count or len(expected) != count:
         raise ValueError(f"Found {len(expected)} sampled games, expected {count}")
 
-    class SelectedGames(chess.pgn.GameBuilder):
-        def end_headers(self):
-            headers = self.game.headers
-            self.game_id = headers.get("GameId") or headers["Site"].rsplit("/", 1)[-1]
-            if self.game_id not in expected:
-                return chess.pgn.SKIP
-
-        def result(self):
-            if self.game_id in expected:
-                return self.game_id, self.game
-            return False
-
-    with subprocess.Popen(["zstd", "-dc", str(archive)], stdout=subprocess.PIPE, text=True) as pg:
+    default = ROOT / "tools/lichess-ingest/target/release/lichess-ingest"
+    binary = Path(os.environ.get("LICHESS_INGEST_BIN", str(default))).with_name("lichess-replay-pgn")
+    with subprocess.Popen([str(binary), "--input", str(archive)], stdin=subprocess.PIPE,
+                          stdout=subprocess.PIPE, text=True, encoding="utf-8") as pg:
         try:
-            while expected and (result := chess.pgn.read_game(pg.stdout, Visitor=SelectedGames)) is not None:
-                if result:
-                    game_id, game = result
-                    if game.errors:
-                        raise ValueError(f"{game_id} has PGN errors: {game.errors}")
-                    board = game.board()
-                    actual = [(0, board.fen())]
-                    for ply, move in enumerate(game.mainline_moves(), 1):
-                        board.push(move)
-                        actual.append((ply, board.fen()))
-                    if actual != expected.pop(game_id):
-                        raise ValueError(f"{game_id}: Rust and python-chess replay differ")
+            pg.stdin.write("\n".join(ids) + "\n")
+            pg.stdin.close()
+            while (game := chess.pgn.read_game(pg.stdout)) is not None:
+                game_id = game.headers.get("GameId") or game.headers["Site"].rsplit("/", 1)[-1]
+                if game.errors:
+                    raise ValueError(f"{game_id} has PGN errors: {game.errors}")
+                board = game.board()
+                actual = [(0, board.fen())]
+                for ply, move in enumerate(game.mainline_moves(), 1):
+                    board.push(move)
+                    actual.append((ply, board.fen()))
+                if actual != expected.pop(game_id):
+                    raise ValueError(f"{game_id}: Rust and python-chess replay differ")
+            if pg.wait() != 0:
+                raise ValueError("The PGN extractor failed")
         finally:
             if pg.poll() is None:
                 pg.terminate()
     if expected:
         raise ValueError(f"PGN ended with {len(expected)} sampled games missing")
-    return len(rows)
+    timestamps = [timestamp for _, timestamp, _ in chosen if timestamp is not None]
+    dates = sorted({datetime.fromtimestamp(ts, tz=timezone.utc).date().isoformat() for ts in timestamps})
+    return {"games": count, "boards": len(rows), "strata": strata, "utc_dates": dates}
 
 
 def main():
@@ -73,8 +82,7 @@ def main():
     args = parser.parse_args()
     if args.games < 1:
         parser.error("--games must be positive")
-    positions = check(args.archive, args.ingested, args.games)
-    print(f"Compared {positions:,} board FENs from {args.games:,} games")
+    print(json.dumps(check(args.archive, args.ingested, args.games)), flush=True)
 
 
 if __name__ == "__main__":

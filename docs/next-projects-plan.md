@@ -1,6 +1,6 @@
 # Plan: three technical projects
 
-Status: Phase A ingest and evaluation join measured. Local Stockfish labeling is at the pilot stage.
+Status: Phase A ingest and cloud comparison measured. Local Stockfish is the training label source.
 Order: A, then B, then C. Each phase ships as its own pull requests and its own write-up, and each one
 ends in a measured result. If a phase's main result is negative, that is
 still a finished phase: report it the way the odds study reports its null results.
@@ -76,24 +76,17 @@ November 20, 2026. Record the exact inputs used for the runs in the write-up.
 
 ### Labels: the main design question
 
-A find-rate row needs a position where one move clearly beats the others, the move the player
-chose, and Stockfish's best move. The game PGNs lack a consistent pair of scored lines. Try the
-evaluation join first and use the local engine if the join leaves too few usable labels.
+A find-rate row records the played move and Stockfish's best move when the best line beats the
+second by at least 20 win-chance points. The independent audit found a cloud match for 1 of 57
+critical positions, and 86.84% of cloud labels came from the opening.
 
-1. **Join game positions to the evaluations export by position.** Normalize FENs the same way on both
-   sides (piece placement, side to move, castling and en passant only). Measure the share of
-   eligible move rows with at least two lines from the same search at depth 10 or more, plus the
-   critical rows yielded by the join. Use the deepest qualifying search and normalize castling
-   moves before comparing them. Report coverage and yield by ply, phase, time control and rating.
-   Unmatched moves have unknown criticality. Estimate coverage among critical positions only with
-   a reference sample drawn independently of the join, using the budget in option 2 if needed.
-2. **Run Stockfish on a sample of new Lichess positions** with the same settings as v1
-   (`data/engine/v1/runs.json`: Stockfish 19, depth 10, two lines, win/draw/loss on, 32 MB hash,
-   one thread per worker). Budget: at most 12 hours of wall time on Ashton's Mac. Before the full
-   run, time 1,000 positions and project the total. Sample by a hash of the game ID so the sample is
-   reproducible, and stratify so each time control and each 200-point rating band has at least
-   20,000 critical positions where possible. Store results in a new dataset, `data/engine/lichess-v1`,
-   with the same position columns as v1, so `chesscheck.dataset` can read both.
+1. **Local Stockfish labels.** Sample played moves uniformly within each Lichess speed from the
+   1-in-20 position bucket. Use the v1 find-rate settings from `data/engine/v1/runs.json`.
+   Time 50,000 searches after engine startup, then print the chosen per-speed search allocation
+   and time projection before labeling. Keep engine time within 8 hours. Store the search results
+   in resumable Parquet shards and publish the critical rows at `data/engine/lichess-v1/training.parquet`.
+2. **Cloud comparison.** Join on normalized FEN and keep the deepest qualifying search at depth
+   10 or higher. Compare row counts and find rates with the local labels by phase, speed and rating.
 3. **Puzzles as a separate difficulty signal.** Lichess selects puzzles from real games and rates
    them from solve attempts. Keep these ratings as a separate input or evaluation in phase B.
 
@@ -137,7 +130,9 @@ Run `python scripts/lichess_data.py fetch games evals`, then
 `python scripts/lichess_data.py convert-evals` scans the evaluation archive once and records its
 conversion results in `data/lichess/evaluations/run.json`. Subsequent runs reuse that table.
 With `requirements-dev.txt` installed, `python scripts/label_lichess.py` joins it to the main
-position sample and writes the training table and coverage report to `data/lichess/2026-10-labels/`.
+position sample and writes the cloud comparison rows and coverage report to `data/lichess/2026-10-labels/`.
+Run `python scripts/stockfish_lichess.py benchmark`, then `python scripts/stockfish_lichess.py label`
+and `python scripts/stockfish_lichess.py compare` for the main labels and comparison report.
 
 ### Tests
 
@@ -145,19 +140,16 @@ position sample and writes the training table and coverage report to `data/liche
   without `[%eval]`, and a malformed game that must be skipped and counted rather than stop the run.
 - A Python test that reads a small fixture written by the Rust tool through the DuckDB views and
   checks row counts and a few known values.
-- A parity check: for 1,000 sampled games, the FEN after every move matches python-chess.
+- A parity check compares the FEN after every move for 1,000 games sampled across the full month.
 
 ### What to measure and report
 
 - Throughput in games scanned and kept per second and positions written per second on the same
   month for the 1% and budgeted position buckets, with wall time, peak memory and output size.
 - How many games each filter removed.
-- Label coverage and critical-row yield from option 1 by ply, phase, time control and rating, and
-  the decision they led to.
-- If option 2 runs: positions searched, wall time, and the stratified counts per time control and
-  rating band.
-- The final training table for phase B: rows, players, and counts by source, time control and rating
-  band.
+- Cloud coverage and critical-row yield by ply, phase, speed and rating, alongside the independent audit.
+- Local positions searched, wall time and row counts and find rates for both label sources by phase,
+  speed and rating band.
 
 ### Done when
 
@@ -187,7 +179,8 @@ current models, and run it in the extension. Today's numbers on Chess.com blitz,
   positions from 59,720 players). Keep its split exactly: players whose username hash is 0 mod 5
   are held out. This held-out set is the primary benchmark, because the extension serves Chess.com
   players.
-- **Lichess:** phase A's labeled table, split by a hash of the username the same way.
+- **Lichess:** `data/engine/lichess-v1/training.parquet`, the local Stockfish labels, split by a hash
+  of the username the same way.
 - Never let a player appear in both training and test data. Use a separate validation split, also by
   player, for early stopping and tuning.
 
@@ -320,7 +313,7 @@ after numbers.
 
 | Phase | Pull requests | Rough effort |
 |---|---|---|
-| A | Rust ingest tool; DuckDB views and tests; labeling (evaluation join, then Stockfish if needed); write-up | 4 to 6 days, plus up to 12 hours of Stockfish time |
+| A | Rust ingest tool; DuckDB views and tests; cloud comparison and local Stockfish labels; write-up | 4 to 6 days, plus up to 8 hours of Stockfish time |
 | B | Training and evaluation scripts; export and parity; browser runtime and integration; write-up | 4 to 6 days |
 | C | Profile and decision write-up; Rust core with perft and fuzzing; WASM bindings and integration; benchmarks and write-up | 5 to 8 days |
 

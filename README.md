@@ -113,8 +113,10 @@ The rating barely matters in this range; the kind of move matters a lot. Capture
 
 **Lichess pipeline.** I scanned every rated standard game in the October 2026 archive and wrote
 board rows for a 1-in-20 game-ID bucket. The cached evaluations covered 20.92% of played moves
-in that bucket and supplied 930,160 critical move labels. Classical and UltraBullet fell below
-the coverage target. [Lichess methods](docs/methods.md#lichess-dataset)
+in that bucket and supplied 930,160 comparison labels. Classical and UltraBullet fell below
+the row target. In an independent Stockfish pilot, the cache covered 1 of 57 critical positions.
+Opening moves made up 86.84% of the cloud labels, and players found the best move in 87.88% of
+those labels. Local Stockfish supplies the Lichess training set. [Lichess methods](docs/methods.md#lichess-dataset)
 
 | Run | Rows | Parquet size | Wall time |
 |---|---:|---:|---:|

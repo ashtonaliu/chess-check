@@ -770,9 +770,9 @@ Conversion and deduplication took 423.4 seconds, excluding download time.
 
 The Rust ingest writes a game row for every PGN record and stores exclusions on that row. It writes
 board rows only for eligible games whose XXH3 game-ID hash falls in the chosen bucket. Each such
-game has a row for the board before each move and an extra row for the final board. I compared
-68,345 board FENs, including the final boards, from 1,000 games sampled within the first 8,000
-records. All matched python-chess. The benchmark and 1% runs each scan the entire compressed month.
+game has a row for the board before each move and an extra row for the final board. I drew 100 games
+from each of 10 chronological strata, covering all 31 UTC dates in October. All 64,970 board FENs,
+including the final boards, matched python-chess. Both ingest benchmarks scan the entire archive.
 
 I calibrated the storage projection on the first 65,536 records and added a 25% margin. With
 66.01 GB already under `data/` and 40 GB set aside for later work, I used bucket zero modulo 20.
@@ -808,12 +808,12 @@ afterward, including the archives, the comparison run and the existing data.
 | All | 311,189,971 | 65,091,659 | 20.92% | 930,160 |
 
 Coverage dropped from 100% at ply 0 to 58.64% at ply 12, 2.12% at ply 24 and 0.0021% at ply 48.
-The opening accounted for 86.84% of the critical rows. The labeled table contains 930,160 moves
+The opening accounted for 86.84% of the critical rows. The cloud comparison table contains 930,160 moves
 from 434,768 Lichess players and takes 48.72 MB. The run report includes every ply, speed and
 200-point rating band. Bands from 800 through 2399 reached the 20,000-row target. The outer bands
 and the two least represented speeds fell short.
 
-| Lichess speed | Training rows | Distinct players |
+| Lichess speed | Cloud rows | Distinct players |
 |---|---:|---:|
 | UltraBullet | 7,098 | 3,326 |
 | Bullet | 288,473 | 126,928 |
@@ -824,10 +824,41 @@ and the two least represented speeds fell short.
 I timed Stockfish 19 at depth 10 with two lines, 32 MB of hash and one thread per worker. I took
 200 moves per speed from games chosen independently of the cloud join. The 1,000 searches took
 2.60 seconds with 17 workers, including engine startup. Stockfish found 57 critical positions in
-this balanced sample. One had a qualifying cloud evaluation. This is an audit of the sample, with
-200 observations per speed. At its observed rates, filling the two speed shortfalls would take
-about 484,000 searches and 21 minutes of engine time. The rating tails and the opening bias still
-need targeted sampling. This write-up covers one month, one Mac and the Stockfish pilot.
+this balanced sample. One had a qualifying cloud evaluation. The cloud labels had an 87.88% find
+rate. The v1 Chess.com blitz set had a 79.3% find rate. I use local Stockfish for Lichess training.
+
+### Local Stockfish labels
+
+I sampled uniformly without replacement within each of the five speeds from the 311,189,971 played
+moves in the 1-in-20 bucket. The sample ranks a hash of the game ID and ply, with separate seeds
+for timing and production. I used the v1 Stockfish 19 binary and find-rate settings, depth 10,
+two lines, WDL enabled, 32 MB hash and one thread per worker. Each search starts from the sampled
+FEN and clears the hash. The depth-14 recheck in v1 was for a separate blunder metric.
+
+On the same M5 Pro Mac I timed one run of 50,000 searches with 17 workers, 10,000 per speed. The
+search phase took 117.76 seconds after startup, or 424.6 searches per second in aggregate. I used
+the lower 95% Wilson bound on each speed's critical-row yield when setting the target. I stopped
+the initial 20,000-per-speed run and raised the target to 100,000. The revised plan calls for
+9,493,961 searches, including every eligible Classical move. Before restarting, the runner
+projected 7 hours 59 minutes 28 seconds, including the benchmark, the charged time from the
+stopped run and a 25% margin on the new estimate. Classical's sample size is limited by the
+number of played moves in its bucket.
+
+| Speed | Planned searches |
+|---|---:|
+| UltraBullet | 1,893,361 |
+| Bullet | 1,946,543 |
+| Blitz | 1,893,361 |
+| Rapid | 1,939,282 |
+| Classical | 1,821,414 |
+
+I freeze the move sample and publish each completed score shard by atomic rename. The run
+manifest records the sample hash, engine settings and elapsed engine time. A resume skips published
+shards and charges the reserved time for an interrupted shard. The main table is
+`data/engine/lichess-v1/training.parquet`, filtered to rated moves from ply 2 onward with a
+20-point win-chance gap. The report puts the cloud and local row counts and find rates side by
+side by phase, speed and rating band in `data/engine/lichess-v1/comparison.md`. The full grouped
+results are in `data/engine/lichess-v1/comparison.json`.
 
 ```sh
 cargo build --locked --release --manifest-path tools/lichess-ingest/Cargo.toml
@@ -837,6 +868,10 @@ python scripts/lichess_data.py ingest
 python scripts/lichess_data.py ingest --one-percent
 python scripts/label_lichess.py
 python scripts/audit_lichess_labels.py
+python scripts/stockfish_lichess.py benchmark
+python scripts/stockfish_lichess.py label
+python scripts/stockfish_lichess.py compare
+python scripts/check_lichess_replay.py data/lichess/downloads/lichess_db_standard_rated_2026-10.pgn.zst data/lichess/2026-10
 ```
 
 ## Cross-language parity

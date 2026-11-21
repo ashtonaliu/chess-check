@@ -10,7 +10,7 @@ from chesscheck.lichess_dataset import register_views
 from scripts.check_lichess_replay import check
 
 
-PGN = """[Site "https://lichess.org/01234567"]
+PGN = """[Site "https://lichess.org/game/01234567"]
 [White "ExampleWhite"]
 [Black "ExampleBlack"]
 [WhiteElo "1701"]
@@ -71,7 +71,89 @@ def test_reads_completed_shards_only(ingested):
 
 
 def test_replay_matches_python_chess(ingested):
-    assert check(*ingested, count=1) == 5
+    assert check(*ingested, count=1) == {"games": 1, "boards": 5, "strata": 1, "utc_dates": ["2026-10-01"]}
+
+
+def test_stockfish_sample_uses_distinct_played_moves(ingested, tmp_path, monkeypatch):
+    from scripts import stockfish_lichess as stockfish
+    import pyarrow.parquet as pq
+
+    _, games = ingested
+    monkeypatch.setattr(stockfish, "GAMES", games)
+    monkeypatch.setattr(stockfish, "OUT", tmp_path)
+    monkeypatch.setattr(stockfish, "data_bytes", lambda: 0)
+    sample = tmp_path / "sample.parquet"
+    stockfish.write_sample(sample, {"rapid": 3}, {"rapid": 4}, "test")
+    first = pq.read_table(sample).to_pylist()
+    assert len({row["ply"] for row in first}) == 3
+    assert all(row["time_class"] == "rapid" and row["move_uci"] for row in first)
+    stockfish.write_sample(sample, {"rapid": 3}, {"rapid": 4}, "test")
+    assert pq.read_table(sample).to_pylist() == first
+
+
+def test_stockfish_resume_keeps_published_shards_and_charges_interrupted_time(tmp_path, monkeypatch):
+    from contextlib import nullcontext
+
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    from scripts import stockfish_lichess as stockfish
+
+    monkeypatch.setattr(stockfish, "OUT", tmp_path)
+    monkeypatch.setattr(stockfish, "data_bytes", lambda: 0)
+    plan = {"initial_engine_seconds": 20, "identity": {}, "searches_by_speed": {"rapid": 2}}
+    monkeypatch.setattr(stockfish, "make_plan", lambda _: plan)
+    monkeypatch.setattr(stockfish, "engines", lambda _: nullcontext())
+    pq.write_table(pa.table({"ply": [2, 3]}), tmp_path / "sample.parquet", row_group_size=1)
+    seen = []
+
+    def search(_, rows, deadline):
+        ply = rows[0]["ply"]
+        seen.append(ply)
+        if seen == [2, 3]:
+            raise RuntimeError("interrupted")
+        return pa.Table.from_pylist([{}], schema=stockfish.SCORES)
+
+    monkeypatch.setattr(stockfish, "search_batch", search)
+    with pytest.raises(RuntimeError, match="interrupted"):
+        stockfish.label({})
+    completed = tmp_path / "positions" / "part-00000.parquet"
+    before = completed.read_bytes()
+    run = stockfish.label({})
+    assert seen == [2, 3, 3]
+    assert completed.read_bytes() == before
+    assert run["spent_seconds"] >= 200
+    assert run["inflight"] is None
+
+
+def test_stockfish_comparison_keeps_the_cloud_out_of_training(tmp_path, monkeypatch):
+    import json
+
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    from scripts import stockfish_lichess as stockfish
+
+    cloud = tmp_path / "cloud"
+    cloud.mkdir()
+    (tmp_path / "positions").mkdir()
+    monkeypatch.setattr(stockfish, "OUT", tmp_path)
+    monkeypatch.setattr(stockfish, "CLOUD", cloud)
+    monkeypatch.setattr(stockfish, "data_bytes", lambda: 0)
+    sample = pa.table({"phase": ["opening", "middlegame"], "time_class": ["rapid"] * 2,
+                       "rating_band": [1600] * 2, "pregame_rating": [1660] * 2,
+                       "ply": [6, 30], "player": ["a", "b"]})
+    rows = sample.append_column("found", pa.array([True, False]))
+    pq.write_table(sample, tmp_path / "sample.parquet")
+    pq.write_table(rows, cloud / "training.parquet")
+    scored = rows.append_column("gap", pa.array([24.0, 12.0])).append_column("run_id", pa.array(["run"] * 2))
+    pq.write_table(scored, tmp_path / "positions" / "part-00000.parquet")
+    stockfish.compare({"inflight": None, "sample_sha256": "run", "spent_seconds": 1,
+                       "plan": {"searches_by_speed": {"rapid": 2}}})
+    assert pq.read_table(tmp_path / "training.parquet").num_rows == 1
+    report = json.loads((tmp_path / "comparison.json").read_text())
+    assert [(r["label_source"], r["rows"], r["find_rate"]) for r in report["rows"] if r["grouping_mask"] == 7] == [
+        ("cloud", 2, 0.5), ("stockfish", 1, 1.0),
+    ]
+    assert "| All | 1 | 100.00% | 2 | 50.00% |" in (tmp_path / "comparison.md").read_text()
 
 
 def test_training_file_budget_is_applied_before_writing(tmp_path):

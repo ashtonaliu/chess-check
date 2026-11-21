@@ -879,7 +879,7 @@ move, and unmake restored each starting position.
 
 I timed perft on one thread of the same Mac with no other work running, using a release build. At
 the last ply it counts the legal move list instead of playing each move. Each figure is the median
-of five runs; the five runs were within 2% of each other.
+of five runs; the slowest of the five was at most 3.2% slower than the fastest.
 
 | Generator | Initial position, depth 6 | Kiwipete, depth 5 |
 |---|---:|---:|

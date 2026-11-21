@@ -77,8 +77,7 @@ def test_replay_matches_python_chess(ingested):
 def test_evaluations_are_reused_and_label_the_pre_move_board(ingested, tmp_path, monkeypatch):
     import json
 
-    from scripts import lichess_data
-    from scripts.label_lichess import COVERAGE, register_labels
+    from scripts import label_lichess, lichess_data
 
     default = Path(__file__).resolve().parents[1] / "tools/lichess-ingest/target/release/lichess-ingest"
     binary = Path(os.environ.get("LICHESS_INGEST_BIN", str(default)))
@@ -88,6 +87,7 @@ def test_evaluations_are_reused_and_label_the_pre_move_board(ingested, tmp_path,
     monkeypatch.setattr(lichess_data, "BINARY", binary)
     monkeypatch.setattr(lichess_data, "LICHESS", tmp_path)
     monkeypatch.setattr(lichess_data, "DATA", tmp_path)
+    monkeypatch.setattr(label_lichess, "LICHESS", tmp_path)
     downloads = tmp_path / "downloads"
     downloads.mkdir()
     archive = downloads / lichess_data.EVAL_FILE
@@ -108,11 +108,15 @@ def test_evaluations_are_reused_and_label_the_pre_move_board(ingested, tmp_path,
     assert report["parquet_bytes"] == sum(path.stat().st_size for path in table.glob("part-*.parquet"))
     monkeypatch.setattr(lichess_data, "BINARY", tmp_path / "missing-binary")
     lichess_data.convert_evaluations()
+    month = "2026-10"
+    games = games.rename(tmp_path / month)
+    (games / "run.json").write_text(json.dumps({"projection": {"position_mod": 1}}))
+    label_lichess.build(month)
+    labels = tmp_path / f"{month}-labels"
+    report = json.loads((labels / "run.json").read_text())
+    overall = report["coverage"][0]
+    assert (overall["positions"], overall["matched"], overall["coverage"], overall["critical_rows"]) == (4, 1, 0.25, 1)
     with duckdb.connect() as con:
-        register_labels(con, games, table)
         assert con.execute("""
-            SELECT ply, best_uci, depth, found, pregame_rating FROM lichess_scored
-            WHERE best_uci IS NOT NULL
-        """).fetchall() == [(2, "g1f3", 15, True, 1701)]
-        overall = con.execute(COVERAGE).fetchone()
-        assert overall[-4:] == (4, 1, 0.25, 1)
+            SELECT ply, best_uci, depth, found, pregame_rating FROM read_parquet(?)
+        """, [str(labels / "training.parquet")]).fetchall() == [(2, "g1f3", 15, True, 1701)]

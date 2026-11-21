@@ -50,7 +50,7 @@ def register_labels(con, games, evals):
                    lichess_wp(e.second_cp, e.second_mate, p.mover) AS second_wp
             FROM positions p
             LEFT JOIN read_parquet({_literal(str(evals / 'part-*.parquet'))}) e ON e.fen = p.fen_key
-            JOIN lichess_games g USING (shard, game_id)
+            JOIN (SELECT * FROM lichess_games WHERE position_sampled) g USING (shard, game_id)
         )
         SELECT *, best_wp - second_wp AS gap, move_uci = best_uci AS found,
                floor(pregame_rating / 200)::INTEGER * 200 AS rating_band,

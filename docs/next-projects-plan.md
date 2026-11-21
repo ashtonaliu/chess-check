@@ -1,7 +1,8 @@
 # Plan: three technical projects
 
-Status: not started. Order: A, then B, then C. Each phase ships as its own pull requests and its
-own write-up, and each one ends in a measured result. If a phase's main result is negative, that is
+Status: Phase A ingest and evaluation join measured. Local Stockfish labeling is at the pilot stage.
+Order: A, then B, then C. Each phase ships as its own pull requests and its own write-up, and each one
+ends in a measured result. If a phase's main result is negative, that is
 still a finished phase: report it the way the odds study reports its null results.
 
 | Phase | What | New technology | Main number |

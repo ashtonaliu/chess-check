@@ -53,7 +53,7 @@ draw tendency, opening preparation, style) should be a query on the stored data.
 - Before the run, a 5-minute timing pass on a few hundred games: depth 8 vs 10, a fixed node
   budget (e.g. 100,000 nodes) vs depth 10, and 6 / 12 / 17 / 18 workers. Pick by speed and by how
   steady the per-player numbers are.
-- Workers: 17 on this 18-core Mac (6 performance + 12 efficiency cores), one Stockfish process
+- Workers: 17 on this 18-core Mac (6 super + 12 performance cores), one Stockfish process
   per worker; 18 measured no faster. About 12 if the Mac is in use.
 
 ## Measured time

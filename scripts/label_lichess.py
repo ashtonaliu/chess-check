@@ -18,26 +18,13 @@ from chesscheck.lichess_dataset import register_views
 from scripts.lichess_data import LICHESS, LIMIT, OCTOBER, data_bytes
 
 
-def register_labels(con, games, evals):
-    register_views(con, games)
+def moves_with_metadata(positions):
     material = " + ".join(
         f"{PIECE_VALUES[piece]} * (length(placement) - length(translate(placement, '{letters}', '')))"
         for piece, letters in enumerate(("Nn", "Bb", "Rr", "Qq"), 2)
     )
-    con.execute(f"""
-        CREATE TEMP MACRO lichess_wp(cp, mate, mover) AS
-            100.0 / (1.0 + exp(-0.00368208 *
-                coalesce(CASE WHEN mate > 0 THEN 3000 WHEN mate < 0 THEN -3000 END, cp) *
-                CASE WHEN mover = 'white' THEN 1 ELSE -1 END));
-
-        CREATE TEMP VIEW lichess_moves AS
-        WITH positions AS (
-            SELECT p.shard, p.game_id, p.ply, p.fen, p.mover, p.move_uci,
-                   p.clock_after, p.time_spent, p.source,
-                   split_part(p.fen, ' ', 1) AS placement,
-                   regexp_extract(p.fen, '^([^ ]+ [^ ]+ [^ ]+ [^ ]+)', 1) AS fen_key
-            FROM lichess_positions p WHERE p.move_uci IS NOT NULL
-        ), scored AS (
+    return f"""
+        WITH scored AS (
             SELECT p.* EXCLUDE (placement),
                    CASE WHEN p.ply < {OPENING_PLIES} THEN 'opening'
                         WHEN {material} <= 26 THEN 'endgame' ELSE 'middlegame' END AS phase,
@@ -46,14 +33,33 @@ def register_labels(con, games, evals):
                    CASE WHEN p.mover = 'white' THEN g.white_rating_before
                         ELSE g.black_rating_before END AS pregame_rating,
                    p.clock_after::BIGINT + p.time_spent - g.increment_seconds AS clock_before
-            FROM positions p
+            FROM {positions} p
             JOIN (SELECT * FROM lichess_games WHERE position_sampled) g USING (shard, game_id)
         )
         SELECT *,
                floor(pregame_rating / 200)::INTEGER * 200 AS rating_band,
                CASE WHEN clock_before IS NOT NULL AND base_seconds > 0
                     THEN least(1.5, greatest(0, clock_before::DOUBLE / base_seconds)) END AS clock_frac
-        FROM scored;
+        FROM scored
+    """
+
+
+def register_labels(con, games, evals):
+    register_views(con, games)
+    con.execute(f"""
+        CREATE TEMP MACRO lichess_wp(cp, mate, mover) AS
+            100.0 / (1.0 + exp(-0.00368208 *
+                coalesce(CASE WHEN mate > 0 THEN 3000 WHEN mate < 0 THEN -3000 END, cp) *
+                CASE WHEN mover = 'white' THEN 1 ELSE -1 END));
+
+        CREATE TEMP VIEW lichess_move_rows AS
+        SELECT p.shard, p.game_id, p.ply, p.fen, p.mover, p.move_uci,
+               p.clock_after, p.time_spent, p.source,
+               split_part(p.fen, ' ', 1) AS placement,
+               regexp_extract(p.fen, '^([^ ]+ [^ ]+ [^ ]+ [^ ]+)', 1) AS fen_key
+        FROM lichess_positions p WHERE p.move_uci IS NOT NULL;
+
+        CREATE TEMP VIEW lichess_moves AS {moves_with_metadata('lichess_move_rows')};
 
         CREATE TEMP VIEW lichess_eval_scores AS
         WITH with_mover AS (
@@ -107,12 +113,22 @@ class BudgetedWriter(io.BufferedWriter):
 def write_training(con, output, budget):
     from pyarrow.parquet import ParquetWriter
 
+    # Materialize the filtered build side and match moves before looking up player metadata.
+    con.execute(f"""
+        CREATE TEMP TABLE lichess_critical_evals AS
+        SELECT * FROM lichess_eval_scores WHERE gap >= {CRITICAL_GAP};
+
+        CREATE TEMP TABLE lichess_critical_moves AS
+        SELECT p.*, e.* EXCLUDE (fen)
+        FROM lichess_move_rows p JOIN lichess_critical_evals e ON e.fen = p.fen_key
+        WHERE p.ply >= 2;
+
+        DROP TABLE lichess_critical_evals;
+    """)
     training = con.sql(f"""
-        SELECT p.* EXCLUDE (fen_key), e.* EXCLUDE (fen),
-               p.move_uci = e.best_uci AS found, 'lichess_cloud' AS evaluation_source
-        FROM lichess_moves p
-        JOIN (SELECT * FROM lichess_eval_scores WHERE gap >= {CRITICAL_GAP}) e ON e.fen = p.fen_key
-        WHERE p.ply >= 2 AND p.pregame_rating IS NOT NULL AND p.player IS NOT NULL
+        SELECT * EXCLUDE (fen_key), move_uci = best_uci AS found, 'lichess_cloud' AS evaluation_source
+        FROM ({moves_with_metadata('lichess_critical_moves')})
+        WHERE pregame_rating IS NOT NULL AND player IS NOT NULL
     """)
     arrow_reader = getattr(training, "to_arrow_reader", training.fetch_record_batch)
     with arrow_reader(65_536) as batches, BudgetedWriter(output.open("wb", buffering=0), budget) as sink:
@@ -148,6 +164,7 @@ def build(month):
             con.execute(f"SET max_temp_directory_size = '{scratch}B'")
             register_labels(con, games, evals)
             coverage = query_rows(con, COVERAGE)
+            print(f"Measured coverage on {coverage[0]['positions']:,} played moves", file=sys.stderr)
             write_training(con, output, output_budget)
             con.execute(f"CREATE TEMP VIEW training AS SELECT * FROM read_parquet({_literal(str(output))})")
             summary = query_rows(con, """

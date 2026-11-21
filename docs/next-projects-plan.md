@@ -135,8 +135,8 @@ Run `python scripts/lichess_data.py fetch games evals`, then
 `data/lichess/2026-10/run.json`. Add `--one-percent` for the comparison run.
 `python scripts/lichess_data.py convert-evals` scans the evaluation archive once and records its
 conversion results in `data/lichess/evaluations/run.json`. Subsequent runs reuse that table.
-`python scripts/label_lichess.py` joins it to the main position sample and writes the training table
-and its coverage report to `data/lichess/2026-10-labels/`.
+With `requirements-dev.txt` installed, `python scripts/label_lichess.py` joins it to the main
+position sample and writes the training table and coverage report to `data/lichess/2026-10-labels/`.
 
 ### Tests
 

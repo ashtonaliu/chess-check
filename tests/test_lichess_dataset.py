@@ -74,6 +74,17 @@ def test_replay_matches_python_chess(ingested):
     assert check(*ingested, count=1) == 5
 
 
+def test_training_file_budget_is_applied_before_writing(tmp_path):
+    from scripts.label_lichess import BudgetedWriter
+
+    path = tmp_path / "limited.parquet"
+    with BudgetedWriter(path.open("wb", buffering=0), 3) as output:
+        output.write(b"ab")
+        with pytest.raises(OSError, match="byte budget"):
+            output.write(b"cd")
+    assert path.read_bytes() == b"ab"
+
+
 def test_evaluations_are_reused_and_label_the_pre_move_board(ingested, tmp_path, monkeypatch):
     import json
 

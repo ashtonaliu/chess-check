@@ -2,6 +2,7 @@
 """Measure evaluation coverage and write find-rate rows from the cached Lichess table."""
 import argparse
 import fcntl
+import io
 import json
 from pathlib import Path
 import sys
@@ -14,7 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from chesscheck.dataset import CRITICAL_GAP, _literal
 from chesscheck.engine import OPENING_PLIES, PIECE_VALUES
 from chesscheck.lichess_dataset import register_views
-from scripts.lichess_data import LICHESS, LIMIT, OCTOBER, data_bytes, limit_file_size
+from scripts.lichess_data import LICHESS, LIMIT, OCTOBER, data_bytes
 
 
 def register_labels(con, games, evals):
@@ -78,6 +79,35 @@ def query_rows(con, sql):
     return [dict(zip(columns, row)) for row in cursor.fetchall()]
 
 
+class BudgetedWriter(io.BufferedWriter):
+    """Bound the Parquet file without limiting DuckDB's separate spill files."""
+
+    def __init__(self, raw, budget):
+        super().__init__(raw)
+        self.budget = budget
+
+    def write(self, data):
+        if self.tell() + len(data) > self.budget:
+            raise OSError("The training table would exceed its byte budget")
+        return super().write(data)
+
+
+def write_training(con, output, budget):
+    from pyarrow.parquet import ParquetWriter
+
+    training = con.sql(f"""
+        SELECT *, 'lichess_cloud' AS evaluation_source
+        FROM lichess_scored
+        WHERE gap >= {CRITICAL_GAP} AND ply >= 2
+          AND pregame_rating IS NOT NULL AND player IS NOT NULL
+    """)
+    arrow_reader = getattr(training, "to_arrow_reader", training.fetch_record_batch)
+    with arrow_reader(65_536) as batches, BudgetedWriter(output.open("wb", buffering=0), budget) as sink:
+        with ParquetWriter(sink, batches.schema, compression="zstd") as writer:
+            for batch in batches:
+                writer.write_batch(batch)
+
+
 def build(month):
     games = LICHESS / month
     evals = LICHESS / "evaluations"
@@ -105,15 +135,7 @@ def build(month):
             con.execute(f"SET max_temp_directory_size = '{scratch}B'")
             register_labels(con, games, evals)
             coverage = query_rows(con, COVERAGE)
-            with limit_file_size(output_budget):
-                con.execute(f"""
-                    COPY (
-                        SELECT *, 'lichess_cloud' AS evaluation_source
-                        FROM lichess_scored
-                        WHERE gap >= {CRITICAL_GAP} AND ply >= 2
-                          AND pregame_rating IS NOT NULL AND player IS NOT NULL
-                    ) TO {_literal(str(output))} (FORMAT PARQUET, COMPRESSION ZSTD)
-                """)
+            write_training(con, output, output_budget)
             con.execute(f"CREATE TEMP VIEW training AS SELECT * FROM read_parquet({_literal(str(output))})")
             summary = query_rows(con, """
                 SELECT source, time_class, rating_band,

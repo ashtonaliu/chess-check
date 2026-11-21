@@ -20,7 +20,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install chess==1.11.2 duckdb pytest requests
+      - run: python -m pip install chess==1.11.2 duckdb 'pyarrow>=18' pytest requests
       - run: python -m pytest -q tests/test_lichess_dataset.py
         env:
           LICHESS_INGEST_BIN: tools/lichess-ingest/target/debug/lichess-ingest

@@ -14,8 +14,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: rustup toolchain install 1.99.1 --profile minimal
+      - run: rustup toolchain install 1.99.1 --profile minimal --component clippy
       - run: rustup run 1.99.1 bash scripts/check_engine_core.sh
+      - run: cargo +1.99.1 clippy --locked --all-targets --manifest-path engine-core/Cargo.toml -- -D warnings
 
   lichess-ingest:
     name: Lichess ingest tests

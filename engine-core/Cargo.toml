@@ -1,0 +1,11 @@
+[package]
+name = "engine-core"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dev-dependencies]
+shakmaty = "0.30"
+
+[profile.test]
+opt-level = 3

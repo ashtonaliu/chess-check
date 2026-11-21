@@ -9,6 +9,14 @@ permissions:
   contents: read
 
 jobs:
+  engine-core:
+    name: Native engine correctness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup toolchain install 1.99.1 --profile minimal
+      - run: rustup run 1.99.1 bash scripts/check_engine_core.sh
+
   lichess-ingest:
     name: Lichess ingest tests
     runs-on: ubuntu-latest

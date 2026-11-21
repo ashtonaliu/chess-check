@@ -87,7 +87,8 @@ def ingest(args):
         expected = OCTOBER_GAMES
     if expected is None or expected <= 0 or args.position_mod < 2 or args.reserve_bytes < 0:
         raise ValueError("Provide a positive game count, position modulus of at least two, and nonnegative reserve")
-    available = LIMIT - data_bytes() - args.reserve_bytes - 1_000_000
+    before = data_bytes()
+    available = LIMIT - before - args.reserve_bytes - 1_000_000
     if available <= 0:
         raise ValueError("No output space remains within the data budget and reserve")
     archive = LICHESS / "downloads" / f"lichess_db_standard_rated_{args.month}.pgn.zst"
@@ -115,6 +116,8 @@ def ingest(args):
     projection = {"position_mod": modulus, "bucket": 0, "games": expected,
                   "game_bytes": game_bytes, "position_bytes": position_bytes,
                   "total_bytes": game_bytes + position_bytes, "output_budget_bytes": available,
+                  "data_bytes_before": before, "projected_data_bytes": before + game_bytes + position_bytes,
+                  "reserve_bytes": args.reserve_bytes,
                   "calibration": pilot}
     print(json.dumps({"projection": projection}), flush=True)
     if projection["total_bytes"] > available:

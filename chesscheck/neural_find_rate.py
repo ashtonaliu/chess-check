@@ -74,11 +74,11 @@ def encode_scalars(rating: float, speed: str, clock_frac: float | None, source: 
 
 
 class NeuralFindRate(nn.Module):
-    def __init__(self):
+    def __init__(self, extra_features: int = 0):
         super().__init__()
         self.conv1 = nn.Conv2d(BOARD_PLANES, CHANNELS, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(CHANNELS, CHANNELS, kernel_size=3, padding=1)
-        self.hidden = nn.Linear(CHANNELS * 64 + SCALAR_FEATURES, HIDDEN)
+        self.hidden = nn.Linear(CHANNELS * 64 + SCALAR_FEATURES + extra_features, HIDDEN)
         self.output = nn.Linear(HIDDEN, 1)
 
     def logits(self, board: torch.Tensor, scalars: torch.Tensor) -> torch.Tensor:

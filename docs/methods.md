@@ -1004,6 +1004,52 @@ synthetic cases alone, as in CI. The trained-model tests and runtime timings com
 python scripts/check_neural_find_rate.py --positions data/engine/lichess-v1/positions
 ```
 
+### Training and evaluation
+
+I kept the existing Chess.com blitz test fold and used the same username hash for Lichess. Hashes
+divisible by five went to test. Among the remaining players, a second base-five digit chose
+validation. I case-folded usernames across sources and checked that the Chess.com test assignment
+still agreed with the existing table. There were 516,340 Chess.com training positions, 129,376
+validation positions and 157,583 test positions. The corresponding Lichess counts were 340,264,
+84,987 and 106,835. The Lichess rows came from the local Stockfish training table.
+
+I refit the logistic and histogram gradient-boosting move models on the Chess.com training split.
+The boosting model used the grouped validation split for early stopping. For the neural variants
+I standardized ratings on each source's training players, used binary cross-entropy and AdamW,
+and selected the epoch by validation log loss. I ran one seed on the M5 Pro Mac's GPU through
+PyTorch MPS, with batches of 1,024 and up to 24 epochs. After four epochs without improvement, I
+restored the best validation checkpoint and fitted one logit temperature on validation. Every
+model used only the board, the best move or player context as inputs. Stockfish supplied the best
+move and the labels.
+
+The scores use the same held-out positions for every model evaluated on that source. I drew 2,000
+paired samples of Chess.com test players for 90% log-loss intervals. The run saves the split
+sizes, model scores, calibration curves and calibration by 200-point rating band and time control.
+
+On Chess.com blitz, the joint model with the board, context and move features reached 0.4026 log
+loss, 0.1310 Brier and 0.8092 AUC. The refit logistic reached 0.4410, 0.1428 and 0.7584, and the
+score-free gradient boosting reached 0.4096, 0.1334 and 0.7995. The joint model reduced log loss
+by 0.0384 against logistic (90% interval 0.0371 to 0.0397) and by 0.0070 against gradient boosting
+(0.0060 to 0.0081). It had 81,921 parameters and selected epoch 7.
+
+For the same board-and-context architecture, adding Lichess reduced Chess.com log loss from
+0.4120 to 0.4094, a gain of 0.0025 (0.0017 to 0.0033). The board-and-context model's interval
+against gradient boosting included zero. With joint training, board alone scored 0.4180 and
+context plus move features scored 0.4135. Combining all three inputs reduced log loss to 0.4026.
+
+The combined model reached 0.4589 log loss, 0.1522 Brier and 0.7986 AUC on held-out Lichess
+players. It predicted a 79.03% find rate on Chess.com blitz, where 79.28% of moves were found.
+On Lichess, the aggregate calibration gap by speed was at most 1.06 percentage points. Some
+rating bands within a speed had larger gaps, including 10.72 points for Rapid at 400 through
+599, with 110 test positions. This run covers offline training and evaluation.
+
+```sh
+python scripts/prepare_neural_find_rate.py --data-root data/engine \
+  --output eval_results/neural-find-rate/prepared-v1 --workers 12
+python scripts/train_neural_find_rate.py --prepared eval_results/neural-find-rate/prepared-v1 \
+  --output eval_results/neural-find-rate/mps-v1 --device mps
+```
+
 ## Deployment
 
 - I run the Python tests, TypeScript tests and build, and Chrome extension build in GitHub Actions on pull requests and pushes to main.

@@ -860,6 +860,40 @@ shards and charges the reserved time for an interrupted shard. The main table is
 side by phase, speed and rating band in `data/engine/lichess-v1/comparison.md`. The full grouped
 results are in `data/engine/lichess-v1/comparison.json`.
 
+The production run completed all 9,493,961 searches in 1,159 shards on the same Mac. The run
+charged 7 hours 5 minutes 47 seconds of engine time, including the benchmark, the superseded
+run and the reservations for two interrupted shards. The training Parquet is 65.59 MB, and
+`data/` used 81.65 GB when the comparison finished. All five speeds passed the 100,000-row target.
+Opening moves account for 26.84% of the Stockfish set and 86.84% of the cloud set.
+
+| Group | Stockfish rows | Stockfish find rate | Cloud rows | Cloud find rate |
+|---|---:|---:|---:|---:|
+| All | 532,086 | 73.95% | 930,160 | 87.88% |
+| endgame | 118,066 | 75.35% | 108,285 | 82.17% |
+| middlegame | 271,203 | 73.23% | 14,158 | 89.81% |
+| opening | 142,817 | 74.15% | 807,717 | 88.61% |
+| blitz | 107,102 | 78.81% | 442,141 | 89.05% |
+| bullet | 105,200 | 75.26% | 288,473 | 87.45% |
+| classical | 100,114 | 79.41% | 6,498 | 88.10% |
+| rapid | 111,012 | 77.79% | 185,950 | 86.81% |
+| ultraBullet | 108,658 | 58.93% | 7,098 | 59.93% |
+| Rating 400-599 | 767 | 49.28% | 1,806 | 64.12% |
+| Rating 600-799 | 4,569 | 59.20% | 11,494 | 74.56% |
+| Rating 800-999 | 16,620 | 65.18% | 41,113 | 79.71% |
+| Rating 1000-1199 | 37,386 | 68.57% | 87,814 | 83.17% |
+| Rating 1200-1399 | 65,644 | 71.73% | 130,316 | 85.77% |
+| Rating 1400-1599 | 98,824 | 73.56% | 165,234 | 87.38% |
+| Rating 1600-1799 | 115,314 | 75.01% | 174,838 | 89.02% |
+| Rating 1800-1999 | 99,283 | 75.88% | 151,385 | 90.36% |
+| Rating 2000-2199 | 57,875 | 76.52% | 95,401 | 91.80% |
+| Rating 2200-2399 | 24,134 | 77.63% | 46,286 | 92.69% |
+| Rating 2400-2599 | 8,526 | 79.01% | 17,263 | 93.09% |
+| Rating 2600-2799 | 2,463 | 80.39% | 5,492 | 93.17% |
+| Rating 2800-2999 | 573 | 82.37% | 1,413 | 93.70% |
+| Rating 3000-3199 | 92 | 90.22% | 274 | 92.34% |
+| Rating 3200-3399 | 16 | 75.00% | 30 | 96.67% |
+| Rating 3400-3599 | 0 | n/a | 1 | 100.00% |
+
 ```sh
 cargo build --locked --release --manifest-path tools/lichess-ingest/Cargo.toml
 python scripts/lichess_data.py fetch games evals

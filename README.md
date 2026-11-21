@@ -116,7 +116,8 @@ board rows for a 1-in-20 game-ID bucket. The cached evaluations covered 20.92% o
 in that bucket and supplied 930,160 comparison labels. Classical and UltraBullet fell below
 the row target. In an independent Stockfish pilot, the cache covered 1 of 57 critical positions.
 Opening moves made up 86.84% of the cloud labels, and players found the best move in 87.88% of
-those labels. Local Stockfish supplies the Lichess training set. [Lichess methods](docs/methods.md#lichess-dataset)
+those labels. Local Stockfish supplied 532,086 training rows, with at least 100,000 per speed
+and a 73.95% overall find rate. [Lichess methods](docs/methods.md#lichess-dataset)
 
 | Run | Rows | Parquet size | Wall time |
 |---|---:|---:|---:|

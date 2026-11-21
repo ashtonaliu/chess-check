@@ -182,7 +182,8 @@ impl fmt::Display for Position {
             }
         }
         write!(f, " ")?;
-        if let Some(target) = self.en_passant {
+        // Like chess.js and the Lichess pipeline, name the target only when a capture is legal.
+        if let Some(target) = self.en_passant.filter(|_| self.has_legal_en_passant()) {
             write_square(f, target)?;
         } else {
             write!(f, "-")?;

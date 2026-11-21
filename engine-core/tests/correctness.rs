@@ -76,7 +76,7 @@ fn random_games_against_shakmaty() {
             .unwrap();
         let mut history = Vec::with_capacity(MAX_PLIES);
         for ply in 0..=MAX_PLIES {
-            let fen = Fen::from_position(&reference, EnPassantMode::Always).to_string();
+            let fen = Fen::from_position(&reference, EnPassantMode::Legal).to_string();
             assert_eq!(ours.to_string(), fen, "game {game}, ply {ply}");
             let mut actual: Vec<_> = ours
                 .legal_moves()

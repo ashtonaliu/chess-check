@@ -754,6 +754,91 @@ The rating says almost nothing here, because nearly every position comes from pl
 
 **In the extension.** `scripts/eval_find_rate.py evaluate` writes the coefficients to `web/src/browser/findRateModel.ts`, and `web/src/browser/findRate.ts` computes the same features with chess.js. `web/test/findRate.test.ts` checks the features and probabilities against Python on 300 held-out positions (all features identical, probabilities within 0.0001). After you reveal a review card, it says how often players near your rating then find the move, with the clock held at the training median (0.66 of the starting time) so the number describes the position and not your clock that day. The line appears only for ratings from 1200 to 2000, where the data are; outside that range there is no estimate, since the model at 1200 says little about players near 800. Two limits: the model was fitted on positions with one clearly best move, and a review position only promises that your move lost at least 20 points, so another move may also have worked; and the figure is rounded to the nearest 5%. Because the model was fitted on blitz only, the line appears only for positions from blitz games, and it says how often players find "moves like this", an estimate from the kind of move, rather than a measured rate for that exact position. Queue entries keep their game's time control; older entries get it from the profile, and those it cannot fill are marked unknown and show no estimate. The same estimate orders the positions due for review: the ones most players at your rating find come first, since missing those is a habit worth fixing and a short session should reach them, and positions without an estimate count as the typical 79%.
 
+## Lichess dataset
+
+I used the October 2026 rated standard archive (30.98 GB compressed) and the Lichess
+evaluation archive with 417,862,375 records (22.50 GB compressed). The local download manifest
+records their exact byte sizes, URLs and SHA-256 checksums. I checked both hashes against Lichess's
+published sums. [Lichess open database](https://database.lichess.org/)
+
+I streamed the evaluation archive once on an Apple M5 Pro Mac with 6 super cores, 12 performance
+cores and 48 GB of memory. I kept the deepest search at depth 10 or higher with two distinct legal
+moves and a scored line for each. I normalized castling and kept an en passant square when a legal
+capture exists. I grouped by the four FEN fields that identify the board position and resolved
+duplicates in hash buckets on disk. The result was 193,996,647 keyed rows in 5.46 GB of Parquet.
+Conversion and deduplication took 423.4 seconds, excluding download time.
+
+The Rust ingest writes a game row for every PGN record and stores exclusions on that row. It writes
+board rows only for eligible games whose XXH3 game-ID hash falls in the chosen bucket. Each such
+game has a row for the board before each move and an extra row for the final board. I compared
+68,345 board FENs, including the final boards, from 1,000 games sampled within the first 8,000
+records. All matched python-chess. The benchmark and 1% runs each scan the entire compressed month.
+
+I calibrated the storage projection on the first 65,536 records and added a 25% margin. With
+66.01 GB already under `data/` and 40 GB set aside for later work, I used bucket zero modulo 20.
+The runner projected 6.28 GB of game rows and 6.45 GB of board rows before it opened any output
+shards. The measured sizes were 3.93 GB and 5.12 GB. The scan kept all 95,395,628 games and wrote
+board rows for 4,704,665 of them. The measured board count includes 311,189,971 played moves.
+
+In that scan, 494,406 game rows were marked as bot games, 37,811 as clockless, 99,185 as non-clocked
+and 689,520 as unfinished. These are exclusive reasons. Illegal moves are checked during replay,
+so that check covers the position bucket. Clock comments have whole-second resolution. I use
+Lichess's own speed classes and keep its ratings on the Lichess scale.
+
+I timed one scan per bucket on the same Mac and used local archives. The wall times cover the
+Rust scan and Parquet writes. Peak memory is the Rust process's peak resident size.
+
+| Position bucket | Wall time | Games scanned per second | Eligible games per second | Board rows per second | Board rows stored | Peak memory | Parquet |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| 1 in 20 | 714.3 s | 133,552 | 131,703 | 442,247 | 315,894,636 | 1.02 GB | 9.05 GB |
+| 1 in 100 | 497.8 s | 191,654 | 189,000 | 127,169 | 63,298,254 | 0.16 GB | 5.01 GB |
+
+I joined played moves from the 1-in-20 bucket to the cached evaluations. I put scores on the mover's
+side, used the engine dataset's win-chance curve and kept the same 20-point gap for a critical move.
+The first full training query exhausted the DuckDB spill allowance. I matched the critical boards
+before attaching game metadata and capped DuckDB spill and the final Parquet file independently.
+The successful coverage and training run took 116.5 seconds. All files under `data/` took 80.12 GB
+afterward, including the archives, the comparison run and the existing data.
+
+| Phase | Played moves | Matched | Coverage | Critical rows from the join |
+|---|---:|---:|---:|---:|
+| Opening | 110,606,914 | 63,342,026 | 57.27% | 807,717 |
+| Middlegame | 123,188,232 | 306,833 | 0.25% | 14,158 |
+| Endgame | 77,394,825 | 1,442,800 | 1.86% | 108,285 |
+| All | 311,189,971 | 65,091,659 | 20.92% | 930,160 |
+
+Coverage dropped from 100% at ply 0 to 58.64% at ply 12, 2.12% at ply 24 and 0.0021% at ply 48.
+The opening accounted for 86.84% of the critical rows. The labeled table contains 930,160 moves
+from 434,768 Lichess players and takes 48.72 MB. The run report includes every ply, speed and
+200-point rating band. Bands from 800 through 2399 reached the 20,000-row target. The outer bands
+and the two least represented speeds fell short.
+
+| Lichess speed | Training rows | Distinct players |
+|---|---:|---:|
+| UltraBullet | 7,098 | 3,326 |
+| Bullet | 288,473 | 126,928 |
+| Blitz | 442,141 | 220,511 |
+| Rapid | 185,950 | 109,401 |
+| Classical | 6,498 | 4,372 |
+
+I timed Stockfish 19 at depth 10 with two lines, 32 MB of hash and one thread per worker. I took
+200 moves per speed from games chosen independently of the cloud join. The 1,000 searches took
+2.60 seconds with 17 workers, including engine startup. Stockfish found 57 critical positions in
+this balanced sample. One had a qualifying cloud evaluation. This is an audit of the sample, with
+200 observations per speed. At its observed rates, filling the two speed shortfalls would take
+about 484,000 searches and 21 minutes of engine time. The rating tails and the opening bias still
+need targeted sampling. This write-up covers one month, one Mac and the Stockfish pilot.
+
+```sh
+cargo build --locked --release --manifest-path tools/lichess-ingest/Cargo.toml
+python scripts/lichess_data.py fetch games evals
+python scripts/lichess_data.py convert-evals
+python scripts/lichess_data.py ingest
+python scripts/lichess_data.py ingest --one-percent
+python scripts/label_lichess.py
+python scripts/audit_lichess_labels.py
+```
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

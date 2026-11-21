@@ -111,6 +111,16 @@ The rating barely matters in this range; the kind of move matters a lot. Capture
 
 **Engine dataset.** To make later questions cheap, I analyzed 664,898 games (49.1 million positions) once with Stockfish 19, keeping the two best moves, win/draw/loss chances and clock time for every position. It took 33 hours on my laptop, and profiles for all 171,126 players in it now take 12 seconds to compute. On all 14,739 test games, none of the engine profiles (accuracy, blunders, conversion, time trouble, form, a rating implied by move quality) improved on the odds formula. The test was precise enough to rule out effects bigger than about 2 points of expected score.
 
+**Lichess pipeline.** I scanned every rated standard game in the October 2026 archive and wrote
+board rows for a 1-in-20 game-ID bucket. The cached evaluations covered 20.92% of played moves
+in that bucket and supplied 930,160 critical move labels. Classical and UltraBullet fell below
+the coverage target. [Lichess methods](docs/methods.md#lichess-dataset)
+
+| Run | Rows | Parquet size | Wall time |
+|---|---:|---:|---:|
+| October ingest | 95,395,628 games and 315,894,636 boards | 9.05 GB | 714.3 s |
+| Evaluation conversion | 193,996,647 normalized FENs | 5.46 GB | 423.4 s |
+
 ## How it works
 
 The analysis runs twice from the same design: in Python (`chesscheck/`) as the reference, and in TypeScript in the browser for the demo and the extension, with tests checking that both give the same answers. [docs/methods.md](docs/methods.md) has the full write-up: the statistical model, every eval and how it was scored, the extension's design, the odds studies with their leak checks, and the engine dataset.

@@ -875,8 +875,21 @@ I also added SAN formatting to `engine-core` (`Position::san`) and checked parit
 (`scripts/make_chess_js_parity_fixture.mjs`, stored as a 4.76 MB JSON fixture using per-square board
 diffs to stay under 5 MB). In one run of `bash scripts/check_engine_core.sh` on the same Mac, all
 296,853 legal moves matched chess.js in sorted UCI order, SAN text and resulting FEN after each
-move, and unmake restored each starting position. Speed measurements, the offscreen profile and
-WebAssembly bindings remain pending.
+move, and unmake restored each starting position.
+
+I timed perft on one thread of the same Mac with no other work running, using a release build. At
+the last ply it counts the legal move list instead of playing each move. Each figure is the median
+of five runs; the five runs were within 2% of each other.
+
+| Generator | Initial position, depth 6 | Kiwipete, depth 5 |
+|---|---:|---:|
+| Ray walking, play each move on a copy and test it | 1.304 s (91 million nodes/s) | 1.979 s (98 million nodes/s) |
+| Magic bitboards, check and pin masks | 0.349 s (341 million nodes/s) | 0.428 s (452 million nodes/s) |
+
+Both counted 119,060,324 and 193,690,690 nodes, the published values. The change made perft 3.7
+times faster from the initial position and 4.6 times faster on Kiwipete, where more pieces and pins
+make copying and testing every move more expensive. I have not compared saving the whole position
+with undoing a move piece by piece. The offscreen profile and WebAssembly bindings remain pending.
 
 ## Cross-language parity
 

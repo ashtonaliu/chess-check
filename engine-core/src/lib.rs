@@ -2,6 +2,7 @@
 
 mod attacks;
 mod fen;
+mod san;
 
 pub use fen::ParseFenError;
 use std::fmt;

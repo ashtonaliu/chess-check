@@ -868,8 +868,15 @@ In one fixed-seed run I played 4,096 random games, half from the initial positio
 other perft positions, with a 256-ply limit. I compared sorted UCI lists and FENs with shakmaty at
 each of the 943,932 positions, including each game's final position. All 23,593,115 legal moves
 matched, and undo restored the previous position after each of the 939,836 played moves. These tests
-cover native correctness. The FEN comparison uses shakmaty's legal en passant mode. Speed
-measurements, the offscreen profile and WebAssembly are pending.
+cover native correctness. The FEN comparison uses shakmaty's legal en passant mode.
+
+I also added SAN formatting to `engine-core` (`Position::san`) and checked parity against chess.js
+1.4.0 on 10,000 distinct positions from the real-game and puzzle fixtures under `web/test/fixtures/`
+(`scripts/make_chess_js_parity_fixture.mjs`, stored as a 4.76 MB JSON fixture using per-square board
+diffs to stay under 5 MB). In one run of `bash scripts/check_engine_core.sh` on the same Mac, all
+296,853 legal moves matched chess.js in sorted UCI order, SAN text and resulting FEN after each
+move, and unmake restored each starting position. Speed measurements, the offscreen profile and
+WebAssembly bindings remain pending.
 
 ## Cross-language parity
 

@@ -95,16 +95,17 @@ def build(month):
         labels = root / "labels"
         labels.mkdir()
         output = labels / "training.parquet"
-        scratch = available // 2
+        output_budget = min(8_000_000_000, available // 5)
+        scratch = available - output_budget
         with duckdb.connect() as con:
-            con.execute("SET memory_limit = '8GB'")
+            con.execute("SET memory_limit = '16GB'")
             con.execute("SET threads = 8")
             con.execute("SET preserve_insertion_order = false")
             con.execute(f"SET temp_directory = {_literal(str(root / 'spill'))}")
             con.execute(f"SET max_temp_directory_size = '{scratch}B'")
             register_labels(con, games, evals)
             coverage = query_rows(con, COVERAGE)
-            with limit_file_size(available - scratch):
+            with limit_file_size(output_budget):
                 con.execute(f"""
                     COPY (
                         SELECT *, 'lichess_cloud' AS evaluation_source

@@ -841,10 +841,23 @@ python scripts/audit_lichess_labels.py
 
 ## Native chess move generation
 
-I represent a standard chess position with one bitboard per color and piece type. For a sliding
-piece, the generator looks up the ray in each direction and trims it past the nearest blocker.
-It tests king safety on the resulting board. Unmake restores the saved board, castling rights,
-en passant target and clocks.
+I represent a standard chess position with one bitboard per color and piece type. Sliding pieces
+use magic bitboards. A fixed-seed search found one magic number per square for rooks and bishops in
+0.14 seconds, and the source stores only those 128 numbers. The 107,648 attack entries, about 860 KB,
+are built on first use, so they add nothing to the WebAssembly file. A test compares every lookup
+with ray walking on all 107,648 relevant occupancies.
+
+The generator works out legal moves directly. It finds the pieces giving check and the pinned pieces
+first. In double check only the king moves. In single check the other pieces must capture the checker
+or block its line, and a pinned piece moves only along the ray from its king. King moves are tested
+with the king removed from the board, so a slider's attack continues past it. En passant is the one
+case played on a copy and tested, because removing two pawns from one rank can expose the king along
+it. The earlier copy-and-test generator stays in the unit tests as a reference. Both gave the same
+moves at every position of 2,048 random games and on hand-picked positions for each of these rules.
+
+Make and unmake save and restore the whole position, which is about 100 bytes. A FEN names the en
+passant square only when a legal capture exists, as chess.js and the Lichess pipeline do, while the
+position keeps the target internally.
 
 I ran `bash scripts/check_engine_core.sh` on one thread on my M5 Pro Mac with 6 super cores and
 12 performance cores. All six published perft positions and the mirror of position 4 matched
@@ -855,7 +868,8 @@ In one fixed-seed run I played 4,096 random games, half from the initial positio
 other perft positions, with a 256-ply limit. I compared sorted UCI lists and FENs with shakmaty at
 each of the 943,932 positions, including each game's final position. All 23,593,115 legal moves
 matched, and undo restored the previous position after each of the 939,836 played moves. These tests
-cover native correctness. The offscreen profile, WebAssembly and performance measurements are pending.
+cover native correctness. The FEN comparison uses shakmaty's legal en passant mode. Speed
+measurements, the offscreen profile and WebAssembly are pending.
 
 ## Cross-language parity
 

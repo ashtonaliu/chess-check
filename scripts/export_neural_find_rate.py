@@ -1,0 +1,84 @@
+"""Export a neural find-rate checkpoint to ONNX and the TypeScript weight format."""
+import argparse
+import base64
+import copy
+from dataclasses import asdict
+import json
+from pathlib import Path
+import sys
+
+import numpy as np
+import onnx
+from onnx import helper, numpy_helper
+import torch
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from chesscheck.neural_find_rate import (ARTIFACT_VERSION, BOARD_PLANES, LAYER_NAMES, SCALAR_FEATURES,
+                                       SOURCES, NeuralFindRate, RatingScale)
+
+
+@torch.inference_mode()
+def export_model(model: NeuralFindRate, ratings: dict[str, RatingScale], directory: Path) -> None:
+    """Write a float graph and matching weight-only int8 assets with a dynamic batch."""
+    if set(ratings) != set(SOURCES):
+        raise ValueError("The checkpoint must supply one rating scale per source")
+    model = copy.deepcopy(model).cpu().float().eval()
+    quantized = []
+    for name in LAYER_NAMES:
+        layer = getattr(model, name)
+        weight, bias = layer.weight.detach().numpy(), layer.bias.detach().numpy()
+        if not np.isfinite(weight).all() or not np.isfinite(bias).all():
+            raise ValueError(f"{name} contains non-finite parameters")
+        peak = np.max(np.abs(weight).reshape(weight.shape[0], -1), axis=1)
+        scale = np.where(peak > 0, np.maximum(peak / 127, np.finfo(np.float32).tiny), 1).astype(np.float32)
+        divisor = scale.reshape((-1,) + (1,) * (weight.ndim - 1))
+        packed = np.rint(weight / divisor).clip(-127, 127).astype(np.int8)
+        quantized.append((name, packed, scale, bias))
+
+    directory.mkdir(parents=True, exist_ok=True)
+    float_path = directory / "model.onnx"
+    torch.onnx.export(
+        model, (torch.zeros((1, BOARD_PLANES, 8, 8)), torch.zeros((1, SCALAR_FEATURES))),
+        str(float_path), dynamo=False, opset_version=17, input_names=["board", "scalars"],
+        output_names=["probability"], dynamic_axes={name: {0: "batch"}
+                                                   for name in ("board", "scalars", "probability")},
+    )
+
+    graph = onnx.load(float_path)
+    initializers = {tensor.name: tensor for tensor in graph.graph.initializer}
+    dequant = []
+    layers = {}
+    for name, packed, scale, bias in quantized:
+        weight_name = f"{name}.weight"
+        graph.graph.initializer.remove(initializers[weight_name])
+        packed_name, scale_name = f"{weight_name}.int8", f"{weight_name}.scale"
+        graph.graph.initializer.extend([numpy_helper.from_array(packed, packed_name),
+                                        numpy_helper.from_array(scale, scale_name)])
+        dequant.append(helper.make_node("DequantizeLinear", [packed_name, scale_name], [weight_name], axis=0))
+        layers[name] = {"weights": base64.b64encode(packed.tobytes()).decode("ascii"),
+                        "scales": scale.tolist(), "biases": bias.tolist()}
+    for index, node in enumerate(dequant):
+        graph.graph.node.insert(index, node)
+    onnx.checker.check_model(graph)
+    onnx.save(graph, directory / "model.int8.onnx")
+    payload = {"version": ARTIFACT_VERSION, "ratings": {key: asdict(ratings[key]) for key in SOURCES},
+               "layers": layers}
+    (directory / "weights.json").write_text(json.dumps(payload, separators=(",", ":"), allow_nan=False) + "\n")
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("checkpoint", type=Path)
+    parser.add_argument("directory", type=Path)
+    args = parser.parse_args()
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
+    checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
+    model = NeuralFindRate()
+    model.load_state_dict(checkpoint["state_dict"])
+    ratings = {source: RatingScale(**value) for source, value in checkpoint["ratings"].items()}
+    export_model(model, ratings, args.directory)
+
+
+if __name__ == "__main__":
+    main()

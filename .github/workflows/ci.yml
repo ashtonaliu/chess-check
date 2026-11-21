@@ -45,6 +45,15 @@ jobs:
           python -m pip install -r requirements-dev.txt
       - name: Run Python tests
         run: python -m pytest -q -rs
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Check neural find-rate parity across Python, ONNX and TypeScript
+        run: |
+          npm ci --prefix web
+          python scripts/check_neural_find_rate.py
 
   web:
     name: Web tests and builds

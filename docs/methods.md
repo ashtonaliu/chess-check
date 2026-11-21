@@ -849,6 +849,40 @@ The TypeScript port is tested against Python output on real games (`web/test/`, 
 - BM25 matches rank_bm25 to 1e-9, and given the same embedding vectors the hybrid ranking is identical.
 - The tactic detector gives the same labels as the Python one on 3,000 Lichess puzzle positions, and the tactic summary, verdicts and coach facts match on real games. This caught a second rounding problem: multiplying 2.675 by 100 gives exactly 267.5 in floating point, so a check for exact halves has to read the number's real decimal digits.
 
+## Neural find-rate inputs
+
+I encode the position before the best move as a float tensor with 21 planes of 8 by 8 squares.
+Squares run file a through h, starting at the mover's home rank. Black-to-move positions reflect
+the ranks and keep the files in place. The planes are ordered as follows.
+
+- 0 through 11 hold pawns, knights, bishops, rooks, queens and kings for the mover, then the opponent.
+- 12 and 13 mark the best move's origin and destination. The encoder accepts legal UCI or SAN.
+- 14 and 15 mark squares attacked by the mover and the opponent. These include defended pieces
+  and attacks by pinned pieces.
+- 16 through 19 give the mover's kingside and queenside castling rights, then the opponent's rights
+  in the same order. Each right fills its whole plane.
+- 20 marks the en passant target when the mover has a legal en passant capture.
+
+The scalar input holds the rating standardized within its source, six one-hot speed values in the
+order UltraBullet, Bullet, Blitz, Rapid, Classical and Daily, the clock fraction clipped to 0 through
+1.5, a missing-clock flag, and a Lichess source flag. A missing clock has fraction zero and its flag
+set. The export carries each source's rating mean and standard deviation. The model uses two
+convolutions with 32 output channels each, flattens the second output, and combines it with the scalar
+input in a 32-unit dense layer and a sigmoid output.
+
+`scripts/export_neural_find_rate.py CHECKPOINT DIRECTORY` expects a checkpoint with `state_dict` and
+`ratings` maps. Ratings have `mean` and `std` for `chesscom` and `lichess`. The export writes a float
+ONNX model, an ONNX model with per-output-channel int8 weights, and the same int8 weights for the
+TypeScript forward pass. Both runtimes dequantize weights for float arithmetic.
+
+I check input equality and inference parity with initialized weights. The command below adds 300
+critical positions from completed shards to the synthetic cases. With no shard path it checks the
+synthetic cases alone, as in CI. The trained-model tests and runtime timings come later.
+
+```sh
+python scripts/check_neural_find_rate.py --positions data/engine/lichess-v1/positions
+```
+
 ## Deployment
 
 - I run the Python tests, TypeScript tests and build, and Chrome extension build in GitHub Actions on pull requests and pushes to main.

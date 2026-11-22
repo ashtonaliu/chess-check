@@ -1,9 +1,11 @@
 //! Native move generation for standard chess.
 
 mod attacks;
+mod features;
 mod fen;
 mod san;
 
+pub use features::{BOARD_PLANES, MOVE_FEATURE_COUNT, MoveFeatures};
 pub use fen::ParseFenError;
 use std::fmt;
 

@@ -946,6 +946,17 @@ diffs to stay under 5 MB). In one run of `bash scripts/check_engine_core.sh` on 
 296,853 legal moves matched chess.js in sorted UCI order, SAN text and resulting FEN after each
 move, and unmake restored each starting position.
 
+I added the 16 find-rate move features (`Position::move_features`) and the 21-plane board encoding
+(`Position::encode_board` and `Position::encode_board_planes`) to `engine-core`, and checked exact
+parity against Python (`move_features` in `scripts/eval_find_rate.py` and `encode_board` in
+`chesscheck/neural_find_rate.py`) on 10,000 positions (`scripts/make_engine_feature_fixture.py`,
+stored as a 3.19 MB JSON fixture with base64-packed bitboards). Because the checked-in Parquet
+shards under `tests/fixtures/engine-v1/positions/` hold 3,169 distinct position and best-move pairs,
+the fixture includes all 3,169 of them plus 7 synthetic edge cases and 6,824 positions from
+`web/test/fixtures/`. In one run of `bash scripts/check_engine_core.sh` on the same Mac, all
+160,000 move-feature values and all 13,440,000 board bits matched Python exactly, including Black
+rank reflection, attacks by pinned pieces, castling planes and the legal-only en passant plane.
+
 I timed perft on one thread of the same Mac with no other work running, using a release build. At
 the last ply it counts the legal move list instead of playing each move. Each figure is the median
 of five runs; the slowest of the five was at most 3.2% slower than the fastest.

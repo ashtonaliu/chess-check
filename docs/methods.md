@@ -972,8 +972,17 @@ of five runs; the slowest of the five was at most 3.2% slower than the fastest.
 
 Both counted 119,060,324 and 193,690,690 nodes, the published values. The change made perft 3.7
 times faster from the initial position and 4.6 times faster on Kiwipete, where more pieces and pins
-make copying and testing every move more expensive. I have not compared saving the whole position
-with undoing a move piece by piece.
+make copying and testing every move more expensive.
+
+I also compared saving the whole 112-byte position with undoing a move piece by piece using an
+8-byte undo record (`engine-core/examples/bench_unmake.rs`, five single-threaded release runs each
+on the same Mac). From the initial position at depth 6, piece-by-piece unmake was 3.4% faster at
+the median: 0.340 s (0.339 to 0.341 s, 350 million nodes/s) against 0.352 s (0.347 to 0.356 s,
+338 million nodes/s) for copying the position. On Kiwipete at depth 5, where captures, castling,
+promotions and en passant are frequent, piece-by-piece unmake was 1.9% slower: 0.443 s (0.440 to
+0.443 s, 438 million nodes/s) against 0.434 s (0.433 to 0.446 s, 446 million nodes/s). Because
+the difference is small and reverses on tactical positions, `make_move` and `unmake_move` keep the
+simpler whole-position copy.
 
 ### Offscreen build profile
 

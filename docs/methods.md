@@ -987,10 +987,10 @@ profile each time and the default limit of eight Stockfish workers. The recorder
 training, tests and builds before each run and polled during it. I used the unthrottled CPU.
 [Finished recap game](https://www.chess.com/game/live/187138001290)
 
-I measured from starting the build through the IndexedDB save. I opened a recording of each
-size in Chrome's Performance panel and inspected Bottom-up between the build markers on the
-Main track, where the harness runs the offscreen code. I used the traces' V8 samples for the
-caller totals.
+I measured from starting the build through the IndexedDB save. The harness loads only the
+offscreen bundle in profiling mode, so visible cube activity stays outside its Main track.
+I opened a recording of each size in Chrome's Performance panel and inspected Bottom-up
+between the build markers on that track. I used the traces' V8 samples for the caller totals.
 For each sample I followed the stack to the outer chess.js call, mapped the caller to the
 source, and counted only the sample's overlap with a main-thread task. I merged nested task
 intervals before computing the busy-thread denominator. The wall-time denominator covers the
@@ -998,51 +998,52 @@ whole build, including Stockfish and IndexedDB waits.
 
 The per-position move features run during the engine pass. I timed the tactics request on the
 main thread and the summarizer on its worker. After the build I assembled one recap from the
-same finished-game fixture and measured its logistic find-rate features inside the recap timer.
-Phase B's neural predictor was measured separately at 1.90 ms per position in Chrome, including
-input encoding. Its review-card path is separate from the build.
+same finished-game fixture using the extension's recap path. I then timed the shared find-rate
+feature extractor on the recap's turning position as a separate call. Phase B's neural
+predictor belongs to the review queue. Its standalone Chrome timing was 1.90 ms per position,
+including input encoding.
 
 The stage times are medians in milliseconds, with the minimum and maximum in parentheses.
-The feature and worker rows overlap their enclosing stages.
+The engine feature and worker rows overlap their enclosing stages.
 
 | Stage | 50 games | 150 games |
 |---|---:|---:|
-| Profile build | 4,323 (4,274 to 4,363) | 13,291 (12,831 to 13,950) |
-| Game parsing | 220 (219 to 225) | 561 (560 to 574) |
-| Engine pass | 1,831 (1,813 to 1,981) | 4,791 (4,725 to 4,900) |
-| Move features during engine pass | 335 (326 to 341) | 893 (885 to 921) |
-| Blunder recheck | 1,876 (1,755 to 1,975) | 7,005 (6,726 to 7,785) |
-| Tactics request through response | 330 (326 to 346) | 784 (763 to 789) |
-| Tactics worker | 237 (235 to 248) | 649 (634 to 652) |
-| Tactics summarizer on worker | 234 (232 to 245) | 642 (627 to 645) |
-| Recap assembly, after the build | 1.2 (1.1 to 1.2) | 1.2 (1.2 to 1.2) |
-| Logistic find-rate features within the recap | 0.9 (0.9 to 1.1) | 0.9 (0.8 to 0.9) |
+| Profile build | 4,467 (4,443 to 4,612) | 13,542 (13,317 to 14,132) |
+| Game parsing | 221 (220 to 226) | 563 (549 to 568) |
+| Engine pass | 1,886 (1,854 to 1,908) | 4,827 (4,806 to 4,913) |
+| Move features during engine pass | 341 (333 to 344) | 931 (912 to 961) |
+| Blunder recheck | 1,998 (1,944 to 2,154) | 7,310 (7,092 to 7,774) |
+| Tactics request through response | 339 (309 to 392) | 832 (806 to 840) |
+| Tactics worker | 239 (236 to 281) | 692 (668 to 698) |
+| Tactics summarizer on worker | 236 (233 to 278) | 684 (661 to 690) |
+| Recap assembly, after the build | 0.1 (0.1 to 0.1) | 0.1 (0.1 to 0.1) |
+| Find-rate features for one turning position, after the recap | 0.9 (0.9 to 1.0) | 0.9 (0.9 to 0.9) |
 
-The main thread was busy for a median of 2,003 ms on 50 games and 5,372 ms on 150 games.
-Chess.js accounted for 53.2% of busy main-thread time (53.1% to 53.8%) on 50 games and
-54.7% (53.5% to 54.7%) on 150 games. That was 24.9% of full build wall time (24.4% to
-25.7%) and 22.8% (20.6% to 22.8%), respectively. The tactics summarizer ran on a separate
+The main thread was busy for a median of 2,065 ms on 50 games and 5,498 ms on 150 games.
+Chess.js accounted for 54.1% (53.0% to 54.6%) of busy main-thread time on 50 games and
+55.2% (55.2% to 56.0%) on 150 games. That was 24.6% (24.4% to 25.3%) of full build wall time
+on 50 games and 22.4% (22.4% to 22.8%) on 150 games. The tactics summarizer ran on a separate
 worker. Its elapsed time counts toward the build, and the chess.js numerator covers the
 main thread. Chrome's Bottom-up view showed `_attacked` and `_moves` among the largest
 self-time entries.
 
 Both build sizes cleared the 20% wall-time gate in all three runs. I would cover the call
-sites below in 150-game time order. On 50 games, legal move listing narrowly led SAN
-conversion. Each entry gives median sampled milliseconds and its share of median busy
-main-thread time.
+sites below in 150-game time order. Legal move listing narrowly led SAN conversion at both
+sizes. Each entry gives median sampled milliseconds and its share of median busy main-thread
+time.
 
 | Call site and binding work | 50 games | 150 games |
 |---|---:|---:|
-| `engine.ts` `uciToSan`, format the engine's UCI best moves and refutations as SAN | 239 ms (11.9%) | 681 ms (12.7%) |
-| `engine.ts` `analyseOne` `moves()`, count legal moves and captures for position features | 251 ms (12.5%) | 665 ms (12.4%) |
-| `games.ts` `parseGame`, parse the archive PGN and extract its SAN history | 199 ms (9.9%) | 510 ms (9.5%) |
-| `engine.ts` `analyseOne` `history({ verbose: true })`, extract the played move records for replay | 123 ms (6.1%) | 341 ms (6.4%) |
-| `engine.ts` `analyseOne` `move()`, advance the board through the played game | 96 ms (4.8%) | 265 ms (4.9%) |
-| `engine.ts` `analyseOne` `loadPgn()`, load the game for the engine pass | 81 ms (4.1%) | 218 ms (4.1%) |
-| `engine.ts` `evalWhite`, load a scratch FEN for best-move SAN | 32 ms (1.6%) | 88 ms (1.6%) |
-| `engine.ts` `analyseOne` `isGameOver()`, check whether the position is terminal | 24 ms (1.2%) | 69 ms (1.3%) |
-| `engine.ts` recheck callback, replay the played move and prepare its two search positions | 11 ms (0.5%) | 36 ms (0.7%) |
-| `engine.ts` `evalWhite` `fen()`, serialize the board for Stockfish and SAN | 7 ms (0.4%) | 20 ms (0.4%) |
+| `engine.ts` `analyseOne` `moves()`, count legal moves and captures for position features | 258 ms (12.5%) | 713 ms (13.0%) |
+| `engine.ts` `uciToSan`, format the engine's UCI best moves and refutations as SAN | 253 ms (12.2%) | 711 ms (12.9%) |
+| `games.ts` `parseGame`, parse the archive PGN and extract its SAN history | 199 ms (9.6%) | 508 ms (9.2%) |
+| `engine.ts` `analyseOne` `history({ verbose: true })`, extract the played move records for replay | 127 ms (6.2%) | 353 ms (6.4%) |
+| `engine.ts` `analyseOne` `move()`, advance the board through the played game | 103 ms (5.0%) | 282 ms (5.1%) |
+| `engine.ts` `analyseOne` `loadPgn()`, load the game for the engine pass | 84 ms (4.1%) | 222 ms (4.0%) |
+| `engine.ts` `evalWhite`, load a scratch FEN for best-move SAN | 36 ms (1.8%) | 92 ms (1.7%) |
+| `engine.ts` `analyseOne` `isGameOver()`, check whether the position is terminal | 26 ms (1.3%) | 76 ms (1.4%) |
+| `engine.ts` recheck callback, replay the played move and prepare its two search positions | 10 ms (0.5%) | 41 ms (0.7%) |
+| `engine.ts` `evalWhite` `fen()`, serialize the board for Stockfish and SAN | 7 ms (0.3%) | 20 ms (0.4%) |
 
 I would return legal-move and capture counts directly and keep a board across plies so PGN
 replay, SAN and FEN generation can share it. The recheck is the longest build stage, and

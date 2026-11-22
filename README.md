@@ -136,8 +136,8 @@ medians. Both passed the 20% wall-time gate for WebAssembly work. [Offscreen met
 
 | Bullet games | Build wall time | Chess.js share of wall time |
 |---|---:|---:|
-| 50 | 4.32 s | 24.9% |
-| 150 | 13.29 s | 22.8% |
+| 50 | 4.47 s | 24.6% |
+| 150 | 13.54 s | 22.4% |
 
 ## How it works
 

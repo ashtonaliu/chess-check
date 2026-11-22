@@ -28,6 +28,9 @@
     const real = window.chrome; window.chrome = { runtime: { getURL: real.runtime.getURL } };
     await import("./dist/offscreen.js");
     window.chrome = real;
-    const s = document.createElement("script"); s.src = "dist/content.js"; document.body.appendChild(s);
+    // The profiling bundle exposes its own entry point for an offscreen-only recording.
+    if (!window.__ccProfile) {
+      const s = document.createElement("script"); s.src = "dist/content.js"; document.body.appendChild(s);
+    }
   </script>
 </body></html>

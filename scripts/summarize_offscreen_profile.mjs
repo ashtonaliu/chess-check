@@ -9,7 +9,7 @@ const [dir] = process.argv.slice(2);
 if (!dir) throw new Error("Usage: node scripts/summarize_offscreen_profile.mjs OUTPUT_DIR");
 const read = path => JSON.parse(readFileSync(path, "utf8"));
 const chessSource = readFileSync(new URL("../web/node_modules/chess.js/src/chess.ts", import.meta.url), "utf8").split("\n");
-const maps = new Map(["dist/offscreen.js", "engine/tacticsWorker.js", "dist/content.js"].map(name => {
+const maps = new Map(["dist/offscreen.js", "engine/tacticsWorker.js"].map(name => {
   const payload = read(join(dir, "site", name + ".map"));
   const lines = new Map(payload.sources.map((source, i) => [source, payload.sourcesContent[i]?.split("\n")]));
   return ["/" + name, { map: new SourceMap(payload), lines }];

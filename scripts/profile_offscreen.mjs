@@ -43,8 +43,6 @@ await cp(join(root, "extension/dev.html"), join(site, "dev.html"));
 const bundle = { absWorkingDir: join(root, "web"), bundle: true, minify: true, keepNames: true,
   format: "esm", target: "es2022", sourcemap: "linked", define: { __CC_PROFILE__: "true" } };
 await build({ ...bundle, entryPoints: ["src/extension/offscreen.ts"], outfile: join(site, "dist/offscreen.js") });
-await build({ ...bundle, format: "iife", loader: { ".css": "text" },
-  entryPoints: ["src/extension/content.ts"], outfile: join(site, "dist/content.js") });
 await build({ ...bundle, target: "es2020", entryPoints: ["src/browser/tacticsWorker.ts"],
   outfile: join(site, "engine/tacticsWorker.js") });
 await stop();
@@ -130,6 +128,7 @@ async function inspectArchiveInPage(cdp, session, games) {
         if (performance.now() > deadline) throw new Error("Development harness did not start");
         await new Promise(resolve => setTimeout(resolve, 50));
       }
+      if (document.querySelector('script[src="dist/content.js"]')) throw new Error("The cube shares the profiling thread");
       const result = await window.__ccProfile(${JSON.stringify(username)}, ${games}, ${JSON.stringify(callback)});
       return { ...result, cpus: navigator.hardwareConcurrency,
         measures: performance.getEntriesByType("measure").filter(e => e.name.startsWith("cc:"))

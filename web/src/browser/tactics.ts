@@ -3,6 +3,7 @@
 // python-chess, and parity is tested on Lichess puzzle positions.
 import { Chess, type Move } from "chess.js";
 import { BLUNDER_DROP, type GameAnalysis, type MoveRow } from "./engine";
+import type { MoveAt, WasmChess } from "./wasmChess";
 
 type PT = "p" | "n" | "b" | "r" | "q" | "k";
 type Col = "w" | "b";
@@ -162,7 +163,18 @@ const geometric = (fen: string, m: Move) => {
   return REPORTED.filter(x => x !== "mate" && found.has(x)) as string[];
 };
 
-export function classifyGame(pgn: string, a: GameAnalysis): BlunderRec[] {
+const filterReported = (names: readonly string[]) =>
+  REPORTED.filter(x => x !== "mate" && names.includes(x)) as string[];
+
+interface PendingMotif {
+  rec: BlunderRec;
+  kind: "missed" | "allowed";
+  fen: string;
+  move: Move;
+  matePrefix: boolean;
+}
+
+function classifyGameInto(pgn: string, a: GameAnalysis, pending: PendingMotif[] | null): BlunderRec[] {
   const rows = a.moves as (MoveRow & DeepFields)[];
   if (!rows.some(row => row.wp_loss >= BLUNDER_DROP && (row.deep_loss ?? row.wp_loss) >= BLUNDER_DROP)) return [];
   const replay = new Chess();
@@ -181,8 +193,12 @@ export function classifyGame(pgn: string, a: GameAnalysis): BlunderRec[] {
     const best = sanMove(fen, row.deep_best !== undefined ? row.deep_best : row.best);
     rec.best = best ? best.san : null;
     if (best && !(best.from === mv.from && best.to === mv.to && (best.promotion ?? "") === (mv.promotion ?? ""))) {
-      rec.missed = geometric(fen, best);
-      if ((row.deep_cp_before ?? row.cp_before) >= MATE_CP) rec.missed = ["mate", ...rec.missed];
+      const matePrefix = (row.deep_cp_before ?? row.cp_before) >= MATE_CP;
+      if (pending) pending.push({ rec, kind: "missed", fen, move: best, matePrefix });
+      else {
+        rec.missed = geometric(fen, best);
+        if (matePrefix) rec.missed = ["mate", ...rec.missed];
+      }
     }
     const afterFen = mv.after;
     const nxt = rows[i + 1];
@@ -190,18 +206,23 @@ export function classifyGame(pgn: string, a: GameAnalysis): BlunderRec[] {
     if ((row.deep_cp_after ?? row.cp_after) <= -MATE_CP) rec.allowed.push("mate");
     if (refute) {
       rec.refutation = refute.san;
-      rec.allowed.push(...geometric(afterFen, refute));
+      if (pending) pending.push({ rec, kind: "allowed", fen: afterFen, move: refute, matePrefix: false });
+      else rec.allowed.push(...geometric(afterFen, refute));
       const after = new Chess(afterFen);
       const cap = after.get(refute.to as never);
       if (cap && cap.color === mv.color) rec.lost = NAME[cap.type as PT];
-      if (rec.allowed.includes("fork")) rec.fork_by = NAME[refute.piece];
+      if (!pending && rec.allowed.includes("fork")) rec.fork_by = NAME[refute.piece];
     }
-    if (rec.missed.includes("fork") && best) {
+    if (!pending && rec.missed.includes("fork") && best) {
       rec.missed_fork_by = NAME[best.piece];
     }
     out.push(rec);
   });
   return out;
+}
+
+export function classifyGame(pgn: string, a: GameAnalysis): BlunderRec[] {
+  return classifyGameInto(pgn, a, null);
 }
 
 // ---------- summary with verdicts (chesscheck/tactics.py summarize) ----------
@@ -259,9 +280,25 @@ export interface TacticSummary {
   forks_allowed_by: Record<string, number>; pieces_lost: Record<string, number>; blunders: BlunderRec[];
 }
 
-export function summarize(analyses: GameAnalysis[], pgns: Map<string, string>, deepDepth = 16): TacticSummary {
+export function summarize(analyses: GameAnalysis[], pgns: Map<string, string>, deepDepth = 16, wasm?: WasmChess | null): TacticSummary {
   const started = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ ? performance.now() : 0;
-  const recs = analyses.flatMap(a => classifyGame(pgns.get(a.url)!, a));
+  const pending: PendingMotif[] | null = wasm ? [] : null;
+  const recs = analyses.flatMap(a => classifyGameInto(pgns.get(a.url)!, a, pending));
+  if (wasm && pending && pending.length) {
+    const batch: MoveAt[] = pending.map(p => ({ fen: p.fen, move: `${p.move.from}${p.move.to}${p.move.promotion ?? ""}` }));
+    const results = wasm.motifs(batch);
+    pending.forEach((p, idx) => {
+      const names = results[idx];
+      const found = names ? filterReported(names) : geometric(p.fen, p.move);
+      if (p.kind === "missed") {
+        p.rec.missed = p.matePrefix ? ["mate", ...found] : found;
+        if (p.rec.missed.includes("fork")) p.rec.missed_fork_by = NAME[p.move.piece];
+      } else {
+        p.rec.allowed.push(...found);
+        if (p.rec.allowed.includes("fork")) p.rec.fork_by = NAME[p.move.piece];
+      }
+    });
+  }
   const all = analyses.flatMap(a => a.moves);
   const movesMe = all.filter(m => m.is_me).length, movesOpp = all.filter(m => !m.is_me).length;
   const count = (sel: (m: MoveRow) => boolean) => {

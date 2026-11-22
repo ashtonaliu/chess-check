@@ -3,7 +3,7 @@ name: Deploy static demo to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ["web/**", "scripts/build_static.sh", ".github/workflows/pages.yml"]
+    paths: ["web/**", "engine-core/**", "scripts/build_static.sh", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -28,6 +28,14 @@ jobs:
       - name: Build TypeScript frontend
         working-directory: web
         run: npm ci && npm test && npm run build
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install wasm-bindgen-cli
+        run: cargo install --locked wasm-bindgen-cli --version 0.2.130
+      - name: Build engine-core WebAssembly
+        working-directory: web
+        run: npm run build:wasm:web
       - name: Assemble static site
         run: scripts/build_static.sh
       - uses: actions/configure-pages@v5

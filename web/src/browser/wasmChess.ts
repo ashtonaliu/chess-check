@@ -29,7 +29,7 @@ export interface ChessBindings {
   moveFeaturesBatch(batch: string): string;
   parsePgnBatch(batch: string): string;
 }
-interface ChessModule extends ChessBindings { default(): Promise<unknown> }
+interface ChessModule extends ChessBindings { default(init?: { module_or_path: Uint8Array }): Promise<unknown> }
 
 function call<T>(operation: (batch: string) => string, rows: unknown[]): T[] {
   return JSON.parse(operation(JSON.stringify(rows))) as T[];
@@ -72,17 +72,21 @@ export class WasmChess {
 }
 
 let asset: string | undefined;
+let wasmBytes: Uint8Array | undefined;
 let ready: Promise<WasmChess | null> | undefined;
 
-export function configureWasmChess(assetUrl: string): void {
+/** Point the loader at the wasm-bindgen module. Pass `bytes` where the module cannot fetch its own
+ *  .wasm file, as in Node tests; the extension lets the module fetch it. Pass no URL to turn it off. */
+export function configureWasmChess(assetUrl: string | undefined, bytes?: Uint8Array): void {
   asset = assetUrl;
+  wasmBytes = bytes;
   ready = undefined;
 }
 
 export function getWasmChess(): Promise<WasmChess | null> | undefined {
   if (!asset) return undefined;
   ready ??= import(asset).then(async (module: ChessModule) => {
-    await module.default();
+    await module.default(wasmBytes ? { module_or_path: wasmBytes } : undefined);
     return new WasmChess(module);
   }).catch(() => null);
   return ready;

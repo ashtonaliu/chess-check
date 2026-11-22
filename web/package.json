@@ -9,7 +9,7 @@
     "build:tactics-worker": "esbuild --define:__CC_PROFILE__=false src/browser/tacticsWorker.ts --bundle --minify --format=esm --target=es2020",
     "test": "node --import tsx --test test/*.test.ts",
     "build:wasm": "bash ../scripts/build_engine_wasm.sh",
-    "test:wasm": "npm run build:wasm && node --import tsx --test test/wasm-chess.parity.ts",
+    "test:wasm": "npm run build:wasm && node --import tsx --test test/*.parity.ts",
     "build:ext": "npm run build:wasm && tsc --noEmit && rm -rf ../extension/dist && esbuild --define:__CC_PROFILE__=false src/extension/offscreen.ts src/extension/background.ts --bundle --minify --format=esm --target=es2022 --splitting --outdir=../extension/dist --chunk-names=chunks/[name]-[hash] && esbuild --define:__CC_PROFILE__=false src/extension/content.ts --bundle --minify --format=iife --target=es2022 --loader:.css=text --outfile=../extension/dist/content.js && node scripts/patchStockfish.mjs ../extension/engine && npm run build:tactics-worker -- --outfile=../extension/engine/tacticsWorker.js"
   },
   "devDependencies": {

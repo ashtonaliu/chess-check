@@ -1078,6 +1078,20 @@ tests, the packaged module matched chess.js on move counts, captures and FEN acr
 positions, all 296,853 SAN strings in that fixture, and all 16 move features on a second
 10,000-position fixture. The game fixtures also cover promotions and repetition through replay.
 
+The PGN parser is new code, and a parse that fails falls back to chess.js while a wrong parse
+would not. So I also check it on 400 finished games from my public archive for August through
+November 2026 (`web/test/fixtures/archive_pgns.json`, built by `scripts/make_pgn_parity_fixture.py`).
+The fixture keeps every game with an uncommon result, so it covers draws by agreement, repetition,
+stalemate, the 50-move rule and insufficient material, and fills the rest across bullet, blitz and
+rapid. Every game had the same SAN history, ECO tags and stored game record as chess.js. None of
+these live games started from a custom position, so that case stays covered by a hand-written PGN.
+
+To check the engine pass and recheck end to end, I ran both on 60 of those games once with chess.js
+and once with WebAssembly, against a stand-in for Stockfish whose answers depend only on the
+position and depth. Its scores swing widely, so 1,801 of the 4,562 move rows went through the
+recheck. Every move row, including the deep recheck fields, was identical. A deliberate change to
+one WebAssembly-only count made this test fail.
+
 For the microbenchmarks I used 512 positions from the feature fixture and 24 PGNs from the profile
 archive. I ran three fresh launches each in Node and headless Chrome on the same M5 Pro Mac.
 Each operation had one untimed pass and five measured passes per backend per launch. I timed
@@ -1111,7 +1125,7 @@ rows give the median and the full range in seconds. The throttled rows give indi
 The cold builds at normal CPU speed saved about 0.58 seconds and 1.46 seconds. That gain is
 modest beside the operation timings because Stockfish still dominates. The engine pass and
 recheck, including their bookkeeping, took a median of 90.5% and 92.4% of build wall time
-after the change. The throttled runs measure Chrome's emulation on this Mac.
+after the change. The throttled runs measure Chrome's emulation on this Mac. The throttle slowed only the harness page, not the Stockfish workers, so it overstates the gain on a slow computer, where the searches slow down too. Each throttled figure is a single run.
 
 The new module is 211,458 bytes uncompressed and 79,031 bytes deflated inside the extension ZIP.
 The ZIP grew from 1,476,265 to 1,559,355 bytes, an increase of 83,090 bytes against the 1 MB budget.

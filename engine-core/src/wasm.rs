@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-use crate::{Color, MOVE_FEATURE_COUNT, Move, Position, Role, attacks, fen::parse_square};
+use crate::{Color, MOVE_FEATURE_COUNT, Move, Position, Role, fen::parse_square};
 
 const START: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -198,10 +198,7 @@ impl GameReplay {
         let mut counts = HashMap::new();
         let mut history = history.lines();
         loop {
-            let ep = pos.en_passant.filter(|&sq| {
-                positions.is_empty()
-                    || attacks::pawn(pos.turn.other(), sq) & pos.pieces(pos.turn, Role::Pawn) != 0
-            });
+            let ep = pos.en_passant.filter(|_| pos.has_legal_en_passant());
             let count = counts
                 .entry((pos.pieces, pos.turn as u8, pos.castling, ep))
                 .or_insert(0);

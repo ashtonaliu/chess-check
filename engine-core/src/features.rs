@@ -126,6 +126,25 @@ impl Position {
         let gives_check = after.is_attacked(after.king_square(enemy), me, after_occupied);
         let lands_attacked = after.is_attacked(mv.to, enemy, after_occupied);
 
+        let enemy_king = self.king_square(enemy);
+        let direct_checks = [
+            attacks::pawn(enemy, enemy_king),
+            attacks::KNIGHT[enemy_king as usize],
+            attacks::bishop(enemy_king, occupied),
+            attacks::rook(enemy_king, occupied),
+            attacks::bishop(enemy_king, occupied) | attacks::rook(enemy_king, occupied),
+            0,
+        ];
+        // A friendly piece alone between our slider and the enemy king gives discovered check
+        // whenever it moves off that line.
+        let [_, _, own_bishops, own_rooks, own_queens, _] = self.pieces[me as usize];
+        let snipers = attacks::rook(enemy_king, opposing) & (own_rooks | own_queens)
+            | attacks::bishop(enemy_king, opposing) & (own_bishops | own_queens);
+        let dc_blockers = squares(snipers)
+            .map(|sniper| attacks::between(enemy_king, sniper) & occupied)
+            .filter(|blockers| blockers.count_ones() == 1 && blockers & own != 0)
+            .fold(0, |all, blocker| all | blocker);
+
         let legal = self.legal_moves();
         let mut captures_available = 0i32;
         let mut checks_available = 0i32;
@@ -133,7 +152,16 @@ impl Position {
             if self.is_capture_move(m, opposing) {
                 captures_available += 1;
             }
-            if self.move_gives_check(m) {
+            let is_ep = m.role == Role::Pawn && self.en_passant == Some(m.to);
+            let is_castle = m.role == Role::King && m.from.abs_diff(m.to) == 2;
+            let gives = if m.promotion.is_some() || is_ep || is_castle {
+                self.move_gives_check(m)
+            } else {
+                direct_checks[m.role as usize] & bit(m.to) != 0
+                    || (dc_blockers & bit(m.from) != 0
+                        && attacks::ray(enemy_king, m.from) & bit(m.to) == 0)
+            };
+            if gives {
                 checks_available += 1;
             }
         }

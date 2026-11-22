@@ -236,26 +236,26 @@ impl Position {
         self.en_passant_moves().next().is_some()
     }
 
-    /// Generate all legal moves, including the four promotion choices.
-    pub fn legal_moves(&self) -> Vec<Move> {
+    /// Generate all legal moves into `moves` (clearing any previous entries), including promotions.
+    pub fn legal_moves_into(&self, moves: &mut Vec<Move>) {
+        moves.clear();
         let color = self.turn;
         let enemy = color.other();
         let own = self.occupied_by(color);
         let opposing = self.occupied_by(enemy);
         let occupied = own | opposing;
         let king = self.king_square(color);
-        let mut moves = Vec::with_capacity(48);
 
         // Remove the king from the board so a slider's attack continues past its square.
         let without_king = occupied & !bit(king);
         let king_targets = squares(attacks::KING[king as usize] & !own)
             .filter(|&to| !self.is_attacked(to, enemy, without_king))
             .fold(0, |all, to| all | bit(to));
-        Self::push_moves(&mut moves, Role::King, king, king_targets);
+        Self::push_moves(moves, Role::King, king, king_targets);
 
         let checkers = self.attackers(king, enemy, occupied);
         if checkers.count_ones() > 1 {
-            return moves;
+            return;
         }
         // In check, another piece must capture the checker or block its line.
         let evasions = if checkers == 0 {
@@ -286,15 +286,76 @@ impl Position {
                     // A pinned piece can only move along the ray from the king through it.
                     targets &= attacks::ray(king, from);
                 }
-                Self::push_moves(&mut moves, role, from, targets);
+                Self::push_moves(moves, role, from, targets);
             }
         }
         // En passant removes two pawns from one rank, which can expose the king along it.
         moves.extend(self.en_passant_moves());
         if checkers == 0 {
-            self.castles(occupied, &mut moves);
+            self.castles(occupied, moves);
         }
+    }
+
+    /// Generate all legal moves, including the four promotion choices.
+    pub fn legal_moves(&self) -> Vec<Move> {
+        let mut moves = Vec::with_capacity(48);
+        self.legal_moves_into(&mut moves);
         moves
+    }
+
+    /// Return whether the side to move has at least one legal move, without allocating.
+    pub fn has_any_legal_move(&self) -> bool {
+        let color = self.turn;
+        let enemy = color.other();
+        let own = self.occupied_by(color);
+        let opposing = self.occupied_by(enemy);
+        let occupied = own | opposing;
+        let king = self.king_square(color);
+
+        let without_king = occupied & !bit(king);
+        if squares(attacks::KING[king as usize] & !own)
+            .any(|to| !self.is_attacked(to, enemy, without_king))
+        {
+            return true;
+        }
+
+        let checkers = self.attackers(king, enemy, occupied);
+        if checkers.count_ones() > 1 {
+            return false;
+        }
+        let evasions = if checkers == 0 {
+            !0
+        } else {
+            checkers | attacks::between(king, checkers.trailing_zeros() as u8)
+        };
+
+        let [_, _, bishops, rooks, queens, _] = self.pieces[enemy as usize];
+        let snipers = attacks::rook(king, opposing) & (rooks | queens)
+            | attacks::bishop(king, opposing) & (bishops | queens);
+        let pinned = squares(snipers)
+            .map(|sniper| attacks::between(king, sniper) & occupied)
+            .filter(|blockers| blockers.count_ones() == 1 && blockers & own != 0)
+            .fold(0, |all, blocker| all | blocker);
+
+        for role in [
+            Role::Pawn,
+            Role::Knight,
+            Role::Bishop,
+            Role::Rook,
+            Role::Queen,
+        ] {
+            for from in squares(self.pieces(color, role)) {
+                let mut targets = self.targets(role, from, opposing, occupied) & !own & evasions;
+                if pinned & bit(from) != 0 {
+                    targets &= attacks::ray(king, from);
+                }
+                if targets != 0 {
+                    return true;
+                }
+            }
+        }
+        // Castling requires an unattacked transit square, so a legal castle implies a legal king step above.
+        self.has_legal_en_passant()
     }
 
     /// The previous generator: every pseudo-legal move, kept if the king is safe afterward.

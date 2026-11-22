@@ -13,15 +13,28 @@ from onnx import helper, numpy_helper
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from chesscheck.neural_find_rate import (ARTIFACT_VERSION, BOARD_PLANES, LAYER_NAMES, SCALAR_FEATURES,
+from chesscheck.neural_find_rate import (ARTIFACT_VERSION, BOARD_PLANES, CHANNELS, LAYER_NAMES, MOVE_FEATURES, SCALAR_FEATURES,
                                        SOURCES, NeuralFindRate, RatingScale)
+
+
+def load_checkpoint(path: Path):
+    checkpoint = torch.load(path, map_location="cpu", weights_only=True)
+    state = checkpoint["state_dict"]
+    extra = state["hidden.weight"].shape[1] - CHANNELS * 64 - SCALAR_FEATURES
+    variant = checkpoint.get("variant")
+    if extra not in (0, MOVE_FEATURES) or (variant and not (variant["board"] and variant["context"])):
+        raise ValueError("Export requires the board and context model, optionally with move features")
+    model = NeuralFindRate(extra)
+    model.load_state_dict(state)
+    ratings = {source: RatingScale(**value) for source, value in checkpoint["ratings"].items()}
+    return model.eval(), ratings
 
 
 @torch.inference_mode()
 def export_model(model: NeuralFindRate, ratings: dict[str, RatingScale], directory: Path) -> None:
     """Write a float graph and matching weight-only int8 assets with a dynamic batch."""
-    if set(ratings) != set(SOURCES):
-        raise ValueError("The checkpoint must supply one rating scale per source")
+    if not ratings or not set(ratings).issubset(SOURCES):
+        raise ValueError("The checkpoint must supply ratings for its training sources")
     model = copy.deepcopy(model).cpu().float().eval()
     quantized = []
     for name in LAYER_NAMES:
@@ -37,8 +50,9 @@ def export_model(model: NeuralFindRate, ratings: dict[str, RatingScale], directo
 
     directory.mkdir(parents=True, exist_ok=True)
     float_path = directory / "model.onnx"
+    scalar_count = model.hidden.in_features - CHANNELS * 64
     torch.onnx.export(
-        model, (torch.zeros((1, BOARD_PLANES, 8, 8)), torch.zeros((1, SCALAR_FEATURES))),
+        model, (torch.zeros((1, BOARD_PLANES, 8, 8)), torch.zeros((1, scalar_count))),
         str(float_path), dynamo=False, opset_version=17, input_names=["board", "scalars"],
         output_names=["probability"], dynamic_axes={name: {0: "batch"}
                                                    for name in ("board", "scalars", "probability")},
@@ -61,7 +75,8 @@ def export_model(model: NeuralFindRate, ratings: dict[str, RatingScale], directo
         graph.graph.node.insert(index, node)
     onnx.checker.check_model(graph)
     onnx.save(graph, directory / "model.int8.onnx")
-    payload = {"version": ARTIFACT_VERSION, "ratings": {key: asdict(ratings[key]) for key in SOURCES},
+    payload = {"version": ARTIFACT_VERSION, "ratings": {key: asdict(scale) for key, scale in ratings.items()},
+               "moveFeatures": scalar_count > SCALAR_FEATURES,
                "layers": layers}
     (directory / "weights.json").write_text(json.dumps(payload, separators=(",", ":"), allow_nan=False) + "\n")
 
@@ -73,10 +88,7 @@ def main():
     args = parser.parse_args()
     torch.set_num_threads(1)
     torch.set_num_interop_threads(1)
-    checkpoint = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
-    model = NeuralFindRate()
-    model.load_state_dict(checkpoint["state_dict"])
-    ratings = {source: RatingScale(**value) for source, value in checkpoint["ratings"].items()}
+    model, ratings = load_checkpoint(args.checkpoint)
     export_model(model, ratings, args.directory)
 
 

@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 
 import {
-  createNeuralFindRate, encodeNeuralBoard, encodeNeuralScalars, type FindRateContext, type NeuralFindRateWeights,
+  createNeuralFindRate, encodeNeuralBoard, encodeNeuralInputs, type FindRateContext, type NeuralFindRateWeights,
 } from "../src/browser/neuralFindRate";
 
 test("the mover's home rank comes first and a pinned pawn still attacks", () => {
@@ -34,10 +34,10 @@ test("TypeScript matches the Python board and scalar inputs and int8 ONNX predic
   assert.ok(rows.length > 0);
   for (const row of rows) {
     const reason = `${row.fen} ${row.best}`;
-    const board = encodeNeuralBoard(row.fen, row.best);
-    assert.ok(board, reason);
-    assert.deepEqual(board, Float32Array.from(Buffer.from(row.board, "base64")), reason);
-    assert.deepEqual(Array.from(encodeNeuralScalars(row.context, model.ratings[row.context.source])), row.scalars, reason);
+    const input = encodeNeuralInputs(row.fen, row.best, row.context, model);
+    assert.ok(input, reason);
+    assert.deepEqual(input.board, Float32Array.from(Buffer.from(row.board, "base64")), reason);
+    assert.deepEqual(Array.from(input.scalars), row.scalars, reason);
     const p = predict(row.fen, row.best, row.context);
     assert.ok(p !== null && Math.abs(p - row.probability) < 0.001, `${reason}: ${p} vs ${row.probability}`);
   }

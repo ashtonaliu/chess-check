@@ -23,7 +23,7 @@ from torch import nn
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from chesscheck.neural_find_rate import BOARD_PLANES, HIDDEN, SPEEDS, NeuralFindRate, RatingScale
-from scripts.eval_find_rate import design
+from scripts.eval_find_rate import design, move_design
 from scripts.prepare_neural_find_rate import PACKED_WIDTH
 
 SEED = 24
@@ -47,7 +47,9 @@ VARIANTS = {
     "joint_board_only": Variant(context=False),
     "joint_context_move": Variant(board=False, move_features=True),
     "joint_board_context_move": Variant(move_features=True),
+    "chesscom_board_context_move": Variant(joint=False, move_features=True),
 }
+BASELINES = ("logistic_move", "boosting_move", "joint_boosting_move")
 
 
 def indices(rows, split, source=None):
@@ -115,8 +117,8 @@ def logistic_loss(y, unscaled):
 
 def train_neural(name, variant, rows, boards, hand, args):
     started = time.monotonic()
-    torch.manual_seed(SEED)
-    rng = np.random.default_rng(SEED)
+    torch.manual_seed(args.seed)
+    rng = np.random.default_rng(args.seed)
     source = None if variant.joint else "chesscom"
     train, validation, test = (indices(rows, split, source) for split in ("train", "validation", "test"))
     scalars, ratings = context_inputs(rows, train)
@@ -175,24 +177,30 @@ def train_neural(name, variant, rows, boards, hand, args):
     }
 
 
-def baselines(rows):
-    train, validation, test = (indices(rows, split, "chesscom") for split in ("train", "validation", "test"))
-    x_train, x_val, x_test = (design(rows.iloc[idx], "move") for idx in (train, validation, test))
+def train_baseline(name, rows, hand, seed):
+    started = time.monotonic()
+    joint = name == "joint_boosting_move"
+    source = None if joint else "chesscom"
+    train, validation, test = (indices(rows, split, source) for split in ("train", "validation", "test"))
+    if joint:
+        context, _ = context_inputs(rows, train)
+        x = np.column_stack((context, hand))
+        x_train, x_val, x_test = (x[idx] for idx in (train, validation, test))
+    else:
+        x_train, x_val, x_test = (design(rows.iloc[idx], "move") for idx in (train, validation, test))
     y_train, y_val = rows.found.iloc[train], rows.found.iloc[validation]
-    models = {
-        "logistic_move": LogisticRegression(max_iter=2000, C=1.0),
-        "boosting_move": HistGradientBoostingClassifier(max_iter=300, learning_rate=0.1,
-                                                       max_leaf_nodes=63, random_state=0,
-                                                       early_stopping=True, scoring="neg_log_loss"),
-    }
-    for name, model in models.items():
-        started = time.monotonic()
-        fit_args = {"X_val": x_val, "y_val": y_val} if name == "boosting_move" else {}
-        model.fit(x_train, y_train, **fit_args)
-        predictions = np.full(len(rows), np.nan, dtype=np.float32)
-        predictions[test] = model.predict_proba(x_test)[:, 1]
-        yield name, predictions, {"parameters": model.get_params(), "iterations": int(np.max(model.n_iter_)),
-                                  "seconds": round(time.monotonic() - started, 2)}
+    if name == "logistic_move":
+        model = LogisticRegression(max_iter=2000, C=1.0).fit(x_train, y_train)
+    else:
+        model = HistGradientBoostingClassifier(max_iter=300, learning_rate=0.1, max_leaf_nodes=63,
+                                               random_state=seed if joint else 0,
+                                               early_stopping=True, scoring="neg_log_loss")
+        model.fit(x_train, y_train, X_val=x_val, y_val=y_val)
+    predictions = np.full(len(rows), np.nan, dtype=np.float32)
+    predictions[test] = model.predict_proba(x_test)[:, 1]
+    print(name, "fit complete", flush=True)
+    return predictions, {"parameters": model.get_params(), "joint": joint,
+                         "iterations": int(np.max(model.n_iter_)), "seconds": round(time.monotonic() - started, 2)}
 
 
 def scores(y, p):
@@ -248,6 +256,8 @@ def main():
     parser.add_argument("--threads", type=int, default=8)
     parser.add_argument("--batch-size", type=int, default=1024)
     parser.add_argument("--epochs", type=int, default=24)
+    parser.add_argument("--seed", type=int, default=SEED)
+    parser.add_argument("--models", nargs="+", choices=(*BASELINES, *VARIANTS), default=[*BASELINES, *VARIANTS])
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     torch.set_num_threads(args.threads)
@@ -258,7 +268,7 @@ def main():
     if boards.shape != (manifest["rows"], PACKED_WIDTH) or len(rows) != manifest["rows"]:
         raise ValueError("Prepared tensors and rows disagree")
     config = {**{k: v for k, v in vars(args).items() if k not in ("prepared", "output")},
-              "inputs": manifest["sha256"], "seed": SEED, "learning_rate": LEARNING_RATE,
+              "inputs": manifest["sha256"], "learning_rate": LEARNING_RATE,
               "weight_decay": WEIGHT_DECAY, "patience": PATIENCE,
               "bootstrap_resamples": BOOTSTRAP_RESAMPLES, "platform": platform.platform(),
               "python": platform.python_version(), "torch": torch.__version__, "sklearn": sklearn.__version__,
@@ -267,8 +277,7 @@ def main():
     if config_path.exists() and json.loads(config_path.read_text()) != config:
         raise ValueError("Use a new output directory when experiment settings change")
     write_json(config_path, config)
-    hand = (design(rows, "move").drop(columns=["rating", "rating2", "clock", "low_clock", "no_clock"])
-            .to_numpy(dtype=np.float32))
+    hand = move_design(rows).to_numpy(dtype=np.float32)
     results, predictions = {}, {}
 
     def record(name, p, detail):
@@ -276,15 +285,15 @@ def main():
         write_json(args.output / f"{name}.json", detail)
 
     with threadpool_limits(limits=args.threads):
-        if not all((args.output / f"{name}.json").exists() for name in ("logistic_move", "boosting_move")):
-            for name, p, detail in baselines(rows):
-                record(name, p, detail)
-                print(name, "fit complete", flush=True)
-        for name, variant in VARIANTS.items():
-            if not (args.output / f"{name}.json").exists():
-                record(name, *train_neural(name, variant, rows, boards, hand, args))
+        for name in args.models:
+            if (args.output / f"{name}.json").exists():
+                continue
+            if name in VARIANTS:
+                record(name, *train_neural(name, VARIANTS[name], rows, boards, hand, args))
+            else:
+                record(name, *train_baseline(name, rows, hand, args.seed))
 
-    for name in ("logistic_move", "boosting_move", *VARIANTS):
+    for name in args.models:
         p = np.load(args.output / f"{name}.npy")
         detail = json.loads((args.output / f"{name}.json").read_text())
         detail["test"] = {}
@@ -298,11 +307,14 @@ def main():
         results[name] = detail
         predictions[name] = p
     test = indices(rows, "test", "chesscom")
-    pairs = [(model, baseline) for model in VARIANTS for baseline in ("logistic_move", "boosting_move")]
-    pairs.extend([("joint_board_context", "chesscom_board_context"),
+    pairs = [(model, baseline) for model in VARIANTS for baseline in BASELINES]
+    pairs.extend([("joint_boosting_move", "boosting_move"),
+                  ("joint_board_context", "chesscom_board_context"),
                   ("joint_board_context_move", "joint_board_context"),
                   ("joint_board_context_move", "joint_context_move"),
+                  ("joint_board_context_move", "chesscom_board_context_move"),
                   ("joint_board_context", "joint_board_only")])
+    pairs = [(model, reference) for model, reference in pairs if model in predictions and reference in predictions]
     deltas = paired_bootstrap(rows.found.iloc[test].to_numpy(), rows.player.iloc[test].str.casefold().to_numpy(),
                               {name: p[test] for name, p in predictions.items()}, pairs)
     splits = (rows.groupby(["source", "split"]).player

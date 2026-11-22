@@ -1,10 +1,12 @@
 // The layout mirrors chesscheck/neural_find_rate.py and the Phase B methods.
 import { Chess, type Move, type Square } from "chess.js";
+import { moveFeatures } from "./findRate";
 
 const BOARD_PLANES = 21, SQUARES = 64, CHANNELS = 32, HIDDEN = 32;
 const PIECES = "pnbrqk";
 const SPEEDS = ["ultraBullet", "bullet", "blitz", "rapid", "classical", "daily"] as const;
 const SCALAR_FEATURES = 1 + SPEEDS.length + 3;
+const MOVE_FEATURES = 21;
 const squareIndex = (square: Square) => (Number(square[1]) - 1) * 8 + square.charCodeAt(0) - 97;
 
 type Source = "chesscom" | "lichess";
@@ -69,7 +71,8 @@ export function encodeNeuralScalars(context: FindRateContext, scale: RatingScale
 interface PackedLayer { weights: string; scales: number[]; biases: number[] }
 export interface NeuralFindRateWeights {
   version: number;
-  ratings: Record<Source, RatingScale>;
+  ratings: Partial<Record<Source, RatingScale>>;
+  moveFeatures?: boolean;
   layers: Record<"conv1" | "conv2" | "hidden" | "output", PackedLayer>;
 }
 interface Layer { weights: Float32Array; bias: Float32Array }
@@ -120,27 +123,56 @@ function linear(input: Float32Array, layer: Layer, relu: boolean): Float32Array 
   return output;
 }
 
-/** Decode the int8 export once. The returned predictor uses only its inputs and exported weights. */
-export function createNeuralFindRate(artifact: NeuralFindRateWeights) {
+export function encodeNeuralInputs(fen: string, best: string, context: FindRateContext, artifact: NeuralFindRateWeights) {
+  const ratings = artifact.ratings[context.source];
+  if (!ratings || !SPEEDS.includes(context.speed) || !Number.isFinite(context.rating) ||
+      (context.clockFrac !== null && !Number.isFinite(context.clockFrac))) return null;
+  const board = encodeNeuralBoard(fen, best);
+  if (!board) return null;
+  const contextScalars = encodeNeuralScalars(context, ratings);
+  if (!artifact.moveFeatures) return { board, scalars: contextScalars };
+  const f = moveFeatures(fen, best);
+  if (!f) return null;
+  const scalars = new Float32Array(SCALAR_FEATURES + MOVE_FEATURES);
+  scalars.set(contextScalars);
+  scalars.set([
+    f.is_capture, f.gives_check, f.is_promotion, f.is_castle, f.backward, f.sideways, f.was_attacked,
+    f.lands_attacked, f.in_check, f.captured_value / 9, Math.log1p(f.legal_moves), Math.log1p(f.captures_available),
+    Math.log1p(f.checks_available), f.non_pawn_material / 62, Math.min(Math.max(f.material_balance, -15), 15) / 15,
+    ...[1, 2, 3, 4, 5, 6].map(piece => Number(f.piece === piece)),
+  ], SCALAR_FEATURES);
+  return { board, scalars };
+}
+
+/** Decode the int8 export once and run inference on encoded positions. */
+export function createNeuralForward(artifact: NeuralFindRateWeights) {
   if (artifact.version !== 1) throw new Error("Unsupported neural find-rate weights version");
-  for (const source of ["chesscom", "lichess"] as const) {
-    const { mean, std } = artifact.ratings[source];
+  if (!artifact.ratings.chesscom && !artifact.ratings.lichess) throw new Error("Missing rating scales");
+  for (const { mean, std } of Object.values(artifact.ratings)) {
     if (!Number.isFinite(mean) || !Number.isFinite(std) || std <= 0) throw new Error("Invalid rating scale");
   }
   const first = unpack(artifact.layers.conv1, BOARD_PLANES * 9, CHANNELS);
   const second = unpack(artifact.layers.conv2, CHANNELS * 9, CHANNELS);
-  const hidden = unpack(artifact.layers.hidden, CHANNELS * SQUARES + SCALAR_FEATURES, HIDDEN);
+  const scalarCount = SCALAR_FEATURES + (artifact.moveFeatures ? MOVE_FEATURES : 0);
+  const hidden = unpack(artifact.layers.hidden, CHANNELS * SQUARES + scalarCount, HIDDEN);
   const output = unpack(artifact.layers.output, HIDDEN, 1);
-  return (fen: string, best: string, context: FindRateContext): number | null => {
-    const board = encodeNeuralBoard(fen, best);
-    const ratings = artifact.ratings[context.source];
-    if (!board || !ratings || !SPEEDS.includes(context.speed) || !Number.isFinite(context.rating) ||
-        (context.clockFrac !== null && !Number.isFinite(context.clockFrac))) return null;
+  return (board: Float32Array, scalars: Float32Array): number => {
+    if (board.length !== BOARD_PLANES * SQUARES || scalars.length !== scalarCount) {
+      throw new Error("Invalid neural find-rate inputs");
+    }
     const spatial = convolve(convolve(board, first, BOARD_PLANES), second, CHANNELS);
-    const input = new Float32Array(CHANNELS * SQUARES + SCALAR_FEATURES);
+    const input = new Float32Array(CHANNELS * SQUARES + scalarCount);
     input.set(spatial);
-    input.set(encodeNeuralScalars(context, ratings), spatial.length);
+    input.set(scalars, spatial.length);
     const logit = linear(linear(input, hidden, true), output, false)[0];
     return 1 / (1 + Math.exp(-logit));
+  };
+}
+
+export function createNeuralFindRate(artifact: NeuralFindRateWeights) {
+  const forward = createNeuralForward(artifact);
+  return (fen: string, best: string, context: FindRateContext): number | null => {
+    const input = encodeNeuralInputs(fen, best, context, artifact);
+    return input && forward(input.board, input.scalars);
   };
 }

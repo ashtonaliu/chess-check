@@ -11,6 +11,7 @@ BOARD_PLANES = 21
 SPEEDS = ("ultraBullet", "bullet", "blitz", "rapid", "classical", "daily")
 SOURCES = ("chesscom", "lichess")
 SCALAR_FEATURES = 1 + len(SPEEDS) + 3
+MOVE_FEATURES = 21
 CHANNELS = 32
 HIDDEN = 32
 ARTIFACT_VERSION = 1

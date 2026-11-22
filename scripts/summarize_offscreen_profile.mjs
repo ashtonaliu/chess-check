@@ -145,7 +145,7 @@ function readRun(file) {
   return {
     games: run.games, plies: run.plies, cpus: run.cpus, wall, busy, chess,
     chessWall: 100 * chess / wall, chessBusy: 100 * chess / busy,
-    parsing: sum("game parsing"), engine: sum("engine pass"), recheck: sum("engine recheck"),
+    parsing: sum("game parsing") + sum("wasm archive parsing"), engine: sum("engine pass"), recheck: sum("engine recheck"),
     engineFeatures: features.reduce((a, e) => a + e.detail, 0),
     tacticsRequest: sum("tactics request"), tacticsWorker: worker.duration, summarize: tactics.duration,
     recap: sum("recap"), findRate: sum("find-rate features"),

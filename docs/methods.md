@@ -1064,6 +1064,92 @@ The script bundles the harness with the profiling flag and writes compressed Chr
 timer results under `data/`. In Performance, load a trace and select between `cc:build start`
 and `cc:build end` on the Main track. The production bundles compile out the timers.
 
+### WebAssembly bindings
+
+I build `engine-core` for `wasm32-unknown-unknown` and package the Web-target wasm-bindgen module
+with the extension. The offscreen page loads it on its first archive or engine request. A profile
+parses archive PGNs in batches of up to 32 games. The engine pass advances one board through each
+SAN history, returns all FENs and position counts together, and keeps the positions in WebAssembly
+to format Stockfish's best moves in one call per game. The recheck prepares its next positions in
+one batch and groups best moves and refutations together as searches finish. The existing chess.js
+path handles unsupported records. The tactics worker, website, and review queue use chess.js.
+The module exposes the 16 find-rate move features as a separate batch. In the Node parity
+tests, the packaged module matched chess.js on move counts, captures and FEN across 10,000
+positions, all 296,853 SAN strings in that fixture, and all 16 move features on a second
+10,000-position fixture. The game fixtures also cover promotions and repetition through replay.
+
+The PGN parser is new code, and a parse that fails falls back to chess.js while a wrong parse
+would not. So I also check it on 400 finished games from my public archive for August through
+November 2026 (`web/test/fixtures/archive_pgns.json`, built by `scripts/make_pgn_parity_fixture.py`).
+The fixture keeps every game with an uncommon result, so it covers draws by agreement, repetition,
+stalemate, the 50-move rule and insufficient material, and fills the rest across bullet, blitz and
+rapid. Every game had the same SAN history, ECO tags and stored game record as chess.js. None of
+these live games started from a custom position, so that case stays covered by a hand-written PGN.
+
+To check the engine pass and recheck end to end, I ran both on 60 of those games once with chess.js
+and once with WebAssembly, against a stand-in for Stockfish whose answers depend only on the
+position and depth. Its scores swing widely, so 1,801 of the 4,562 move rows went through the
+recheck. Every move row, including the deep recheck fields, was identical. A deliberate change to
+one WebAssembly-only count made this test fail.
+
+For the microbenchmarks I used 512 positions from the feature fixture and 24 PGNs from the profile
+archive. I ran three fresh launches each in Node and headless Chrome on the same M5 Pro Mac.
+Each operation had one untimed pass and five measured passes per backend per launch. I timed
+the batch boundary and result decoding and checked the results against chess.js. I report the
+median of the batch time divided by its item count. I initialized the module before timing.
+
+| Operation and unit | Node chess.js | Node WebAssembly | Chrome chess.js | Chrome WebAssembly |
+|---|---:|---:|---:|---:|
+| Legal and capture counts plus FEN, µs per position | 78.59 | 2.31 | 76.37 | 2.15 |
+| UCI to SAN, µs per move | 62.95 | 1.21 | 58.98 | 1.17 |
+| Parse archive PGN to SAN history, ms per game | 3.97 | 0.049 | 3.70 | 0.042 |
+| Replay SAN with counts and FENs, ms per game | 9.28 | 0.147 | 8.78 | 0.133 |
+| Find-rate move features, µs per position | 970.61 | 2.06 | 935.55 | 1.95 |
+
+For the build comparison I used the same finished bullet histories and Chrome recorder before
+and after, with fresh browser profiles and the default limit of eight Stockfish workers. I ran
+three builds per size at normal speed and one per size at each of 4x and 6x Chrome CPU throttling.
+The throttle applies to the harness page. I replayed a local archive snapshot and verified that
+the WebAssembly build used the module for every archived game and engine replay. The normal-speed
+rows give the median and the full range in seconds. The throttled rows give individual timings.
+
+| Chrome CPU setting | Games | Chess.js wall time | WebAssembly wall time | Reduction |
+|---|---:|---:|---:|---:|
+| Normal | 50 | 4.363 (4.234 to 4.382) | 3.784 (3.564 to 3.885) | 13.3% |
+| Normal | 150 | 12.962 (11.951 to 13.591) | 11.500 (11.360 to 11.647) | 11.3% |
+| 4x | 50 | 10.319 | 4.208 | 59.2% |
+| 4x | 150 | 29.013 | 13.520 | 53.4% |
+| 6x | 50 | 14.522 | 4.971 | 65.8% |
+| 6x | 150 | 40.965 | 15.647 | 61.8% |
+
+The cold builds at normal CPU speed saved about 0.58 seconds and 1.46 seconds. That gain is
+modest beside the operation timings because Stockfish still dominates. The engine pass and
+recheck, including their bookkeeping, took a median of 90.5% and 92.4% of build wall time
+after the change. The throttled runs measure Chrome's emulation on this Mac. The throttle slowed only the harness page, not the Stockfish workers, so it overstates the gain on a slow computer, where the searches slow down too. Each throttled figure is a single run.
+
+The new module is 211,458 bytes uncompressed and 79,031 bytes deflated inside the extension ZIP.
+The ZIP grew from 1,476,265 to 1,559,355 bytes, an increase of 83,090 bytes against the 1 MB budget.
+
+I used Chrome 157.0.8103.79 and Node 26.8.2. For the baseline I built the extension and ran the
+same recorder against the source at `1929a42`, with `PROFILE_WASM_ASSETS` unset. The archive
+selection and its hash are in each recording's `setup.json`. The commands below assume the
+archive snapshot from the offscreen profile and a copy of the baseline ZIP.
+
+```sh
+archive=data/profile-c/ashton-iwnl-2026-11.json
+results=data/wasm-measurements
+mkdir -p "$results"
+bash scripts/build_extension.sh
+cp dist/chess-check-extension.zip "$results/after.zip"
+npm run test:wasm --prefix web
+PROFILE_WASM_ASSETS=extension/engine node scripts/profile_offscreen.mjs "$archive" "$results/after-1x"
+for rate in 4 6; do
+  PROFILE_WASM_ASSETS=extension/engine PROFILE_CPU_RATE="$rate" \
+    node scripts/profile_offscreen.mjs "$archive" "$results/after-${rate}x" 1
+done
+python scripts/benchmark_engine_wasm.py "$archive" "$results/before.zip" "$results/after.zip"
+```
+
 ## Cross-language parity
 
 The TypeScript port is tested against Python output on real games (`web/test/`, run in CI before every deploy):

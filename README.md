@@ -31,9 +31,11 @@ Everything is compared with your opponents in the same games. A typical result, 
 
 The turning point is a question. The recap says which move cost you the most and asks you to find the better one. "Find it on the board" opens the game at that move on Chess.com's own board, where you can try moves, and "Reveal the move" shows the answer. Missed moves go into a review queue that brings each one back after 1, 3, 7 and 21 days until you find it, from the same cube, between games. Chess.com's fair-play rules forbid outside help during a game, so the extension computes and shows nothing about a game until it is over. Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/chess-check-post-game-rec/eikbpmlbeigjdfmpocihioahdjkfgcgk). To run your own build instead:
 
-1. Run `scripts/build_extension.sh`.
-2. Open `chrome://extensions` and turn on Developer mode.
-3. Click Load unpacked and choose the `extension` folder.
+1. Install the Rust target with `rustup target add wasm32-unknown-unknown` and the matching CLI with
+   `cargo install --locked --version 0.2.130 wasm-bindgen-cli`.
+2. Run `scripts/build_extension.sh`.
+3. Open `chrome://extensions` and turn on Developer mode.
+4. Click Load unpacked and choose the `extension` folder.
 
 ## Results
 
@@ -131,13 +133,13 @@ and a 73.95% overall find rate. [Lichess methods](docs/methods.md#lichess-datase
 | October ingest | 95,395,628 games and 315,894,636 boards | 9.05 GB | 714.3 s |
 | Evaluation conversion | 193,996,647 normalized FENs | 5.46 GB | 423.4 s |
 
-**Offscreen profile.** In the local Chrome harness, three cold builds at each size gave these
-medians. Both passed the 20% wall-time gate for WebAssembly work. [Offscreen methods](docs/methods.md#offscreen-build-profile)
+**Offscreen WebAssembly.** I used the same finished games for three cold builds per size and
+backend in Chrome. Stockfish still takes most of the build time. [WebAssembly methods](docs/methods.md#webassembly-bindings)
 
-| Bullet games | Build wall time | Chess.js share of wall time |
-|---|---:|---:|
-| 50 | 4.47 s | 24.6% |
-| 150 | 13.54 s | 22.4% |
+| Bullet games | Chess.js median | WebAssembly median | Wall-time reduction |
+|---|---:|---:|---:|
+| 50 | 4.36 s | 3.78 s | 13.3% |
+| 150 | 12.96 s | 11.50 s | 11.3% |
 
 ## How it works
 

@@ -16,6 +16,7 @@ import { Pace, SharedPace, startingWorkers } from "../browser/pace";
 import { analyzeInBrowser } from "../browser/pipeline";
 import { buildRecap, opponentNote, type Recap } from "../browser/recap";
 import { withExpected, type GameRow } from "../browser/stats";
+import { configureWasmChess } from "../browser/wasmChess";
 import { itemsFromBlunders, type ReviewItem, type ReviewRateRequest } from "../browser/reviewQueue";
 import { reviewFindRate } from "./reviewFindRate";
 import type { BlunderRec } from "../browser/tactics";
@@ -48,6 +49,7 @@ export type Reply =
 const ENGINE_URL = typeof chrome !== "undefined" && chrome.runtime?.getURL
   ? chrome.runtime.getURL("engine/stockfish-19-lite-single.js")
   : new URL("../engine/stockfish-19-lite-single.js", import.meta.url).href;
+if (typeof window !== "undefined") configureWasmChess(new URL("engine_core.js", ENGINE_URL).href);
 
 const FULL = 150, QUICK = 50;     // a first-ever build uses 50 games, then fills in to 150
 

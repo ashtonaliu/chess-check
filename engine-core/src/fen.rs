@@ -34,7 +34,7 @@ pub(crate) fn write_square(f: &mut fmt::Formatter<'_>, square: u8) -> fmt::Resul
     )
 }
 
-fn parse_square(text: &str) -> Option<u8> {
+pub(crate) fn parse_square(text: &str) -> Option<u8> {
     match *text.as_bytes() {
         [file @ b'a'..=b'h', rank @ b'1'..=b'8'] => Some(8 * (rank - b'1') + file - b'a'),
         _ => None,

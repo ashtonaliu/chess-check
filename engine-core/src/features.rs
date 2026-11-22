@@ -61,7 +61,7 @@ impl Position {
             .find(|&role| self.pieces(color, role) & mask != 0)
     }
 
-    fn is_capture_move(&self, mv: Move, opposing: u64) -> bool {
+    pub(crate) fn is_capture_move(&self, mv: Move, opposing: u64) -> bool {
         opposing & bit(mv.to) != 0 || (mv.role == Role::Pawn && self.en_passant == Some(mv.to))
     }
 
@@ -138,17 +138,7 @@ impl Position {
             }
         }
 
-        let mut material_balance = 0i32;
-        let mut non_pawn_material = 0i32;
-        for role in ROLES {
-            let value = PIECE_VALUES[role as usize];
-            let own_count = self.pieces(me, role).count_ones() as i32;
-            let enemy_count = self.pieces(enemy, role).count_ones() as i32;
-            material_balance += value * (own_count - enemy_count);
-            if !matches!(role, Role::Pawn | Role::King) {
-                non_pawn_material += value * (own_count + enemy_count);
-            }
-        }
+        let (material_balance, non_pawn_material) = self.material();
 
         MoveFeatures {
             piece: mv.role as i32 + 1,
@@ -168,6 +158,21 @@ impl Position {
             material_balance,
             non_pawn_material,
         }
+    }
+
+    pub(crate) fn material(&self) -> (i32, i32) {
+        let mut balance = 0;
+        let mut non_pawn = 0;
+        for role in ROLES {
+            let value = PIECE_VALUES[role as usize];
+            let own = self.pieces(self.turn, role).count_ones() as i32;
+            let enemy = self.pieces(self.turn.other(), role).count_ones() as i32;
+            balance += value * (own - enemy);
+            if !matches!(role, Role::Pawn | Role::King) {
+                non_pawn += value * (own + enemy);
+            }
+        }
+        (balance, non_pawn)
     }
 
     /// Encode the position and a legal best move as 21 bitboard planes from the mover's perspective.

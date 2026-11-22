@@ -13,9 +13,12 @@ import { build, stop } from "../web/node_modules/esbuild/lib/main.js";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const chromePath = process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const [archiveFile, outputDir, repeats = "3", only] = process.argv.slice(2);
+const cpuRate = Number(process.env.PROFILE_CPU_RATE ?? 1);
+const wasmAssets = process.env.PROFILE_WASM_ASSETS;
 if (!archiveFile || !outputDir || !Number.isInteger(+repeats) || +repeats < 1 || (only && !["50", "150"].includes(only))) {
   throw new Error("Usage: node scripts/profile_offscreen.mjs ARCHIVE_JSON OUTPUT_DIR [REPEATS [50|150]]");
 }
+assert.ok(Number.isFinite(cpuRate) && cpuRate >= 1, "PROFILE_CPU_RATE must be at least 1");
 const out = resolve(outputDir);
 const site = join(out, "site");
 const fixture = name => join(root, "web/test/fixtures", name);
@@ -39,6 +42,11 @@ const selection = {
 const chromeVersion = execFileSync(chromePath, ["--version"], { encoding: "utf8" }).trim();
 
 await mkdir(join(site, "engine"), { recursive: true });
+if (wasmAssets) {
+  for (const name of ["engine_core.js", "engine_core_bg.wasm"]) {
+    await cp(join(wasmAssets, name), join(site, "engine", name));
+  }
+}
 await cp(join(root, "extension/dev.html"), join(site, "dev.html"));
 const bundle = { absWorkingDir: join(root, "web"), bundle: true, minify: true, keepNames: true,
   format: "esm", target: "es2022", sourcemap: "linked", define: { __CC_PROFILE__: "true" } };
@@ -47,7 +55,7 @@ await build({ ...bundle, target: "es2020", entryPoints: ["src/browser/tacticsWor
   outfile: join(site, "engine/tacticsWorker.js") });
 await stop();
 execFileSync(process.execPath, [join(root, "web/scripts/patchStockfish.mjs"), join(site, "engine")]);
-await writeFile(join(out, "setup.json"), JSON.stringify({ chromeVersion, ...selection }, null, 2) + "\n");
+await writeFile(join(out, "setup.json"), JSON.stringify({ chromeVersion, cpuRate, wasm: !!wasmAssets, ...selection }, null, 2) + "\n");
 
 const mime = { ".js": "text/javascript", ".wasm": "application/wasm", ".map": "application/json", ".html": "text/html" };
 const server = createServer(async (req, res) => {
@@ -161,6 +169,7 @@ async function run(games, label) {
     const { targetId } = targetInfos.find(info => info.type === "page");
     const { sessionId: session } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
     await cdp.send("Page.enable", {}, session);
+    if (cpuRate !== 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: cpuRate }, session);
     await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
       source: `{
         const fetchLocal = window.fetch.bind(window);
@@ -182,6 +191,12 @@ async function run(games, label) {
     if (overlap.size) return { overlap };
     monitor = setInterval(() => interferingProcesses().forEach(line => overlap.add(line)), 500);
     const result = await inspectArchiveInPage(cdp, session, games);
+    const end = result.measures.find(e => e.name === "cc:build");
+    const wasmGames = result.measures.filter(e => e.name === "cc:wasm replay" && e.startTime < end.startTime + end.duration);
+    assert.equal(wasmGames.length, wasmAssets ? games : 0, "Unexpected chess backend in the recorded build");
+    const wasmArchiveGames = result.measures.filter(e => e.name === "cc:wasm archive parsing")
+      .reduce((sum, entry) => sum + entry.detail, 0);
+    assert.equal(wasmArchiveGames, wasmAssets ? games + 1 : 0, "Unexpected backend for the recorded archive");
     interferingProcesses().forEach(line => overlap.add(line));
     clearInterval(monitor);
     const complete = cdp.wait("Tracing.tracingComplete");

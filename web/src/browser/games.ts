@@ -2,6 +2,7 @@
 // The Chess.com public API sends Access-Control-Allow-Origin: *, so no
 // server is needed.
 import { Chess } from "chess.js";
+import { getWasmChess, type ParsedPgn, type WasmChess } from "./wasmChess";
 
 export interface Game {
   url: string;
@@ -24,6 +25,7 @@ export interface Game {
   oppResult: string;      // ...and for the opponent
   moves: string[];        // SAN
   pgn: string;
+  startFen?: string;
 }
 
 const DRAWS = new Set(["agreed", "repetition", "stalemate", "insufficient", "50move", "timevsinsufficient"]);
@@ -83,7 +85,14 @@ interface RawGame {
   end_time?: number; eco?: string; white: RawSide; black: RawSide;
 }
 
-export function parseGame(raw: RawGame, user: string): Game | null {
+function parsePgn(pgn: string): ParsedPgn | null {
+  const chess = new Chess();
+  try { chess.loadPgn(pgn); } catch { return null; }
+  const tags = chess.getHeaders();
+  return { eco: tags.ECO, ecoUrl: tags.ECOUrl, startFen: tags.FEN, moves: chess.history() };
+}
+
+export function parseGame(raw: RawGame, user: string, parsed?: ParsedPgn | null): Game | null {
   if (raw.rules !== "chess" || !raw.pgn) return null;
   const u = user.toLowerCase();
   let color: "white" | "black", me: RawSide, opp: RawSide;
@@ -91,18 +100,27 @@ export function parseGame(raw: RawGame, user: string): Game | null {
   else if (raw.black.username.toLowerCase() === u) { color = "black"; me = raw.black; opp = raw.white; }
   else return null;
   const started = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ ? performance.now() : 0;
-  const chess = new Chess();
-  try { chess.loadPgn(raw.pgn); } catch { return null; }
-  const headers = chess.getHeaders();
-  const [opening, family] = openingNames(raw.eco || headers["ECOUrl"] || "");
+  const gamePgn = parsed ?? parsePgn(raw.pgn);
+  if (!gamePgn) return null;
+  const [opening, family] = openingNames(raw.eco || gamePgn.ecoUrl || "");
   const game: Game = {
     url: raw.url, color, myRating: me.rating, oppRating: opp.rating, score: scoreOf(me.result),
-    timeClass: raw.time_class ?? "", timeControl: raw.time_control ?? "", eco: headers["ECO"] ?? "?",
+    timeClass: raw.time_class ?? "", timeControl: raw.time_control ?? "", eco: gamePgn.eco ?? "?",
     opening, family, endTime: raw.end_time ?? 0, result: me.result ?? "", oppResult: opp.result ?? "", opponent: opp.username,
-    moves: chess.history(), pgn: raw.pgn,
+    moves: gamePgn.moves, pgn: raw.pgn, ...(gamePgn.startFen ? { startFen: gamePgn.startFen } : {}),
   };
   if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) performance.measure("cc:game parsing", { start: started });
   return game;
+}
+
+function batchPgns(wasm: WasmChess | null | undefined, raw: RawGame[]): (ParsedPgn | null)[] | undefined {
+  if (!wasm || !raw.length) return undefined;
+  const started = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ ? performance.now() : 0;
+  const parsed = wasm.parsePgns(raw.map(game => game.pgn!));
+  if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) {
+    performance.measure("cc:wasm archive parsing", { start: started, detail: parsed.filter(Boolean).length });
+  }
+  return parsed;
 }
 
 const API = "https://api.chess.com/pub/player";
@@ -188,23 +206,30 @@ export async function fetchGames(user: string, maxGames: number, timeClass: stri
 
 async function fetchStored(user: string, maxGames: number, timeClass: string | null,
                            signal?: AbortSignal): Promise<Game[]> {
+  const wasmReady = getWasmChess();
   const r = await fetchArchive(`${API}/${encodeURIComponent(user.toLowerCase())}/games/archives`, signal);
   if (r.status === 404) throw new Error(`No Chess.com player named "${user}".`);
   if (!r.ok) throw new Error(`Chess.com API error ${r.status}.`);
   const archives: string[] = r.data?.archives ?? [];
+  const wasm = await wasmReady;
+  signal?.throwIfAborted();
   const games: Game[] = [];
   for (const month of archives.slice().reverse()) {
     const m = await fetchArchive(month, signal);
     if (!m.ok) throw new Error(`Chess.com API error ${m.status}.`);
-    const raw: RawGame[] = [...(m.data?.games ?? [])];
+    const raw = (m.data?.games ?? []).filter(g => g.rules === "chess" && g.pgn && (!timeClass || g.time_class === timeClass));
     raw.sort((a, b) => (b.end_time ?? 0) - (a.end_time ?? 0));
-    for (const rg of raw) {
-      if (timeClass && rg.time_class !== timeClass) continue;
-      const g = parseGame(rg, user);
-      if (g) {
-        games.push(g);
-        if (games.length >= maxGames) return games;
+    for (let i = 0; i < raw.length;) {
+      const batch = raw.slice(i, i + Math.min(32, Math.max(1, maxGames - games.length)));
+      const parsed = batchPgns(wasm, batch);
+      for (const [j, rg] of batch.entries()) {
+        const g = parseGame(rg, user, parsed?.[j]);
+        if (g) {
+          games.push(g);
+          if (games.length >= maxGames) return games;
+        }
       }
+      i += batch.length;
     }
   }
   return games;
@@ -212,6 +237,7 @@ async function fetchStored(user: string, maxGames: number, timeClass: string | n
 
 /** A finished game by its Chess.com ID, if it is in the player's last few monthly archives (finished games only). */
 export async function findGame(user: string, gameId: string, months = 3, signal?: AbortSignal): Promise<Game | null> {
+  const wasmReady = getWasmChess();
   const r = await fetchArchive(`${API}/${encodeURIComponent(user.toLowerCase())}/games/archives`, signal);
   if (r.status === 404) throw new Error(`No Chess.com player named "${user}".`);
   if (!r.ok) throw new Error(`Chess.com API error ${r.status}.`);
@@ -220,7 +246,11 @@ export async function findGame(user: string, gameId: string, months = 3, signal?
     const m = await fetchArchive(month, signal);
     if (!m.ok) throw new Error(`Chess.com API error ${m.status}.`);
     const rg = (m.data?.games ?? []).find(g => g.url.match(/\/(\d+)$/)?.[1] === gameId);
-    if (rg) return parseGame(rg, user);
+    if (rg) {
+      const wasm = await wasmReady;
+      signal?.throwIfAborted();
+      return parseGame(rg, user, rg.pgn && rg.rules === "chess" ? batchPgns(wasm, [rg])?.[0] : undefined);
+    }
   }
   return null;
 }

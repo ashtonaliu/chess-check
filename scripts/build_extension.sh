@@ -15,7 +15,7 @@ OUT="$ROOT/dist/chess-check-extension"
 rm -rf "$OUT"
 mkdir -p "$OUT/engine" "$OUT/licenses"
 (cd "$ROOT/extension" && cp -R manifest.json offscreen.html icons dist THIRD_PARTY_NOTICES.txt "$OUT/")
-(cd "$ROOT/extension/engine" && cp stockfish-19-lite-single.{js,wasm} tacticsWorker.js "$OUT/engine/")
+(cd "$ROOT/extension/engine" && cp stockfish-19-lite-single.{js,wasm} tacticsWorker.js engine_core.js engine_core_bg.wasm "$OUT/engine/")
 cp "$ROOT/web/node_modules/stockfish/Copying.txt" "$OUT/licenses/Stockfish-GPL-3.0.txt"
 cp "$ROOT/web/node_modules/chess.js/LICENSE" "$OUT/licenses/chess.js-BSD-2-Clause.txt"
 rm -f "$OUT.zip"

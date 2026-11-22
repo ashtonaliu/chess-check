@@ -107,7 +107,7 @@ Most of the gain comes from fixing the formula. In matched games a rating gap ma
 | Plus what kind of move it is (logistic) | 0.76 |
 | Gradient boosting | 0.80 |
 
-The rating barely matters in this range; the kind of move matters a lot. Captures are easy to find, quiet moves to attacked squares are hard, and players who are already ahead find the only move less often. The logistic version runs in the extension: after you review a position from a blitz game, it says how often players near your rating find moves like it.
+The rating barely matters in this range; the kind of move matters a lot. Captures are easy to find, quiet moves to attacked squares are hard, and players who are already ahead find the only move less often. The extension uses the neural model below to estimate how often players near your rating find moves like it and to order the review queue.
 
 **Neural find rate, offline.** On 157,583 held-out Chess.com blitz positions, training on Chess.com
 and Lichess gave **0.40366** mean log loss for the neural model with board, context and move

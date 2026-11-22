@@ -3,8 +3,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import type { Recap } from "../src/browser/recap";
-import { addItems, dueItems, grade, itemFromRecap, itemsFromBlunders, MAX_ITEMS, nextDue, patchItems, type ReviewItem } from "../src/browser/reviewQueue";
+import { addItems, applyReviewRates, dueItems, grade, itemFromRecap, itemsFromBlunders, MAX_ITEMS, nextDue, patchItems,
+  pendingReviewRates, reviewRate, type ReviewItem } from "../src/browser/reviewQueue";
 import type { BlunderRec } from "../src/browser/tactics";
+import { reviewFindRate } from "../src/extension/reviewFindRate";
 
 const DAY = 86_400_000, NOW = 1_800_000_000_000;
 
@@ -52,7 +54,7 @@ test("a recap adds its turning point only when it was a real question, due tomor
                     tactics: [{ kind: "missed" as const, motif: "fork" }], clockFrac: null };
   const it = itemFromRecap({ ...base, turning: { ...turning, findRate: 0.65 } }, NOW)!;
   assert.equal(it.id, "187502325560:43");
-  assert.equal(it.findRate, 0.65);
+  assert.equal(reviewRate(it), null);
   assert.equal(itemFromRecap({ ...base, timeClass: "rapid", turning } as Recap, NOW)!.timeClass, "rapid");
   assert.equal(it.due, NOW + DAY);
   assert.equal(itemFromRecap({ ...base, turning: { ...turning, loss: 12 } }, NOW), null);
@@ -70,9 +72,9 @@ test("seeding takes your worst blunder per game, newest games first, due now", (
     rec(games[1].url, 5, 90, { is_me: false }),                      // the opponent's blunder
     rec(games[2].url, 7, 30), rec(games[2].url, 9, 15),              // under the threshold
     rec(games[1].url, 11, 50, { best: "Nf3" }),                      // no better move
-  ], games.map(g => ({ ...g, myRating: 1800, timeClass: "blitz" })), NOW, undefined, (_fen, best, rating) => (best === "e4" && rating === 1800 ? 0.4 : null));
+  ], games.map(g => ({ ...g, myRating: 1800, timeClass: "blitz" })), NOW);
   assert.deepEqual(items.map(i => [i.id, i.label]), [["3:7", "4...Nf3"], ["1:20", "11.Nf3"]]);
-  assert.ok(items.every(i => i.findRate === 0.4 && i.rating === 1800), "the find rate is worked out where chess.js is loaded");
+  assert.ok(items.every(i => i.neuralFindRate === undefined && i.rating === 1800));
   assert.ok(items.every(i => i.timeClass === "blitz"), "and the time control is kept, since the rate is shown for blitz only");
   assert.ok(items.every(i => i.due === NOW));
   assert.deepEqual(items[1].tactics, [{ kind: "allowed", motif: "fork" }]);
@@ -97,13 +99,43 @@ test("older entries also get their time control from fresh copies", () => {
 
 test("due positions most players find come first; unrated ones count as typical", () => {
   const blitz = (id: string, findRate: number | null, due: number, rating = 1500) =>
-    item(id, { due, findRate, rating, timeClass: "blitz" });
+    item(id, { due, neuralFindRate: findRate, rating, timeClass: "blitz" });
   const q = [
     blitz("1:1", 0.55, NOW - 90),                        // hard: most players miss it
     blitz("2:1", 0.95, NOW - 10),                        // a habit to fix
-    item("3:1", { due: NOW - 50, timeClass: "rapid", findRate: 0.99, rating: 1500 }),  // not blitz: typical
+    item("3:1", { due: NOW - 50, timeClass: "rapid", neuralFindRate: 0.99, rating: 1500 }),  // not blitz: typical
     blitz("4:1", 0.95, NOW - 40, 900),                   // rating outside the model: typical
     blitz("5:1", 0.9, NOW + DAY),                        // not due yet
   ];
   assert.deepEqual(dueItems(q, NOW).map(i => i.id), ["2:1", "3:1", "4:1", "1:1"]);
+});
+
+test("saved logistic rates are refreshed by the shipped neural model without resetting a review", () => {
+  const fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+  const legacy = { ...item("1:1", { fen, best: "Nf3", rating: 1600, timeClass: "blitz", step: 2, due: NOW - 1 }),
+    findRate: 0.99 };
+  const ready = item("2:1", { fen, best: "Nf3", rating: 1700, timeClass: "blitz", neuralFindRate: 0.8 });
+  const rapid = item("3:1", { fen, best: "Nf3", rating: 1700, timeClass: "rapid" });
+  assert.equal(reviewRate(legacy), null);
+  assert.deepEqual(dueItems([legacy, ready], NOW).map(i => i.id), [ready.id, legacy.id]);
+
+  const queue = [legacy, ready, rapid, { ...legacy, id: "4:1", rating: 2001 }, { ...legacy, id: "5:1", done: true }];
+  const requests = pendingReviewRates(queue);
+  assert.deepEqual(requests.map(req => req.id), [legacy.id]);
+  const [request] = requests;
+  const rate = reviewFindRate(request);
+  assert.ok(rate !== null && rate > 0 && rate < 1);
+  assert.equal(reviewFindRate({ ...request, timeClass: "rapid" }), null);
+  assert.equal(reviewFindRate({ ...request, rating: 1199 }), null);
+  assert.equal(reviewFindRate({ ...request, rating: 2001 }), null);
+  assert.ok(reviewFindRate({ ...request, rating: 1200 }) !== null);
+  assert.ok(reviewFindRate({ ...request, rating: 2000 }) !== null);
+
+  const latest = grade(queue, legacy.id, true, NOW);
+  const updated = applyReviewRates(latest, { [legacy.id]: rate, [ready.id]: 0.1 });
+  assert.equal(reviewRate(updated[0]), rate);
+  assert.equal(updated[0].step, 3);
+  assert.equal(updated[0].due, NOW + 21 * DAY);
+  assert.equal(updated[1], ready);
+  assert.deepEqual(pendingReviewRates(updated), []);
 });

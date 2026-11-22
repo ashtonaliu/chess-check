@@ -63,6 +63,7 @@ jobs:
         run: |
           npm ci --prefix web
           python scripts/check_neural_find_rate.py
+          python scripts/check_neural_find_rate.py --precision float16
 
   web:
     name: Web tests and builds

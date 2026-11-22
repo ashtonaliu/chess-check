@@ -68,7 +68,7 @@ export function encodeNeuralScalars(context: FindRateContext, scale: RatingScale
   ]);
 }
 
-interface PackedLayer { weights: string; scales: number[]; biases: number[] }
+interface PackedLayer { weights: string; scales?: number[]; biases: number[] | string }
 export interface NeuralFindRateWeights {
   version: number;
   ratings: Partial<Record<Source, RatingScale>>;
@@ -77,9 +77,10 @@ export interface NeuralFindRateWeights {
 }
 interface Layer { weights: Float32Array; bias: Float32Array }
 
-function unpack(layer: PackedLayer, inputs: number, outputs: number): Layer {
+function unpackInt8(layer: PackedLayer, inputs: number, outputs: number): Layer {
   const bytes = atob(layer.weights);
-  if (bytes.length !== inputs * outputs || layer.scales.length !== outputs || layer.biases.length !== outputs ||
+  if (!layer.scales || typeof layer.biases === "string" || bytes.length !== inputs * outputs ||
+      layer.scales.length !== outputs || layer.biases.length !== outputs ||
       !layer.scales.every(scale => Number.isFinite(scale) && scale > 0) || !layer.biases.every(Number.isFinite)) {
     throw new Error("Invalid neural find-rate layer");
   }
@@ -89,6 +90,25 @@ function unpack(layer: PackedLayer, inputs: number, outputs: number): Layer {
     weights[i] = (byte < 128 ? byte : byte - 256) * layer.scales[Math.floor(i / inputs)];
   }
   return { weights, bias: Float32Array.from(layer.biases) };
+}
+
+function readFloat16(encoded: string, count: number): Float32Array {
+  const bytes = atob(encoded);
+  if (bytes.length !== count * 2) throw new Error("Invalid float16 layer length");
+  const values = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    const bits = bytes.charCodeAt(2 * i) | (bytes.charCodeAt(2 * i + 1) << 8);
+    const exponent = (bits >> 10) & 31, mantissa = bits & 1023;
+    if (exponent === 31) throw new Error("Non-finite float16 parameter");
+    const magnitude = exponent === 0 ? mantissa * 2 ** -24 : (1024 + mantissa) * 2 ** (exponent - 25);
+    values[i] = bits & 0x8000 ? -magnitude : magnitude;
+  }
+  return values;
+}
+
+function unpackFloat16(layer: PackedLayer, inputs: number, outputs: number): Layer {
+  if (typeof layer.biases !== "string") throw new Error("Invalid float16 biases");
+  return { weights: readFloat16(layer.weights, inputs * outputs), bias: readFloat16(layer.biases, outputs) };
 }
 
 function convolve(input: Float32Array, layer: Layer, channels: number): Float32Array {
@@ -144,9 +164,10 @@ export function encodeNeuralInputs(fen: string, best: string, context: FindRateC
   return { board, scalars };
 }
 
-/** Decode the int8 export once and run inference on encoded positions. */
+/** Decode the stored weights once and run inference on encoded positions. */
 export function createNeuralForward(artifact: NeuralFindRateWeights) {
-  if (artifact.version !== 1) throw new Error("Unsupported neural find-rate weights version");
+  if (artifact.version !== 1 && artifact.version !== 2) throw new Error("Unsupported neural find-rate weights version");
+  const unpack = artifact.version === 2 ? unpackFloat16 : unpackInt8;
   if (!artifact.ratings.chesscom && !artifact.ratings.lichess) throw new Error("Missing rating scales");
   for (const { mean, std } of Object.values(artifact.ratings)) {
     if (!Number.isFinite(mean) || !Number.isFinite(std) || std <= 0) throw new Error("Invalid rating scale");

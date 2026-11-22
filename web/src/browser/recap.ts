@@ -55,7 +55,8 @@ export function howEnded(g: Game): string {
  * against the player's `history` (earlier games, which must not include this one).
  */
 export function buildRecap(game: Game, analysis: GameAnalysis, blunders: BlunderRec[], history: GameRow[],
-                           tactics: TacticSummary | null, opponentNote: string | null = null): Recap {
+                           tactics: TacticSummary | null, opponentNote: string | null = null,
+                           estimateFindRate: typeof findRate | null = findRate): Recap {
   const odds = game.ratingSource === "after-game" ? "unknown" : game.ratingSource === "estimated" ? "estimated" : "exact";
   const expected = pregameExpected(game.myRating, game.oppRating, game.color, game.timeClass);
   // Only games that ended before this one, for the record and the opening's badge alike: a profile
@@ -87,7 +88,8 @@ export function buildRecap(game: Game, analysis: GameAnalysis, blunders: Blunder
       ? { before: winPct(before), after: winPct(after) } : undefined;
     turning = { label: moveLabel(worst.m), loss: worst.loss, phase: worst.m.phase, best: worst.best, fen: worst.m.fen,
       ply: worst.m.ply, moveNo: worst.m.move_no, san: worst.m.san, tactics: tags, clockFrac: worst.m.clock_frac, chances,
-      findRate: worst.best && worst.best !== worst.m.san ? findRate(worst.m.fen, worst.best, game.myRating) : null };
+      findRate: estimateFindRate && worst.best && worst.best !== worst.m.san
+        ? estimateFindRate(worst.m.fen, worst.best, game.myRating) : null };
     // does it match one of the player's known patterns? (only problems: rates above the opponents')
     for (const t of tags) {
       const stat = tactics?.motifs.find(s => s.kind === t.kind && s.motif === t.motif);

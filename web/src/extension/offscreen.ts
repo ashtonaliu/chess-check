@@ -8,6 +8,7 @@
 // finished game. Nothing here runs while the player is in a game.
 import { gameFromCallback, nameCallbackOpening, type Callback } from "../browser/callbackGame";
 import { defaultWorkers, pruneAnalysisCache, type GameAnalysis } from "../browser/engine";
+import { moveFeatures } from "../browser/findRate";
 import { analyzeGame, type Profile } from "../browser/follow";
 import { fetchGames, type Game } from "../browser/games";
 import { gameId } from "../browser/ids";
@@ -328,4 +329,30 @@ if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
 } else {
   // development harness (extension/dev.html): the cube calls this directly
   (window as unknown as { __ccHandle: typeof handle }).__ccHandle = handle;
+  if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) {
+    // A cold 150-game build uses the same path as the refresh, with no preceding 50-game cache.
+    Object.assign(window, { __ccProfile: async (username: string, games: number, callback: Callback) => {
+      const finished = gameFromCallback(callback, username, "live", []);
+      if (!finished) throw new Error("Profiling requires a finished game from the archive player");
+      const slot: Slot = { profile: null, games: 0, building: null, progress: "", error: "", refreshed: false };
+      const started = performance.now();
+      performance.mark("cc:build start");
+      build(slot, `${username.toLowerCase()}|${finished.timeClass}`, username, finished.timeClass, games);
+      await slot.building;
+      performance.mark("cc:build end");
+      performance.measure("cc:build", { start: started });
+      const profile: Profile | null = slot.profile;
+      if (!profile || profile.games?.length !== games) throw new Error(slot.error || `Expected ${games} archived games`);
+
+      // Measure one finished recap separately, after the build's IndexedDB save and outside its window.
+      const game = nameCallbackOpening(finished, profile.games);
+      const { analysis, blunders } = await analyzeGame(game, ENGINE_URL);
+      const recap = buildRecap(game, analysis, blunders, profile.rows, profile.tactics, null, null);
+      const turning = recap.turning;
+      if (!turning?.best || !moveFeatures(turning.fen, turning.best)) {
+        throw new Error("The fixture did not exercise find-rate features");
+      }
+      return { games: profile.games.length, plies: profile.games.reduce((n, g) => n + g.moves.length, 0) };
+    } });
+  }
 }

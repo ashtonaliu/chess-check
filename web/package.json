@@ -3,12 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && rm -rf dist/*.js dist/chunks && esbuild src/main.ts --bundle --minify --format=esm --target=es2020 --splitting --outdir=dist --chunk-names=chunks/[name]-[hash] && npm run copy-engine",
+    "build": "tsc --noEmit && rm -rf dist/*.js dist/chunks && esbuild --define:__CC_PROFILE__=false src/main.ts --bundle --minify --format=esm --target=es2020 --splitting --outdir=dist --chunk-names=chunks/[name]-[hash] && npm run copy-engine",
     "typecheck": "tsc --noEmit",
     "copy-engine": "node scripts/patchStockfish.mjs dist/engine && npm run build:tactics-worker -- --outfile=dist/engine/tacticsWorker.js",
-    "build:tactics-worker": "esbuild src/browser/tacticsWorker.ts --bundle --minify --format=esm --target=es2020",
+    "build:tactics-worker": "esbuild --define:__CC_PROFILE__=false src/browser/tacticsWorker.ts --bundle --minify --format=esm --target=es2020",
     "test": "node --import tsx --test test/*.test.ts",
-    "build:ext": "tsc --noEmit && rm -rf ../extension/dist && esbuild src/extension/offscreen.ts src/extension/background.ts --bundle --minify --format=esm --target=es2022 --splitting --outdir=../extension/dist --chunk-names=chunks/[name]-[hash] && esbuild src/extension/content.ts --bundle --minify --format=iife --target=es2022 --loader:.css=text --outfile=../extension/dist/content.js && node scripts/patchStockfish.mjs ../extension/engine && npm run build:tactics-worker -- --outfile=../extension/engine/tacticsWorker.js"
+    "build:ext": "tsc --noEmit && rm -rf ../extension/dist && esbuild --define:__CC_PROFILE__=false src/extension/offscreen.ts src/extension/background.ts --bundle --minify --format=esm --target=es2022 --splitting --outdir=../extension/dist --chunk-names=chunks/[name]-[hash] && esbuild --define:__CC_PROFILE__=false src/extension/content.ts --bundle --minify --format=iife --target=es2022 --loader:.css=text --outfile=../extension/dist/content.js && node scripts/patchStockfish.mjs ../extension/engine && npm run build:tactics-worker -- --outfile=../extension/engine/tacticsWorker.js"
   },
   "devDependencies": {
     "esbuild": "0.25.10",

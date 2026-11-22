@@ -1108,32 +1108,34 @@ median of the batch time divided by its item count. I initialized the module bef
 
 For the build comparison I used the same finished bullet histories and Chrome recorder before
 and after, with fresh browser profiles and the default limit of eight Stockfish workers. I ran
-three builds per size at normal speed and one per size at each of 4x and 6x Chrome CPU throttling.
-The throttle applies to the harness page. I replayed a local archive snapshot and verified that
-the WebAssembly build used the module for every archived game and engine replay. The normal-speed
-rows give the median and the full range in seconds. The throttled rows give individual timings.
+three builds per size at normal speed and three per size at each of 4x and 6x Chrome CPU
+throttling. The throttle applies to the harness page. I replayed a local archive snapshot and
+verified that the WebAssembly build used the module for every archived game and engine replay.
+Every row gives the median and the full range in seconds across three runs.
 
 | Chrome CPU setting | Games | Chess.js wall time | WebAssembly wall time | Reduction |
 |---|---:|---:|---:|---:|
 | Normal | 50 | 4.363 (4.234 to 4.382) | 3.784 (3.564 to 3.885) | 13.3% |
 | Normal | 150 | 12.962 (11.951 to 13.591) | 11.500 (11.360 to 11.647) | 11.3% |
-| 4x | 50 | 10.319 | 4.208 | 59.2% |
-| 4x | 150 | 29.013 | 13.520 | 53.4% |
-| 6x | 50 | 14.522 | 4.971 | 65.8% |
-| 6x | 150 | 40.965 | 15.647 | 61.8% |
+| 4x | 50 | 10.050 (9.878 to 10.283) | 4.211 (4.099 to 4.348) | 58.1% |
+| 4x | 150 | 28.556 (28.125 to 28.745) | 12.338 (12.277 to 12.577) | 56.8% |
+| 6x | 50 | 14.076 (13.768 to 14.434) | 5.131 (4.790 to 7.045) | 63.6% |
+| 6x | 150 | 39.097 (38.759 to 39.613) | 15.941 (14.586 to 17.472) | 59.2% |
 
 The cold builds at normal CPU speed saved about 0.58 seconds and 1.46 seconds. That gain is
 modest beside the operation timings because Stockfish still dominates. The engine pass and
 recheck, including their bookkeeping, took a median of 90.5% and 92.4% of build wall time
-after the change. The throttled runs measure Chrome's emulation on this Mac. The throttle slowed only the harness page, not the Stockfish workers, so it overstates the gain on a slow computer, where the searches slow down too. Each throttled figure is a single run.
+after the change. The throttled runs measure Chrome's emulation on this Mac. The throttle slowed only the harness page, not the Stockfish workers, so it overstates the gain on a slow computer, where the searches slow down too.
 
 The new module is 211,458 bytes uncompressed and 79,031 bytes deflated inside the extension ZIP.
 The ZIP grew from 1,476,265 to 1,559,355 bytes, an increase of 83,090 bytes against the 1 MB budget.
 
-I used Chrome 157.0.8103.79 and Node 26.8.2. For the baseline I built the extension and ran the
-same recorder against the source at `1929a42`, with `PROFILE_WASM_ASSETS` unset. The archive
-selection and its hash are in each recording's `setup.json`. The commands below assume the
-archive snapshot from the offscreen profile and a copy of the baseline ZIP.
+I used Chrome 157.0.8103.79 and Node 26.8.2. For the normal-speed baseline I built the extension
+and ran the same recorder against the source at `1929a42`, with `PROFILE_WASM_ASSETS` unset. The
+three-run 4x and 6x comparisons ran against `a5f5f56` with and without `PROFILE_WASM_ASSETS` set
+on the same archive snapshot. The archive selection and its hash are in each recording's
+`setup.json`. The commands below assume the archive snapshot from the offscreen profile and a copy
+of the baseline ZIP.
 
 ```sh
 archive=data/profile-c/ashton-iwnl-2026-11.json
@@ -1144,8 +1146,10 @@ cp dist/chess-check-extension.zip "$results/after.zip"
 npm run test:wasm --prefix web
 PROFILE_WASM_ASSETS=extension/engine node scripts/profile_offscreen.mjs "$archive" "$results/after-1x"
 for rate in 4 6; do
+  PROFILE_CPU_RATE="$rate" \
+    node scripts/profile_offscreen.mjs "$archive" "$results/before-${rate}x-3runs" 3
   PROFILE_WASM_ASSETS=extension/engine PROFILE_CPU_RATE="$rate" \
-    node scripts/profile_offscreen.mjs "$archive" "$results/after-${rate}x" 1
+    node scripts/profile_offscreen.mjs "$archive" "$results/after-${rate}x-3runs" 3
 done
 python scripts/benchmark_engine_wasm.py "$archive" "$results/before.zip" "$results/after.zip"
 ```

@@ -131,6 +131,14 @@ and a 73.95% overall find rate. [Lichess methods](docs/methods.md#lichess-datase
 | October ingest | 95,395,628 games and 315,894,636 boards | 9.05 GB | 714.3 s |
 | Evaluation conversion | 193,996,647 normalized FENs | 5.46 GB | 423.4 s |
 
+**Offscreen profile.** In the local Chrome harness, three cold builds at each size gave these
+medians. Both passed the 20% wall-time gate for WebAssembly work. [Offscreen methods](docs/methods.md#offscreen-build-profile)
+
+| Bullet games | Build wall time | Chess.js share of wall time |
+|---|---:|---:|
+| 50 | 4.32 s | 24.9% |
+| 150 | 13.29 s | 22.8% |
+
 ## How it works
 
 The analysis runs twice from the same design: in Python (`chesscheck/`) as the reference, and in TypeScript in the browser for the demo and the extension, with tests checking that both give the same answers. [docs/methods.md](docs/methods.md) has the full write-up: the statistical model, every eval and how it was scored, the extension's design, the odds studies with their leak checks, and the engine dataset.

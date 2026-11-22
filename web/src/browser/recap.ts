@@ -56,6 +56,7 @@ export function howEnded(g: Game): string {
  */
 export function buildRecap(game: Game, analysis: GameAnalysis, blunders: BlunderRec[], history: GameRow[],
                            tactics: TacticSummary | null, opponentNote: string | null = null): Recap {
+  const started = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ ? performance.now() : 0;
   const odds = game.ratingSource === "after-game" ? "unknown" : game.ratingSource === "estimated" ? "estimated" : "exact";
   const expected = pregameExpected(game.myRating, game.oppRating, game.color, game.timeClass);
   // Only games that ended before this one, for the record and the opening's badge alike: a profile
@@ -99,7 +100,7 @@ export function buildRecap(game: Game, analysis: GameAnalysis, blunders: Blunder
       }
     }
   }
-  return {
+  const recap: Recap = {
     url: game.url, endTime: game.endTime, opponent: game.opponent ?? "your opponent", myRating: game.myRating, oppRating: game.oppRating,
     color: game.color, timeClass: game.timeClass, score: game.score, how: howEnded(game),
     // without pre-game ratings there are no odds: the result is named plainly and nothing is an upset
@@ -110,6 +111,8 @@ export function buildRecap(game: Game, analysis: GameAnalysis, blunders: Blunder
       flag },
     turning, pattern, clean: !mine.some(x => x.loss >= BLUNDER_DROP), opponentNote,
   };
+  if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) performance.measure("cc:recap", { start: started });
+  return recap;
 }
 
 /** One post-game line about the opponent in this opening, from their own recent games. */

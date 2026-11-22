@@ -257,6 +257,7 @@ async function analyseOne(eng: Engine, game: Game, depth: number): Promise<Store
   let { cpWhite, best, nodes } = await evalWhite();
   const lastClock: Record<"w" | "b", number | null> = { w: base, b: base };
   const moves: MoveRow[] = [];
+  let featureMs = 0;
   let openingEval: number | null = null;
   for (let ply = 0; ply < history.length; ply++) {
     const mv = history[ply];
@@ -266,12 +267,14 @@ async function analyseOne(eng: Engine, game: Game, depth: number): Promise<Store
     // SAN strings, not verbose moves: chess.js builds the position before and after every legal
     // move for the verbose form, which took 82% of this page's time per position (0.80 ms against
     // 0.06 ms; the counts were identical on 6,312 positions). Captures are the SANs with an "x".
+    const featureStart = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ ? performance.now() : 0;
     const legal = c.moves();
     const feats = {
       legal_moves: legal.length, in_check: c.inCheck() ? 1 : 0,
       captures_available: legal.filter(m => m.includes("x")).length,
       material_balance: materialBalance(c, mover), non_pawn_material: nonPawnMaterial(c),
     };
+    if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) featureMs += performance.now() - featureStart;
     const fen = c.fen();
     const clock = clk.length === history.length ? clk[ply] : null;
     const prev = lastClock[mover];
@@ -293,6 +296,9 @@ async function analyseOne(eng: Engine, game: Game, depth: number): Promise<Store
     });
     if (ply + 1 === OPENING_PLIES) openingEval = cpAfterWhite;
     cpWhite = cpAfterWhite; best = nextBest; nodes = nextNodes;
+  }
+  if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) {
+    performance.measure("cc:engine move features", { start: performance.now(), duration: 0, detail: featureMs });
   }
   return { url: game.url, moves, opening_eval_white: openingEval };
 }

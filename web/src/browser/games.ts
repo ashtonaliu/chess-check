@@ -90,16 +90,19 @@ export function parseGame(raw: RawGame, user: string): Game | null {
   if (raw.white.username.toLowerCase() === u) { color = "white"; me = raw.white; opp = raw.black; }
   else if (raw.black.username.toLowerCase() === u) { color = "black"; me = raw.black; opp = raw.white; }
   else return null;
+  const started = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ ? performance.now() : 0;
   const chess = new Chess();
   try { chess.loadPgn(raw.pgn); } catch { return null; }
   const headers = chess.getHeaders();
   const [opening, family] = openingNames(raw.eco || headers["ECOUrl"] || "");
-  return {
+  const game: Game = {
     url: raw.url, color, myRating: me.rating, oppRating: opp.rating, score: scoreOf(me.result),
     timeClass: raw.time_class ?? "", timeControl: raw.time_control ?? "", eco: headers["ECO"] ?? "?",
     opening, family, endTime: raw.end_time ?? 0, result: me.result ?? "", oppResult: opp.result ?? "", opponent: opp.username,
     moves: chess.history(), pgn: raw.pgn,
   };
+  if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) performance.measure("cc:game parsing", { start: started });
+  return game;
 }
 
 const API = "https://api.chess.com/pub/player";

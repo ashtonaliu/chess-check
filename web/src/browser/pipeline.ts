@@ -66,12 +66,15 @@ export async function analyzeInBrowser(o: BrowserOptions) {
       `Stockfish is checking every move: game ${done} of ${total}${cached ? ` (${cached} saved from before)` : ""}${eta(t0, done, total, cached)}`),
   });
   const t1 = performance.now();
+  if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) performance.measure("cc:engine pass", { start: t0, end: t1 });
   report(2, 0, "Double-checking blunders with a deeper search…");
   await recheckBlunders(analyses, { engineUrl: o.engineUrl, signal: o.signal, pace: o.pace, onProgress: (done, total) =>
     report(2, done / total, `Double-checking blunders at depth ${DEEP_DEPTH_BROWSER}: ${done} of ${total}${eta(t1, done, total)}`) });
+  if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) performance.measure("cc:engine recheck", { start: t1 });
   report(3, null, "Finding patterns: tactics, pieces, openings and time pressure…");
   await new Promise(r => setTimeout(r, 0));   // let the status paint
   const moveRows = rowsOf(analyses);
+  const tacticsStart = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ ? performance.now() : 0;
   const pendingTactics = summarizeInBackground({
     analyses, pgns: new Map(games.map(g => [g.url, g.pgn])), depth: DEEP_DEPTH_BROWSER,
   }, o.engineUrl, o.signal);
@@ -79,6 +82,7 @@ export async function analyzeInBrowser(o: BrowserOptions) {
   const blunders = worstBlunders(analyses, 5).filter(m => m.wp_loss >= BLUNDER_DROP)
     .map(m => ({ move: moveLabel(m), best: m.best, loss: m.wp_loss, phase: m.phase, url: m.url, fen: m.fen }));
   const tactics = await pendingTactics;
+  if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) performance.measure("cc:tactics request", { start: tacticsStart });
   let summaries: [string, string][] | undefined;
   report(4, 1, "Done");
   return {

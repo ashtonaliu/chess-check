@@ -260,6 +260,7 @@ export interface TacticSummary {
 }
 
 export function summarize(analyses: GameAnalysis[], pgns: Map<string, string>, deepDepth = 16): TacticSummary {
+  const started = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ ? performance.now() : 0;
   const recs = analyses.flatMap(a => classifyGame(pgns.get(a.url)!, a));
   const all = analyses.flatMap(a => a.moves);
   const movesMe = all.filter(m => m.is_me).length, movesOpp = all.filter(m => !m.is_me).length;
@@ -304,6 +305,7 @@ export function summarize(analyses: GameAnalysis[], pgns: Map<string, string>, d
     for (const kind of ["allowed", "missed"] as const) for (const m of r[kind]) out.examples[`${kind}:${m}`] ??= r;
   }
   out.blunders = mine;
+  if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) performance.measure("cc:tactics summarize", { start: started });
   return out;
 }
 

@@ -18,6 +18,7 @@ export interface MoveFeatures {
 
 /** What kind of move `best` is (SAN or UCI), from the position alone. Null if it is not legal. */
 export function moveFeatures(fen: string, best: string): MoveFeatures | null {
+  const started = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ ? performance.now() : 0;
   let board: Chess;
   try { board = new Chess(fen); } catch { return null; }
   const me = board.turn(), opp = me === "w" ? "b" : "w";
@@ -36,7 +37,7 @@ export function moveFeatures(fen: string, best: string): MoveFeatures | null {
   const inCheck = board.inCheck();
   const after = new Chess(fen);
   after.move(move.san);
-  return {
+  const features: MoveFeatures = {
     piece: PIECE[move.piece],
     is_capture: move.captured ? 1 : 0,
     captured_value: move.captured ? VALUE[move.captured] : 0,
@@ -54,6 +55,8 @@ export function moveFeatures(fen: string, best: string): MoveFeatures | null {
     material_balance: material,
     non_pawn_material: nonPawn,
   };
+  if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) performance.measure("cc:find-rate features", { start: started });
+  return features;
 }
 
 /** The model's probability for these features at this rating (clock at the training median). */

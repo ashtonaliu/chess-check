@@ -958,7 +958,95 @@ of five runs; the slowest of the five was at most 3.2% slower than the fastest.
 Both counted 119,060,324 and 193,690,690 nodes, the published values. The change made perft 3.7
 times faster from the initial position and 4.6 times faster on Kiwipete, where more pieces and pins
 make copying and testing every move more expensive. I have not compared saving the whole position
-with undoing a move piece by piece. The offscreen profile and WebAssembly bindings remain pending.
+with undoing a move piece by piece.
+
+### Offscreen build profile
+
+I ran the development harness (`extension/dev.html`) in headless Chrome 157.0.8103.79 on the
+same M5 Pro Mac with 6 super cores and 12 performance cores. I replayed the public November
+2026 archive for my account from localhost. I took the last 150 finished bullet games before
+the November 13 recap game, took the newest 50 of those for
+the shorter build, and read one extra game for the oldest pregame rating in each build. The
+two histories contain 4,712 and 12,692 plies. I ran each size three times with a fresh Chrome
+profile each time and the default limit of eight Stockfish workers. The recorder checked for
+training, tests and builds before each run and polled during it. I used the unthrottled CPU.
+[Finished recap game](https://www.chess.com/game/live/187138001290)
+
+I measured from starting the build through the IndexedDB save. I opened a recording of each
+size in Chrome's Performance panel and inspected Bottom-up between the build markers on the
+Main track, where the harness runs the offscreen code. I used the traces' V8 samples for the
+caller totals.
+For each sample I followed the stack to the outer chess.js call, mapped the caller to the
+source, and counted only the sample's overlap with a main-thread task. I merged nested task
+intervals before computing the busy-thread denominator. The wall-time denominator covers the
+whole build, including Stockfish and IndexedDB waits.
+
+The per-position move features run during the engine pass. I timed the tactics request on the
+main thread and the summarizer on its worker. After the build I assembled one recap from the
+same finished-game fixture and measured its logistic find-rate features inside the recap timer.
+Phase B's neural predictor was measured separately at 1.90 ms per position in Chrome, including
+input encoding. Its review-card path is separate from the build.
+
+The stage times are medians in milliseconds, with the minimum and maximum in parentheses.
+The feature and worker rows overlap their enclosing stages.
+
+| Stage | 50 games | 150 games |
+|---|---:|---:|
+| Profile build | 4,323 (4,274 to 4,363) | 13,291 (12,831 to 13,950) |
+| Game parsing | 220 (219 to 225) | 561 (560 to 574) |
+| Engine pass | 1,831 (1,813 to 1,981) | 4,791 (4,725 to 4,900) |
+| Move features during engine pass | 335 (326 to 341) | 893 (885 to 921) |
+| Blunder recheck | 1,876 (1,755 to 1,975) | 7,005 (6,726 to 7,785) |
+| Tactics request through response | 330 (326 to 346) | 784 (763 to 789) |
+| Tactics worker | 237 (235 to 248) | 649 (634 to 652) |
+| Tactics summarizer on worker | 234 (232 to 245) | 642 (627 to 645) |
+| Recap assembly, after the build | 1.2 (1.1 to 1.2) | 1.2 (1.2 to 1.2) |
+| Logistic find-rate features within the recap | 0.9 (0.9 to 1.1) | 0.9 (0.8 to 0.9) |
+
+The main thread was busy for a median of 2,003 ms on 50 games and 5,372 ms on 150 games.
+Chess.js accounted for 53.2% of busy main-thread time (53.1% to 53.8%) on 50 games and
+54.7% (53.5% to 54.7%) on 150 games. That was 24.9% of full build wall time (24.4% to
+25.7%) and 22.8% (20.6% to 22.8%), respectively. The tactics summarizer ran on a separate
+worker. Its elapsed time counts toward the build, and the chess.js numerator covers the
+main thread. Chrome's Bottom-up view showed `_attacked` and `_moves` among the largest
+self-time entries.
+
+Both build sizes cleared the 20% wall-time gate in all three runs. I would cover the call
+sites below in 150-game time order. On 50 games, legal move listing narrowly led SAN
+conversion. Each entry gives median sampled milliseconds and its share of median busy
+main-thread time.
+
+| Call site and binding work | 50 games | 150 games |
+|---|---:|---:|
+| `engine.ts` `uciToSan`, format the engine's UCI best moves and refutations as SAN | 239 ms (11.9%) | 681 ms (12.7%) |
+| `engine.ts` `analyseOne` `moves()`, count legal moves and captures for position features | 251 ms (12.5%) | 665 ms (12.4%) |
+| `games.ts` `parseGame`, parse the archive PGN and extract its SAN history | 199 ms (9.9%) | 510 ms (9.5%) |
+| `engine.ts` `analyseOne` `history({ verbose: true })`, extract the played move records for replay | 123 ms (6.1%) | 341 ms (6.4%) |
+| `engine.ts` `analyseOne` `move()`, advance the board through the played game | 96 ms (4.8%) | 265 ms (4.9%) |
+| `engine.ts` `analyseOne` `loadPgn()`, load the game for the engine pass | 81 ms (4.1%) | 218 ms (4.1%) |
+| `engine.ts` `evalWhite`, load a scratch FEN for best-move SAN | 32 ms (1.6%) | 88 ms (1.6%) |
+| `engine.ts` `analyseOne` `isGameOver()`, check whether the position is terminal | 24 ms (1.2%) | 69 ms (1.3%) |
+| `engine.ts` recheck callback, replay the played move and prepare its two search positions | 11 ms (0.5%) | 36 ms (0.7%) |
+| `engine.ts` `evalWhite` `fen()`, serialize the board for Stockfish and SAN | 7 ms (0.4%) | 20 ms (0.4%) |
+
+I would return legal-move and capture counts directly and keep a board across plies so PGN
+replay, SAN and FEN generation can share it. The recheck is the longest build stage, and
+Stockfish searches overlap the main-thread work. I would time the whole build again with
+the bindings in place before claiming a speedup. These measurements cover the local cold
+bullet histories at normal CPU speed. A live archive fetch, a warm refresh and a throttled
+build are separate measurements.
+
+```sh
+mkdir -p data/profile-c
+curl -fsSL https://api.chess.com/pub/player/ashton-iwnl/games/2026/11 \
+  -o data/profile-c/ashton-iwnl-2026-11.json
+node scripts/profile_offscreen.mjs data/profile-c/ashton-iwnl-2026-11.json data/profile-c/recordings
+node --max-old-space-size=7000 scripts/summarize_offscreen_profile.mjs data/profile-c/recordings
+```
+
+The script bundles the harness with the profiling flag and writes compressed Chrome traces and
+timer results under `data/`. In Performance, load a trace and select between `cc:build start`
+and `cc:build end` on the Main track. The production bundles compile out the timers.
 
 ## Cross-language parity
 

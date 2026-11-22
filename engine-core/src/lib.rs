@@ -4,6 +4,8 @@ mod attacks;
 mod features;
 mod fen;
 mod san;
+#[cfg(target_arch = "wasm32")]
+mod wasm;
 
 pub use features::{BOARD_PLANES, MOVE_FEATURE_COUNT, MoveFeatures};
 pub use fen::ParseFenError;

@@ -24,11 +24,15 @@ export interface ReviewItem {
   tactics: { kind: "allowed" | "missed"; motif: string }[];
   opponent: string; endTime: number;
   fen?: string; rating?: number;  // the position and your rating then
-  findRate?: number | null;       // how often players near that rating find the move (null: unknown)
-  timeClass?: string;             // the game's time control: the find rate was fitted on blitz only
+  neuralFindRate?: number | null; // undefined means the neural model has yet to score this card
+  timeClass?: string;             // the game's time control
   step: number;                  // how many times in a row it was found
   due: number;                   // when it is next asked (ms)
   done?: boolean;                // learned: found at every step
+}
+
+export interface ReviewRateRequest {
+  id: string; fen: string; best: string; rating: number; timeClass: string;
 }
 
 const gameIdOf = (url: string) => url.match(/\/(\d+)(?:[/?#]|$)/)?.[1] ?? url;
@@ -42,13 +46,12 @@ export function itemFromRecap(r: Recap, now: number): ReviewItem | null {
   if (!t || r.pending?.turning || t.loss < MIN_LOSS || !t.best || t.best === t.san) return null;
   return { id: itemId(r.url, t.ply), url: r.url, ply: t.ply, label: t.label, san: t.san, best: t.best, loss: t.loss,
     tactics: t.tactics, opponent: r.opponent, endTime: r.endTime, fen: t.fen, rating: r.myRating,
-    findRate: t.findRate ?? null, timeClass: r.timeClass, step: 0, due: now + DAY };
+    timeClass: r.timeClass, step: 0, due: now + DAY };
 }
 
 /** Your worst recent blunders from an analyzed profile, due now, to start an empty queue. */
 export function itemsFromBlunders(blunders: BlunderRec[], games: { url: string; opponent?: string | null; endTime: number; myRating?: number; timeClass?: string }[],
-                                  now: number, limit = SEED_COUNT,
-                                  rate: (fen: string, best: string, rating: number) => number | null = () => null): ReviewItem[] {
+                                  now: number, limit = SEED_COUNT): ReviewItem[] {
   const byUrl = new Map(games.map(g => [g.url, g]));
   const out: ReviewItem[] = [];
   for (const b of blunders) {
@@ -58,7 +61,7 @@ export function itemsFromBlunders(blunders: BlunderRec[], games: { url: string; 
       loss: b.wp_loss, tactics: [...b.missed.map(motif => ({ kind: "missed" as const, motif })),
                                   ...b.allowed.map(motif => ({ kind: "allowed" as const, motif }))],
       opponent: g.opponent ?? "your opponent", endTime: g.endTime, fen: b.fen, rating: g.myRating,
-      findRate: g.myRating ? rate(b.fen, b.best, g.myRating) : null, timeClass: g.timeClass, step: 0, due: now });
+      timeClass: g.timeClass, step: 0, due: now });
   }
   // one per game (its worst), newest games first
   const best = new Map<string, ReviewItem>();
@@ -75,8 +78,8 @@ export function patchItems(queue: ReviewItem[], fresh: ReviewItem[]): ReviewItem
   return queue.map(q => {
     const f = byId.get(q.id);
     if (!f) return q;
-    const filled = !q.fen && f.fen ? { ...q, fen: f.fen, rating: q.rating ?? f.rating, findRate: q.findRate ?? f.findRate } : q;
-    return filled.timeClass === undefined && f.timeClass !== undefined ? { ...filled, timeClass: f.timeClass } : filled;
+    const fen = q.fen || f.fen, rating = q.rating ?? f.rating, timeClass = q.timeClass ?? f.timeClass;
+    return fen === q.fen && rating === q.rating && timeClass === q.timeClass ? q : { ...q, fen, rating, timeClass };
   });
 }
 
@@ -93,8 +96,26 @@ export function addItems(queue: ReviewItem[], items: ReviewItem[]): ReviewItem[]
 /** The find rate a position is ordered by: the model's estimate where it applies (blitz, ratings it
  *  covers), else the typical rate in its training data, so unrated positions sit in the middle. */
 export const TYPICAL_FIND_RATE = 0.79;
-const orderRate = (q: ReviewItem) =>
-  q.timeClass === "blitz" && q.rating && inRateRange(q.rating) && typeof q.findRate === "number" ? q.findRate : TYPICAL_FIND_RATE;
+const reviewRateEligible = (q: ReviewItem): q is ReviewItem & { rating: number; timeClass: "blitz" } =>
+  q.timeClass === "blitz" && q.rating !== undefined && inRateRange(q.rating);
+
+export const reviewRate = (q: ReviewItem): number | null =>
+  reviewRateEligible(q) ? q.neuralFindRate ?? null : null;
+
+/** Legacy logistic scores are ignored. Only request unfinished reviews the neural model can score. */
+export function pendingReviewRates(queue: ReviewItem[]): ReviewRateRequest[] {
+  return queue.flatMap(q => !q.done && q.neuralFindRate === undefined && q.fen && reviewRateEligible(q)
+    ? [{ id: q.id, fen: q.fen, best: q.best, rating: q.rating, timeClass: q.timeClass }]
+    : []);
+}
+
+/** Apply a batch to the latest saved queue without changing progress or replacing a newer score. */
+export function applyReviewRates(queue: ReviewItem[], rates: Record<string, number | null>): ReviewItem[] {
+  return queue.map(q => q.neuralFindRate === undefined && rates[q.id] !== undefined && reviewRateEligible(q)
+    ? { ...q, neuralFindRate: rates[q.id] } : q);
+}
+
+const orderRate = (q: ReviewItem) => reviewRate(q) ?? TYPICAL_FIND_RATE;
 
 /** Positions to ask now. Those most players at your rating find come first: missing one of those is
  *  a habit worth fixing, and it is what a short session should cover. Then the longest-waiting. */

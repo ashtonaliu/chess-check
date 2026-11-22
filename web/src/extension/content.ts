@@ -12,8 +12,8 @@
 // still running is stopped.
 import siteCss from "../../style.css";
 import type { Recap } from "../browser/recap";
-import { inRateRange } from "../browser/rateRange";
-import { addItems, grade, itemFromRecap, patchItems, type ReviewItem } from "../browser/reviewQueue";
+import { addItems, applyReviewRates, grade, itemFromRecap, patchItems, pendingReviewRates, reviewRate,
+  type ReviewItem } from "../browser/reviewQueue";
 import { createRecapView, esc, moveLink, quizHint, tacticSentence } from "../ui/recapCard";
 import type { Callback } from "../browser/callbackGame";
 import { gameIdFromPage, isPlayPage } from "./guard";
@@ -240,6 +240,7 @@ let asked: ReviewItem | null = null;   // the entry as this tab asked it, to gra
 function openReview(id: string | null = null) {
   view = "review"; current = id; reviewRevealed = false;
   if (panel.classList.contains("hidden")) togglePanel(true); else renderPanel();
+  void rateQueuedItems(queueOwner);
 }
 
 function renderReview() {
@@ -254,10 +255,7 @@ function renderReview() {
   const { item: it, position: pos, total, here } = card;
   current = it.id; asked = it;
   const tags = tacticSentence(it.tactics.filter(x => x.kind === "missed"));   // the hint already said what it allowed
-  // how hard it was: the find-rate model, fitted on blitz positions with one clearly best move, so
-  // shown only for blitz games and worded as an estimate for moves like this one
-  // and for ratings the model covers (entries saved earlier held other ratings to its range)
-  const rate = it.timeClass === "blitz" && it.rating && inRateRange(it.rating) ? it.findRate ?? null : null;
+  const rate = reviewRate(it);
   const odds = rate === null || !it.rating ? ""
     : ` In blitz, players near ${Math.round(it.rating / 50) * 50} find moves like this about ${Math.round(rate * 20) * 5}% of the time.`;
   body.innerHTML = `<div class="review">
@@ -296,7 +294,23 @@ panel.addEventListener("click", e => {
 
 /** Add a finished game's turning point, and start an empty queue from the games already analyzed. */
 const seedAsked = new Set<string>();      // once per page load and player
-const rateAsked = new Set<string>();
+const ratingInFlight = new Set<string>();
+
+async function rateQueuedItems(user: string) {
+  if (!user || queueOwner !== user || !reviewAllowed(pageUrl(), state)) return;
+  const items = pendingReviewRates(queue).filter(item => !ratingInFlight.has(item.id));
+  if (!items.length) return;
+  for (const item of items) ratingInFlight.add(item.id);
+  try {
+    const reply = await ask({ type: "rate", items });
+    if (reply.status === "rates" && queueOwner === user && reviewAllowed(pageUrl(), state)) {
+      await changeQueue(q => applyReviewRates(q, reply.rates));
+      refreshReviewDisplay();
+    }
+  } catch { /* the next visit can retry */ }
+  finally { for (const item of items) ratingInFlight.delete(item.id); }
+}
+
 async function collect(r: Recap | null, user: string) {
   const u = user.toLowerCase();
   if (queueOwner !== u) await loadQueue(u);
@@ -318,18 +332,7 @@ async function collect(r: Recap | null, user: string) {
       }
     } catch { /* try again later */ }
   }
-  // entries from before the find rate was stored get it from the analysis page
-  const unrated = queue.filter(q => q.findRate === undefined && q.fen && q.rating);
-  if (unrated.length && !rateAsked.has(u) && reviewAllowed(pageUrl(), state)) {
-    rateAsked.add(u);
-    try {
-      const reply = await ask({ type: "rate", items: unrated.map(q => ({ id: q.id, fen: q.fen!, best: q.best, rating: q.rating! })) });
-      if (reply.status === "rates" && queueOwner === u) {
-        const rates = reply.rates;
-        await changeQueue(q => q.map(i => i.id in rates && i.findRate === undefined ? { ...i, findRate: rates[i.id] } : i));
-      }
-    } catch { /* try again on the next page */ }
-  }
+  await rateQueuedItems(u);
   refreshReviewDisplay();
 }
 
@@ -449,7 +452,7 @@ function togglePanel(force?: boolean) {
   panel.classList.toggle("hidden", !open);
   if (open && state === "ready") { markSeen(store, lastId); decorateCube(); }
   if (open && state === "idle" && reviewAllowed(pageUrl(), state)
-      && (!queue.length || queue.some(q => !q.fen || q.findRate === undefined || q.timeClass === undefined))) {
+      && (!queue.length || pendingReviewRates(queue).length || queue.some(q => !q.fen || q.timeClass === undefined))) {
     const user = whoAmI();
     if (user) void collect(null, user);
   }
@@ -520,6 +523,7 @@ async function check() {
     await pageMarked;
     if (!isCurrent()) return;
     setState("idle");
+    if (me) void rateQueuedItems(me.toLowerCase());
     if (me) void ask({ type: "warm", username: me })
       .then(r => {
         if (!isCurrent()) return;

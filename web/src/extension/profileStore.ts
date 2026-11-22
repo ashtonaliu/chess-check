@@ -46,7 +46,7 @@ async function write(key: string, value: Saved | number): Promise<void> {
     try {
       const tx = db.transaction(STORE, "readwrite");
       tx.objectStore(STORE).put(value, key);
-      tx.oncomplete = tx.onabort = () => { db.close(); resolve(); };
+      tx.oncomplete = tx.onerror = tx.onabort = () => { db.close(); resolve(); };
     } catch { db.close(); resolve(); }
   });
 }

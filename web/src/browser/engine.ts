@@ -24,15 +24,15 @@ export interface GameAnalysis { url: string; color: "white" | "black"; moves: Mo
 
 export const winPct = (cp: number) => 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * cp)) - 1);
 
-function nonPawnMaterial(c: Chess): number {
-  let s = 0;
-  for (const row of c.board()) for (const sq of row) if (sq && sq.type !== "p" && sq.type !== "k") s += VALUES[sq.type];
-  return s;
-}
-function materialBalance(c: Chess, color: "w" | "b"): number {
-  let s = 0;
-  for (const row of c.board()) for (const sq of row) if (sq && sq.type !== "k") s += VALUES[sq.type] * (sq.color === color ? 1 : -1);
-  return s;
+function materialStats(c: Chess, color: "w" | "b"): { balance: number; nonPawn: number } {
+  let balance = 0, nonPawn = 0;
+  for (const row of c.board()) for (const sq of row) {
+    if (!sq || sq.type === "k") continue;
+    const v = VALUES[sq.type];
+    balance += sq.color === color ? v : -v;
+    if (sq.type !== "p") nonPawn += v;
+  }
+  return { balance, nonPawn };
 }
 function baseSeconds(tc: string): number | null {
   if (!tc || tc.includes("/")) return null;      // daily games
@@ -192,14 +192,14 @@ async function moveOldCache(db: IDBDatabase): Promise<void> {
     indexedDB.deleteDatabase(OLD_DB);
   } catch { /* an unreadable old cache only costs a rebuild */ }
 }
-function idb<T>(db: IDBDatabase | null, mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest): Promise<T | undefined> {
-  if (!db) return Promise.resolve(undefined);
+function idbWrite(db: IDBDatabase | null, fn: (s: IDBObjectStore) => void): Promise<void> {
+  if (!db) return Promise.resolve();
   return new Promise(resolve => {
     try {
-      const req = fn(db.transaction(STORE, mode).objectStore(STORE));
-      req.onsuccess = () => resolve(req.result as T);
-      req.onerror = () => resolve(undefined);
-    } catch { resolve(undefined); }
+      const tx = db.transaction(STORE, "readwrite");
+      fn(tx.objectStore(STORE));
+      tx.oncomplete = tx.onerror = tx.onabort = () => resolve();
+    } catch { resolve(); }
   });
 }
 
@@ -207,13 +207,17 @@ function idb<T>(db: IDBDatabase | null, mode: IDBTransactionMode, fn: (s: IDBObj
  *  writers that each hold part of an entry (a recap's recheck and a profile build's) both keep
  *  their part instead of the later one replacing the whole entry. */
 export function mergeInto<T extends object>(existing: T | undefined, fresh: T): T { return { ...(existing ?? {}), ...fresh } as T; }
-function idbMerge(db: IDBDatabase | null, key: string, fresh: object) {
-  if (!db) return;
-  try {
-    const store = db.transaction(STORE, "readwrite").objectStore(STORE);
-    const req = store.get(key);
-    req.onsuccess = () => store.put(mergeInto(req.result as object | undefined, fresh), key);
-  } catch { /* not cached */ }
+function idbMerge(db: IDBDatabase | null, key: string, fresh: object): Promise<void> {
+  if (!db) return Promise.resolve();
+  return new Promise(resolve => {
+    try {
+      const tx = db.transaction(STORE, "readwrite");
+      const store = tx.objectStore(STORE);
+      const req = store.get(key);
+      req.onsuccess = () => store.put(mergeInto(req.result as object | undefined, fresh), key);
+      tx.oncomplete = tx.onerror = tx.onabort = () => resolve();
+    } catch { resolve(); }
+  });
 }
 
 // Issue all reads before the transaction can become inactive.
@@ -239,9 +243,12 @@ type Stored = Omit<GameAnalysis, "color" | "opening_eval"> & { opening_eval_whit
 
 const uciToSan = (c: Chess, uci: string | null): string | null => {
   if (!uci) return null;
-  try { return c.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] }).san; }
-  catch { return null; }
-};  // callers pass a throwaway copy of the board
+  try {
+    const san = c.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] }).san;
+    c.undo();
+    return san;
+  } catch { return null; }
+};
 
 async function analyseOne(eng: Engine, game: Game, depth: number, wasm?: WasmChess | null): Promise<Stored> {
   const started = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ ? performance.now() : 0;
@@ -269,13 +276,13 @@ async function analyseReplay(eng: Engine, game: Game, depth: number, initialFen:
   if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ && positions) featureMs = performance.now() - started;
   const plies = history?.length ?? game.moves.length;
   const clk = clocks(game.pgn), base = baseSeconds(game.timeControl);
-  const evalWhite = async (ply: number): Promise<{ cpWhite: number; best: string | null; nodes: number }> => {
-    const fen = positions?.[ply].fen ?? c!.fen();
+  const evalWhite = async (ply: number, fen: string): Promise<{ cpWhite: number; best: string | null; nodes: number }> => {
     const r = await eng.analyse(fen, depth);
     const sign = (positions?.[ply].turn ?? c!.turn()) === "w" ? 1 : -1;
-    return { cpWhite: r.cp * sign, best: replay ? r.best : uciToSan(new Chess(fen), r.best), nodes: r.nodes };
+    return { cpWhite: r.cp * sign, best: replay ? r.best : uciToSan(c!, r.best), nodes: r.nodes };
   };
-  let { cpWhite, best, nodes } = await evalWhite(0);
+  let currentFen = positions?.[0].fen ?? c!.fen();
+  let { cpWhite, best, nodes } = await evalWhite(0, currentFen);
   const lastClock: Record<"w" | "b", number | null> = { w: base, b: base };
   const moves: MoveRow[] = [];
   let openingEval: number | null = null;
@@ -284,25 +291,29 @@ async function analyseReplay(eng: Engine, game: Game, depth: number, initialFen:
     const san = history ? history[ply].san : game.moves[ply];
     const mover = state?.turn ?? c!.turn();
     const sign = mover === "w" ? 1 : -1;
-    const phase = ply < OPENING_PLIES ? "opening" : (state?.nonPawn ?? nonPawnMaterial(c!)) <= 26 ? "endgame" : "middlegame";
+    const mat = state ? null : materialStats(c!, mover);
+    const nonPawn = state?.nonPawn ?? mat!.nonPawn;
+    const phase = ply < OPENING_PLIES ? "opening" : nonPawn <= 26 ? "endgame" : "middlegame";
     const featureStart = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ ? performance.now() : 0;
     const legal = state ? undefined : c!.moves();
     const feats = {
       legal_moves: state?.legal ?? legal!.length, in_check: (state?.check ?? c!.inCheck()) ? 1 : 0,
       captures_available: state?.captures ?? legal!.filter(m => m.includes("x")).length,
-      material_balance: state?.balance ?? materialBalance(c!, mover), non_pawn_material: state?.nonPawn ?? nonPawnMaterial(c!),
+      material_balance: state?.balance ?? mat!.balance, non_pawn_material: nonPawn,
     };
     if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ && !state) featureMs += performance.now() - featureStart;
-    const fen = state?.fen ?? c!.fen();
+    const fen = currentFen;
     const clock = clk.length === plies ? clk[ply] : null;
     const prev = lastClock[mover];
     const spent = clock !== null && prev !== null ? prev - clock : null;
     lastClock[mover] = clock;
     c?.move(san);
+    const nextFen = next?.fen ?? c!.fen();
     let cpAfterWhite: number, nextBest: string | null, nextNodes = 0;
     if (next?.mate ?? c!.isCheckmate()) { cpAfterWhite = MATE * sign; nextBest = null; }
     else if (next?.over ?? c!.isGameOver()) { cpAfterWhite = 0; nextBest = null; }
-    else ({ cpWhite: cpAfterWhite, best: nextBest, nodes: nextNodes } = await evalWhite(ply + 1));
+    else ({ cpWhite: cpAfterWhite, best: nextBest, nodes: nextNodes } = await evalWhite(ply + 1, nextFen));
+    currentFen = nextFen;
     const before = cpWhite * sign, after = cpAfterWhite * sign;
     const drop = winPct(before) - winPct(after);
     moves.push({
@@ -397,29 +408,36 @@ export interface PoolOptions { depth: number; workers?: number; engineUrl: strin
 
 export async function analyseGames(games: Game[], opts: PoolOptions): Promise<GameAnalysis[]> {
   const db = await openDb();
-  const key = (g: Game) => `v${CACHE_VERSION}_${g.url.split("/").pop()}_d${opts.depth}`;
-  const out: (Stored | undefined)[] = await readCached<Stored>(db, games.map(key));
-  const todo = games.map((_g, i) => i).filter(i => !out[i]);
-  const cached = games.length - todo.length;
-  let done = cached;
-  opts.onProgress?.(done, games.length, cached);
+  const writes: Promise<void>[] = [];
+  let out: (Stored | undefined)[];
+  try {
+    const key = (g: Game) => `v${CACHE_VERSION}_${g.url.split("/").pop()}_d${opts.depth}`;
+    out = await readCached<Stored>(db, games.map(key));
+    const todo = games.map((_g, i) => i).filter(i => !out[i]);
+    const cached = games.length - todo.length;
+    let done = cached;
+    opts.onProgress?.(done, games.length, cached);
 
-  if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
-  const wasm = todo.length ? await getWasmChess() : undefined;
-  await runPool(todo.length, opts, async (eng, t) => {
-    const i = todo[t];
-    const res = await analyseOne(eng, games[i], opts.depth, wasm);
-    out[i] = res;
-    const game = games[i];
-    idb(db, "readwrite", s => {
-      if (recordEndTimes) {
-        const id = game.url.split("/").pop()!;
-        s.put({ id, endTime: game.endTime }, `end_${id}`);
-      }
-      return s.put(res, key(game));
+    if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+    const wasm = todo.length ? await getWasmChess() : undefined;
+    await runPool(todo.length, opts, async (eng, t) => {
+      const i = todo[t];
+      const res = await analyseOne(eng, games[i], opts.depth, wasm);
+      out[i] = res;
+      const game = games[i];
+      writes.push(idbWrite(db, s => {
+        if (recordEndTimes) {
+          const id = game.url.split("/").pop()!;
+          s.put({ id, endTime: game.endTime }, `end_${id}`);
+        }
+        s.put(res, key(game));
+      }));
+      opts.onProgress?.(++done, games.length, cached);
     });
-    opts.onProgress?.(++done, games.length, cached);
-  });
+  } finally {
+    await Promise.all(writes);
+    db?.close();
+  }
   // "is_me" and the user's-POV opening eval depend on whose report this is
   return games.map((g, i) => {
     const s = out[i]!;
@@ -446,77 +464,84 @@ export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: 
   only?: (m: MoveRow) => boolean; pace?: Pacer }): Promise<void> {
   const depth = opts.depth ?? DEEP_DEPTH_BROWSER;
   const db = await openDb();
-  const key = (a: GameAnalysis) => `deep_v1_${a.url.split("/").pop()}_d${depth}`;
+  const writes: Promise<void>[] = [];
   type Deep = Record<string, { deep_best: string | null; deep_refutation: string | null; deep_cp_before: number; deep_cp_after: number; deep_loss: number }>;
-  const cached = (await readCached<Deep>(db, analyses.map(key))).map(d => d ?? {});
-  const tasks = analyses.flatMap((a, i) => a.moves
-    .filter(m => m.wp_loss >= BLUNDER_DROP && (opts.only?.(m) ?? true) && !cached[i][String(m.ply)])
-    .map(m => ({ i, m })));
-  // Launch the estimated long searches first so they can overlap with the short ones.
-  // Unmeasured rows from older caches get the median known cost, or keep their order if all are old.
-  const costs = tasks.flatMap(({ m }) => m.shallow_nodes ? [m.shallow_nodes] : []).sort((a, b) => a - b);
-  const typical = costs[Math.floor(costs.length / 2)] ?? 0;
-  tasks.sort((a, b) => (b.m.shallow_nodes || typical) - (a.m.shallow_nodes || typical));
-  let done = 0;
-  if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
-  const left = new Map<number, number>();               // positions still to check, per game
-  for (const t of tasks) left.set(t.i, (left.get(t.i) ?? 0) + 1);
-  const wasm = tasks.length ? await getWasmChess() : undefined;
-  opts.signal?.throwIfAborted();
-  const advanced = wasm?.advance(tasks.map(({ m }) => ({ fen: m.fen, move: m.san })));
-  const pending: { i: number; m: MoveRow; afterFen: string; row: Deep[string] }[] = [];
-  const buffered = new Map<number, number>();
-  const save = (i: number, m: MoveRow, row: Deep[string]) => {
-    cached[i][String(m.ply)] = row;
-    left.set(i, left.get(i)! - 1);
-    if (left.get(i) === 0) idbMerge(db, key(analyses[i]), cached[i]);
-  };
-  const flush = () => {
-    if (!wasm || !pending.length || opts.signal?.aborted) return;
-    const requests = pending.flatMap(({ m, afterFen, row }) => [
-      { fen: m.fen, move: row.deep_best ?? "" }, { fen: afterFen, move: row.deep_refutation ?? "" },
-    ]);
-    const sans = wasm.san(requests);
-    pending.forEach(({ i, m, row }, j) => {
-      save(i, m, { ...row, deep_best: sans[2 * j], deep_refutation: sans[2 * j + 1] });
-    });
-    pending.length = 0;
-    buffered.clear();
-  };
+  let cached: Deep[] = [];
   try {
-    await runPool(tasks.length, opts, async (eng, t) => {
-      const { i, m } = tasks[t];
-      const next = advanced?.[t];
-      const c = next ? null : new Chess(m.fen);
-      const r1 = await eng.analyse(m.fen, depth);
-      const before = r1.cp;
-      const best = next ? r1.best : uciToSan(new Chess(m.fen), r1.best);
-      c?.move(m.san);
-      const afterFen = next?.fen ?? c!.fen();
-      let after: number, refutation: string | null;
-      if (next?.over ?? c!.isGameOver()) {
-        after = (next?.mate ?? c!.isCheckmate()) ? MATE : 0;
-        refutation = null;
-      } else {
-        const r2 = await eng.analyse(afterFen, depth);
-        after = -r2.cp;
-        refutation = next ? r2.best : uciToSan(new Chess(afterFen), r2.best);
-      }
-      const row = { deep_best: best, deep_refutation: refutation, deep_cp_before: before, deep_cp_after: after,
-                    deep_loss: Math.round(Math.max(winPct(before) - winPct(after), 0) * 10) / 10 };
-      if (next) {
-        pending.push({ i, m, afterFen, row });
-        const count = (buffered.get(i) ?? 0) + 1;
-        buffered.set(i, count);
-        if (pending.length >= 64 || count === left.get(i)) flush();
-      } else {
-        save(i, m, row);
-        if (buffered.get(i) === left.get(i)) flush();
-      }
-      opts.onProgress?.(++done, tasks.length);
-    });
+    const key = (a: GameAnalysis) => `deep_v1_${a.url.split("/").pop()}_d${depth}`;
+    cached = (await readCached<Deep>(db, analyses.map(key))).map(d => d ?? {});
+    const tasks = analyses.flatMap((a, i) => a.moves
+      .filter(m => m.wp_loss >= BLUNDER_DROP && (opts.only?.(m) ?? true) && !cached[i][String(m.ply)])
+      .map(m => ({ i, m })));
+    // Launch the estimated long searches first so they can overlap with the short ones.
+    // Unmeasured rows from older caches get the median known cost, or keep their order if all are old.
+    const costs = tasks.flatMap(({ m }) => m.shallow_nodes ? [m.shallow_nodes] : []).sort((a, b) => a - b);
+    const typical = costs[Math.floor(costs.length / 2)] ?? 0;
+    tasks.sort((a, b) => (b.m.shallow_nodes || typical) - (a.m.shallow_nodes || typical));
+    let done = 0;
+    if (opts.signal?.aborted) throw new DOMException("Cancelled", "AbortError");
+    const left = new Map<number, number>();               // positions still to check, per game
+    for (const t of tasks) left.set(t.i, (left.get(t.i) ?? 0) + 1);
+    const wasm = tasks.length ? await getWasmChess() : undefined;
+    opts.signal?.throwIfAborted();
+    const advanced = wasm?.advance(tasks.map(({ m }) => ({ fen: m.fen, move: m.san })));
+    const pending: { i: number; m: MoveRow; afterFen: string; row: Deep[string] }[] = [];
+    const buffered = new Map<number, number>();
+    const save = (i: number, m: MoveRow, row: Deep[string]) => {
+      cached[i][String(m.ply)] = row;
+      left.set(i, left.get(i)! - 1);
+      if (left.get(i) === 0) writes.push(idbMerge(db, key(analyses[i]), cached[i]));
+    };
+    const flush = () => {
+      if (!wasm || !pending.length || opts.signal?.aborted) return;
+      const requests = pending.flatMap(({ m, afterFen, row }) => [
+        { fen: m.fen, move: row.deep_best ?? "" }, { fen: afterFen, move: row.deep_refutation ?? "" },
+      ]);
+      const sans = wasm.san(requests);
+      pending.forEach(({ i, m, row }, j) => {
+        save(i, m, { ...row, deep_best: sans[2 * j], deep_refutation: sans[2 * j + 1] });
+      });
+      pending.length = 0;
+      buffered.clear();
+    };
+    try {
+      await runPool(tasks.length, opts, async (eng, t) => {
+        const { i, m } = tasks[t];
+        const next = advanced?.[t];
+        const c = next ? null : new Chess(m.fen);
+        const r1 = await eng.analyse(m.fen, depth);
+        const before = r1.cp;
+        const best = next ? r1.best : uciToSan(c!, r1.best);
+        c?.move(m.san);
+        const afterFen = next?.fen ?? c!.fen();
+        let after: number, refutation: string | null;
+        if (next?.over ?? c!.isGameOver()) {
+          after = (next?.mate ?? c!.isCheckmate()) ? MATE : 0;
+          refutation = null;
+        } else {
+          const r2 = await eng.analyse(afterFen, depth);
+          after = -r2.cp;
+          refutation = next ? r2.best : uciToSan(c!, r2.best);
+        }
+        const row = { deep_best: best, deep_refutation: refutation, deep_cp_before: before, deep_cp_after: after,
+                      deep_loss: Math.round(Math.max(winPct(before) - winPct(after), 0) * 10) / 10 };
+        if (next) {
+          pending.push({ i, m, afterFen, row });
+          const count = (buffered.get(i) ?? 0) + 1;
+          buffered.set(i, count);
+          if (pending.length >= 64 || count === left.get(i)) flush();
+        } else {
+          save(i, m, row);
+          if (buffered.get(i) === left.get(i)) flush();
+        }
+        opts.onProgress?.(++done, tasks.length);
+      });
+    } finally {
+      flush();
+    }
   } finally {
-    flush();
+    await Promise.all(writes);
+    db?.close();
   }
   analyses.forEach((a, i) => { const d = cached[i]; for (const m of a.moves) Object.assign(m, d[String(m.ply)] ?? {}); });
 }

@@ -1,4 +1,4 @@
-"""Check Python, ONNX and TypeScript parity and measure int8 drift on a trained checkpoint."""
+"""Check Python, ONNX and TypeScript parity and measure packed-weight drift."""
 import argparse
 import base64
 import json
@@ -90,8 +90,8 @@ def parity_inputs(cases, ratings, with_moves):
     return {"board": np.stack(boards), "scalars": scalars}
 
 
-def check(cases, directory, model, ratings, holdout=None):
-    export_model(model, ratings, directory)
+def check(cases, directory, model, ratings, holdout=None, precision="int8", review_clock=None):
+    export_model(model, ratings, directory, precision)
     artifact = json.loads((directory / "weights.json").read_text())
     with_moves = artifact["moveFeatures"]
     cases = [row for row in cases if row["context"]["source"] in ratings]
@@ -101,7 +101,7 @@ def check(cases, directory, model, ratings, holdout=None):
     options = ort.SessionOptions()
     options.intra_op_num_threads = options.inter_op_num_threads = 1
     float_session = ort.InferenceSession(str(directory / "model.onnx"), options, ["CPUExecutionProvider"])
-    int8_session = ort.InferenceSession(str(directory / "model.int8.onnx"), options, ["CPUExecutionProvider"])
+    packed_session = ort.InferenceSession(str(directory / f"model.{precision}.onnx"), options, ["CPUExecutionProvider"])
     float_output = float_session.run(None, inputs)[0]
     # Trained weights can magnify the rounding differences between CPU kernels.
     float_tolerance = 1e-6 if holdout is None else 3e-6
@@ -109,8 +109,8 @@ def check(cases, directory, model, ratings, holdout=None):
     # Exercise both the traced batch size and a larger batch.
     one = {name: value[:1] for name, value in inputs.items()}
     np.testing.assert_allclose(float_session.run(None, one)[0], expected[:1], atol=float_tolerance, rtol=0)
-    quantized = int8_session.run(None, inputs)[0]
-    np.testing.assert_allclose(int8_session.run(None, one)[0], quantized[:1], atol=1e-6, rtol=0)
+    quantized = packed_session.run(None, inputs)[0]
+    np.testing.assert_allclose(packed_session.run(None, one)[0], quantized[:1], atol=float_tolerance, rtol=0)
     if holdout is None:
         np.testing.assert_allclose(quantized, expected, atol=0.005, rtol=0)
     rows = [dict(row, board=base64.b64encode(board.astype(np.uint8).tobytes()).decode("ascii"),
@@ -121,18 +121,26 @@ def check(cases, directory, model, ratings, holdout=None):
     subprocess.run(["node", "--import", "tsx", "--test", "test/neuralFindRate.test.ts"], cwd=ROOT / "web",
                    env={**os.environ, "NEURAL_FIND_RATE_PARITY": str(fixture.resolve())}, check=True)
     sample_error = float(np.max(abs(expected - quantized)))
-    print(f"Checked {len(cases)} positions. Max float-to-int8 sample error {sample_error:.6f}.")
+    print(f"Checked {len(cases)} positions. Max float-to-{precision} sample error {sample_error:.6f}.")
     if holdout is not None:
         dataset, board_path = holdout
         result = check_holdout(dataset, board_path, ratings["chesscom"], with_moves,
-                               float_session, int8_session)
+                               float_session, packed_session, precision)
         result.update(parity_positions=len(cases), parity_sample_max_difference=sample_error,
                       float_onnx_pytorch_max_difference=float(np.max(abs(float_output - expected))))
+        if review_clock is not None:
+            result["review_clock"] = review_clock
+            result["fixed_clock_holdout"] = check_holdout(dataset.assign(clock_frac=review_clock), board_path,
+                                                           ratings["chesscom"], with_moves, float_session,
+                                                           packed_session, precision)
         (directory / "quantization.json").write_text(json.dumps(result, indent=2) + "\n")
         print(json.dumps(result, indent=2))
+        if precision == "float16" and max(result["largest_probability_difference"],
+                                            result.get("fixed_clock_holdout", {}).get("largest_probability_difference", 0)) >= 0.005:
+            raise ValueError("Float16 drift must stay below 0.005 on the full Chess.com holdout")
 
 
-def check_holdout(rows, board_path, scale, with_moves, float_session, int8_session):
+def check_holdout(rows, board_path, scale, with_moves, float_session, packed_session, precision):
     idx = np.flatnonzero((rows.source == "chesscom") & (rows.split == "test"))
     test = rows.iloc[idx]
     boards = np.load(board_path, mmap_mode="r")
@@ -141,18 +149,18 @@ def check_holdout(rows, board_path, scale, with_moves, float_session, int8_sessi
                         for r in test.itertuples()])
     if with_moves:
         scalars = np.column_stack((scalars, move_design(test).to_numpy(dtype=np.float32)))
-    float_p, int8_p = [], []
+    float_p, packed_p = [], []
     for start in range(0, len(idx), 1024):
         batch = slice(start, start + 1024)
         board = np.unpackbits(boards[idx[batch]], axis=1).reshape(-1, BOARD_PLANES, 8, 8).astype(np.float32)
         data = {"board": board, "scalars": scalars[batch]}
         float_p.append(float_session.run(None, data)[0])
-        int8_p.append(int8_session.run(None, data)[0])
-    p, q = np.concatenate(float_p), np.concatenate(int8_p)
-    float_loss, int8_loss = (log_loss(test.found, prob, labels=[0, 1]) for prob in (p, q))
+        packed_p.append(packed_session.run(None, data)[0])
+    p, q = np.concatenate(float_p), np.concatenate(packed_p)
+    float_loss, packed_loss = (log_loss(test.found, prob, labels=[0, 1]) for prob in (p, q))
     error = np.abs(p - q)
-    return {"chesscom_positions": len(test), "float_log_loss": float_loss, "int8_log_loss": int8_loss,
-            "log_loss_delta": int8_loss - float_loss, "largest_probability_difference": float(error.max()),
+    return {"chesscom_positions": len(test), "float_log_loss": float_loss, f"{precision}_log_loss": packed_loss,
+            "log_loss_delta": packed_loss - float_loss, "largest_probability_difference": float(error.max()),
             "positions_above_0_005": int(np.count_nonzero(error > 0.005))}
 
 
@@ -164,9 +172,13 @@ def main():
     parser.add_argument("--prepared", type=Path, help="prepared Phase B inputs")
     parser.add_argument("--data-root", type=Path, help="directory containing the original engine tables")
     parser.add_argument("--output", type=Path, help="trained export and reports")
+    parser.add_argument("--precision", choices=("int8", "float16"), default="int8")
+    parser.add_argument("--review-clock", type=float, help="also check the whole holdout at this fixed clock fraction")
     args = parser.parse_args()
     if args.count < 1:
         parser.error("--count must be positive")
+    if args.review_clock is not None and (not args.checkpoint or not 0 <= args.review_clock <= 1.5):
+        parser.error("--review-clock requires a trained checkpoint and a fraction between 0 and 1.5")
     torch.set_num_threads(1)
     torch.set_num_interop_threads(1)
     if any((args.checkpoint, args.prepared, args.data_root, args.output)) and not all(
@@ -184,13 +196,14 @@ def main():
         held_out = raw[(raw.source == "chesscom") & (raw.split == "test")].sample(args.count, random_state=1)
         cases.extend(case(r.fen, r.best_uci, r.time_class, None if pd.isna(r.clock_frac) else r.clock_frac,
                           r.source, r.pregame_rating) for r in held_out.itertuples())
-        check(cases, args.output, model, ratings, (prepared, args.prepared / "boards.npy"))
+        check(cases, args.output, model, ratings, (prepared, args.prepared / "boards.npy"),
+              args.precision, args.review_clock)
     else:
         with tempfile.TemporaryDirectory(prefix="neural-find-rate-") as directory:
             for extra in (0, MOVE_FEATURES):
                 torch.manual_seed(123)
                 model = NeuralFindRate(extra).eval()
-                check(cases, Path(directory) / str(extra), model, TEST_RATINGS)
+                check(cases, Path(directory) / str(extra), model, TEST_RATINGS, precision=args.precision)
 
 
 if __name__ == "__main__":

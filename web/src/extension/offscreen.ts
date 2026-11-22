@@ -15,8 +15,8 @@ import { Pace, SharedPace, startingWorkers } from "../browser/pace";
 import { analyzeInBrowser } from "../browser/pipeline";
 import { buildRecap, opponentNote, type Recap } from "../browser/recap";
 import { withExpected, type GameRow } from "../browser/stats";
-import { findRate } from "../browser/findRate";
-import { itemsFromBlunders, type ReviewItem } from "../browser/reviewQueue";
+import { itemsFromBlunders, type ReviewItem, type ReviewRateRequest } from "../browser/reviewQueue";
+import { reviewFindRate } from "./reviewFindRate";
 import type { BlunderRec } from "../browser/tactics";
 import { canShowRecap } from "./guard";
 import { loadProfile, profileGameIds, pruneProfiles, saveProfile, touchProfile, type Saved } from "./profileStore";
@@ -29,7 +29,7 @@ export type Request =
   | { type: "seed"; username: string }         // past blunders to start an empty review queue
   | { type: "stalls" }                         // the page the cube is on stuttered (pace.ts)
   | { type: "pace" }                           // the worker count now, for testing
-  | { type: "rate"; items: { id: string; fen: string; best: string; rating: number }[] }   // find rates (findRate.ts)
+  | { type: "rate"; items: ReviewRateRequest[] }
   | { type: "recap"; username: string; kind: "live" | "daily"; gameId: string; callback: Callback };
 export type Reply =
   | { status: "building"; progress: string }
@@ -234,7 +234,7 @@ export async function handle(req: Request): Promise<Reply> {
     }
     if (req.type === "rate") {
       // the cube's script does without chess.js, so the find rate is worked out here
-      return { status: "rates", rates: Object.fromEntries(req.items.map(i => [i.id, findRate(i.fen, i.best, i.rating)])) };
+      return { status: "rates", rates: Object.fromEntries(req.items.map(i => [i.id, reviewFindRate(i)])) };
     }
     if (req.type === "seed") {
       // from the finished profiles (in memory, or saved for the player's main time class)
@@ -245,7 +245,7 @@ export async function handle(req: Request): Promise<Reply> {
         if (saved) profiles.push(saved.profile);
       }
       const items = itemsFromBlunders(profiles.flatMap(p => p.tactics?.blunders ?? []),
-        profiles.flatMap(p => p.games ?? []), Date.now(), undefined, findRate);
+        profiles.flatMap(p => p.games ?? []), Date.now());
       return { status: "seed", items };
     }
     if (req.type === "warm") {
@@ -292,7 +292,7 @@ export async function handle(req: Request): Promise<Reply> {
     const a = job.analysis, err = job.error;
     const empty: GameAnalysis = { url: game.url, color: game.color, moves: [], opening_eval: null };
     const recap = buildRecap(game, a?.analysis ?? empty, a?.blunders ?? [],
-      profile?.rows ?? archive?.rows ?? [], profile?.tactics ?? null, note);
+      profile?.rows ?? archive?.rows ?? [], profile?.tactics ?? null, note, null);
     if (profile && (a || err) && job.opponentDone) {
       jobs.delete(key);
       if (err) {

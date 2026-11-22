@@ -750,9 +750,13 @@ python scripts/fit_history_odds.py
 | Move features, gradient boosting | 0.4090 | 0.1332 | 0.800 |
 | All features, gradient boosting | 0.4011 | 0.1306 | 0.811 |
 
-The rating says almost nothing here, because nearly every position comes from players between 1400 and 1800 (the find rate goes from 77.9% at 1200 to 80.5% at 1800). What kind of move it is says a lot. With the logistic model's gain over the rating alone bootstrapped by player, log loss falls by 0.069 (90% interval 0.068 to 0.071). The largest effects: captures are found far more often, and more so the bigger the captured piece; a move to an attacked square, a position with many legal moves or many captures available, and being in check all make the move harder; and the more material the player is ahead, the less often they find it, possibly because a won position invites less care, though the data cannot say why. Gradient boosting is better again, but the logistic model is what the browser uses, since it is 27 numbers. Its calibration is within 6 points in every decile (predicted 47% against 53% actual at the hardest tenth, 97% against 98% at the easiest).
+The rating says almost nothing here, because nearly every position comes from players between 1400 and 1800 (the find rate goes from 77.9% at 1200 to 80.5% at 1800). What kind of move it is says a lot. With the logistic model's gain over the rating alone bootstrapped by player, log loss falls by 0.069 (90% interval 0.068 to 0.071). The largest effects: captures are found far more often, and more so the bigger the captured piece; a move to an attacked square, a position with many legal moves or many captures available, and being in check all make the move harder; and the more material the player is ahead, the less often they find it, possibly because a won position invites less care, though the data cannot say why. The logistic model was the first extension model and has 27 coefficients. Its calibration is within 6 points in every decile (predicted 47% against 53% actual at the hardest tenth, 97% against 98% at the easiest).
 
-**In the extension.** `scripts/eval_find_rate.py evaluate` writes the coefficients to `web/src/browser/findRateModel.ts`, and `web/src/browser/findRate.ts` computes the same features with chess.js. `web/test/findRate.test.ts` checks the features and probabilities against Python on 300 held-out positions (all features identical, probabilities within 0.0001). After you reveal a review card, it says how often players near your rating then find the move, with the clock held at the training median (0.66 of the starting time) so the number describes the position and not your clock that day. The line appears only for ratings from 1200 to 2000, where the data are; outside that range there is no estimate, since the model at 1200 says little about players near 800. Two limits: the model was fitted on positions with one clearly best move, and a review position only promises that your move lost at least 20 points, so another move may also have worked; and the figure is rounded to the nearest 5%. Because the model was fitted on blitz only, the line appears only for positions from blitz games, and it says how often players find "moves like this", an estimate from the kind of move, rather than a measured rate for that exact position. Queue entries keep their game's time control; older entries get it from the profile, and those it cannot fill are marked unknown and show no estimate. The same estimate orders the positions due for review: the ones most players at your rating find come first, since missing those is a habit worth fixing and a short session should reach them, and positions without an estimate count as the typical 79%.
+**Review cards and ordering.** The extension uses the neural model described under [Shipped review model](#shipped-review-model). It estimates how often blitz players near your rating find moves like this, with the clock held at 0.6561 of the starting time so the estimate describes the position. The review card shows it after the answer, for ratings from 1200 through 2000. The displayed rating is rounded to the nearest 50 and the estimate to the nearest 5%. Training positions had one clearly best move. A review card requires a loss of at least 20 points, so the position can also have other good moves. Review order uses the unrounded estimate, highest first. Positions without an estimate count as the typical 79%.
+
+The logistic baseline is reproduced by `scripts/eval_find_rate.py evaluate`. `web/test/findRate.test.ts`
+checks its chess.js features and probabilities against Python on 300 held-out positions. The
+features match exactly and the probabilities agree within 0.0001.
 
 ## Lichess dataset
 
@@ -997,8 +1001,10 @@ captures and checks, and a one-hot piece type. The browser reuses `moveFeatures`
 
 `scripts/export_neural_find_rate.py CHECKPOINT DIRECTORY` expects a checkpoint with `state_dict` and
 `ratings` maps. Ratings have `mean` and `std` for each training source. The export writes a float
-ONNX model, an ONNX model with per-output-channel int8 weights, and the same int8 weights for the
-TypeScript forward pass. Both runtimes dequantize weights for float arithmetic.
+ONNX model, a packed-weight ONNX model and the same packed parameters for the TypeScript forward
+pass. I used the default per-output-channel int8 export in the experiment below. The
+`--precision float16` export stores weights and biases as binary16. The predictor decodes them
+for float arithmetic.
 
 I check input equality and inference parity with initialized weights. The command below adds 300
 critical positions from completed shards to the synthetic cases. With no shard path it checks the
@@ -1102,6 +1108,32 @@ checkpoint=$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["sel
 python scripts/check_neural_find_rate.py --checkpoint "$runs/$checkpoint" --prepared "$prepared" \
   --data-root "$engine_data" --output "$runs/export"
 python scripts/benchmark_neural_find_rate.py "$runs/export"
+```
+
+### Shipped review model
+
+The extension uses the validation-selected seed-24, epoch-7 network trained on Chess.com blitz
+and Lichess. The offscreen TypeScript predictor uses the board, player context and 21 move
+features. It scores eligible cards from finished games, including older saved cards with logistic
+estimates. Recomputing a card's estimate preserves its review progress and due date. I kept the
+Chess.com blitz coverage, 1200–2000 rating range and display rounding from the previous version.
+
+I exported all 81,921 weights and biases as float16 and compared them with float32 on the full
+157,583-position Chess.com test set. The largest probability shift was 0.000424 with the recorded
+clock and 0.000433 with the review clock fixed at 0.6561. Both checks had zero positions above
+0.005. The TypeScript predictor also matched packed ONNX within 0.001 on the 300 held-out positions
+and six synthetic positions used in the parity check.
+
+The exported weight file is 218,794 bytes. On my M5 Pro Mac, `scripts/build_extension.sh` produced
+a ZIP of 1,476,239 bytes, up 165,916 bytes from 1,310,323 on `91b6b3f` with the same dependencies.
+The weights are bundled into the offscreen JavaScript.
+
+```sh
+python scripts/check_neural_find_rate.py --checkpoint "$runs/$checkpoint" --prepared "$prepared" \
+  --data-root "$engine_data" --output "$runs/export-float16" --precision float16 --review-clock 0.6561
+cp "$runs/export-float16/weights.json" web/src/extension/neuralFindRateWeights.json
+bash scripts/build_extension.sh
+wc -c web/src/extension/neuralFindRateWeights.json dist/chess-check-extension.zip
 ```
 
 ## Deployment

@@ -26,7 +26,7 @@ test("invalid positions, null moves and invalid promotions give no neural input"
 });
 
 const parity = process.env.NEURAL_FIND_RATE_PARITY;
-test("TypeScript matches the Python board and scalar inputs and int8 ONNX prediction", { skip: !parity }, () => {
+test("TypeScript matches the Python board and scalar inputs and packed ONNX prediction", { skip: !parity }, () => {
   const model = JSON.parse(readFileSync(join(dirname(parity!), "weights.json"), "utf8")) as NeuralFindRateWeights;
   const predict = createNeuralFindRate(model);
   const rows = JSON.parse(readFileSync(parity!, "utf8")) as

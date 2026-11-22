@@ -31,23 +31,14 @@ def load_checkpoint(path: Path):
 
 
 @torch.inference_mode()
-def export_model(model: NeuralFindRate, ratings: dict[str, RatingScale], directory: Path) -> None:
-    """Write a float graph and matching weight-only int8 assets with a dynamic batch."""
+def export_model(model: NeuralFindRate, ratings: dict[str, RatingScale], directory: Path,
+                 precision: str = "int8") -> None:
+    """Write a float graph and a packed-weight graph with the same float operations."""
+    if precision not in ("int8", "float16"):
+        raise ValueError(f"Unsupported precision: {precision}")
     if not ratings or not set(ratings).issubset(SOURCES):
         raise ValueError("The checkpoint must supply ratings for its training sources")
     model = copy.deepcopy(model).cpu().float().eval()
-    quantized = []
-    for name in LAYER_NAMES:
-        layer = getattr(model, name)
-        weight, bias = layer.weight.detach().numpy(), layer.bias.detach().numpy()
-        if not np.isfinite(weight).all() or not np.isfinite(bias).all():
-            raise ValueError(f"{name} contains non-finite parameters")
-        peak = np.max(np.abs(weight).reshape(weight.shape[0], -1), axis=1)
-        scale = np.where(peak > 0, np.maximum(peak / 127, np.finfo(np.float32).tiny), 1).astype(np.float32)
-        divisor = scale.reshape((-1,) + (1,) * (weight.ndim - 1))
-        packed = np.rint(weight / divisor).clip(-127, 127).astype(np.int8)
-        quantized.append((name, packed, scale, bias))
-
     directory.mkdir(parents=True, exist_ok=True)
     float_path = directory / "model.onnx"
     scalar_count = model.hidden.in_features - CHANNELS * 64
@@ -62,7 +53,29 @@ def export_model(model: NeuralFindRate, ratings: dict[str, RatingScale], directo
     initializers = {tensor.name: tensor for tensor in graph.graph.initializer}
     dequant = []
     layers = {}
-    for name, packed, scale, bias in quantized:
+    for name in LAYER_NAMES:
+        layer = getattr(model, name)
+        weight, bias = layer.weight.detach().numpy(), layer.bias.detach().numpy()
+        if not np.isfinite(weight).all() or not np.isfinite(bias).all():
+            raise ValueError(f"{name} contains non-finite parameters")
+        if precision == "float16":
+            packed_layer = {}
+            for field, key, values in (("weight", "weights", weight), ("bias", "biases", bias)):
+                parameter = f"{name}.{field}"
+                packed = values.astype("<f2")
+                if not np.isfinite(packed).all():
+                    raise ValueError(f"{parameter} overflows float16")
+                encoded = f"{parameter}.float16"
+                graph.graph.initializer.remove(initializers[parameter])
+                graph.graph.initializer.append(numpy_helper.from_array(packed, encoded))
+                dequant.append(helper.make_node("Cast", [encoded], [parameter], to=onnx.TensorProto.FLOAT))
+                packed_layer[key] = base64.b64encode(packed.tobytes()).decode("ascii")
+            layers[name] = packed_layer
+            continue
+        peak = np.max(np.abs(weight).reshape(weight.shape[0], -1), axis=1)
+        scale = np.where(peak > 0, np.maximum(peak / 127, np.finfo(np.float32).tiny), 1).astype(np.float32)
+        divisor = scale.reshape((-1,) + (1,) * (weight.ndim - 1))
+        packed = np.rint(weight / divisor).clip(-127, 127).astype(np.int8)
         weight_name = f"{name}.weight"
         graph.graph.initializer.remove(initializers[weight_name])
         packed_name, scale_name = f"{weight_name}.int8", f"{weight_name}.scale"
@@ -74,8 +87,9 @@ def export_model(model: NeuralFindRate, ratings: dict[str, RatingScale], directo
     for index, node in enumerate(dequant):
         graph.graph.node.insert(index, node)
     onnx.checker.check_model(graph)
-    onnx.save(graph, directory / "model.int8.onnx")
-    payload = {"version": ARTIFACT_VERSION, "ratings": {key: asdict(scale) for key, scale in ratings.items()},
+    onnx.save(graph, directory / f"model.{precision}.onnx")
+    payload = {"version": ARTIFACT_VERSION if precision == "int8" else 2,
+               "ratings": {key: asdict(scale) for key, scale in ratings.items()},
                "moveFeatures": scalar_count > SCALAR_FEATURES,
                "layers": layers}
     (directory / "weights.json").write_text(json.dumps(payload, separators=(",", ":"), allow_nan=False) + "\n")
@@ -85,11 +99,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("checkpoint", type=Path)
     parser.add_argument("directory", type=Path)
+    parser.add_argument("--precision", choices=("int8", "float16"), default="int8")
     args = parser.parse_args()
     torch.set_num_threads(1)
     torch.set_num_interop_threads(1)
     model, ratings = load_checkpoint(args.checkpoint)
-    export_model(model, ratings, args.directory)
+    export_model(model, ratings, args.directory, args.precision)
 
 
 if __name__ == "__main__":

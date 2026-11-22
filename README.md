@@ -109,6 +109,13 @@ Most of the gain comes from fixing the formula. In matched games a rating gap ma
 
 The rating barely matters in this range; the kind of move matters a lot. Captures are easy to find, quiet moves to attacked squares are hard, and players who are already ahead find the only move less often. The logistic version runs in the extension: after you review a position from a blitz game, it says how often players near your rating find moves like it.
 
+**Neural find rate, offline.** On 157,583 held-out Chess.com blitz positions, training on Chess.com
+and Lichess gave **0.40366** mean log loss for the neural model with board, context and move
+features, and **0.40835** for gradient boosting with context and move features. The same neural
+architecture trained on Chess.com alone scored **0.40663**. Each of those means covers three seeds.
+The Chess.com-only logistic and boosting baselines scored 0.44100 and 0.40956. All fits excluded
+Stockfish's numerical evaluations. [Neural training methods](docs/methods.md#training-and-evaluation)
+
 **Engine dataset.** To make later questions cheap, I analyzed 664,898 games (49.1 million positions) once with Stockfish 19, keeping the two best moves, win/draw/loss chances and clock time for every position. It took 33 hours on my laptop, and profiles for all 171,126 players in it now take 12 seconds to compute. On all 14,739 test games, none of the engine profiles (accuracy, blunders, conversion, time trouble, form, a rating implied by move quality) improved on the odds formula. The test was precise enough to rule out effects bigger than about 2 points of expected score.
 
 **Lichess pipeline.** I scanned every rated standard game in the October 2026 archive and wrote

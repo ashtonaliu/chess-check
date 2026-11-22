@@ -970,6 +970,140 @@ The TypeScript port is tested against Python output on real games (`web/test/`, 
 - BM25 matches rank_bm25 to 1e-9, and given the same embedding vectors the hybrid ranking is identical.
 - The tactic detector gives the same labels as the Python one on 3,000 Lichess puzzle positions, and the tactic summary, verdicts and coach facts match on real games. This caught a second rounding problem: multiplying 2.675 by 100 gives exactly 267.5 in floating point, so a check for exact halves has to read the number's real decimal digits.
 
+## Neural find-rate inputs
+
+I encode the position before the best move as a float tensor with 21 planes of 8 by 8 squares.
+Squares run file a through h, starting at the mover's home rank. Black-to-move positions reflect
+the ranks and keep the files in place. The planes are ordered as follows.
+
+- 0 through 11 hold pawns, knights, bishops, rooks, queens and kings for the mover, then the opponent.
+- 12 and 13 mark the best move's origin and destination. The encoder accepts legal UCI or SAN.
+- 14 and 15 mark squares attacked by the mover and the opponent. These include defended pieces
+  and attacks by pinned pieces.
+- 16 through 19 give the mover's kingside and queenside castling rights, then the opponent's rights
+  in the same order. Each right fills its whole plane.
+- 20 marks the en passant target when the mover has a legal en passant capture.
+
+The scalar input holds the rating standardized within its source, six one-hot speed values in the
+order UltraBullet, Bullet, Blitz, Rapid, Classical and Daily, the clock fraction clipped to 0 through
+1.5, a missing-clock flag, and a Lichess source flag. A missing clock has fraction zero and its flag
+set. The export carries each source's rating mean and standard deviation. The model uses two
+convolutions with 32 output channels each, flattens the second output, and combines it with the scalar
+input in a 32-unit dense layer and a sigmoid output.
+
+The full model also appends the 21 handcrafted move inputs from the logistic model. They include
+capture and check flags, attack and movement flags, scaled material, log counts of available moves,
+captures and checks, and a one-hot piece type. The browser reuses `moveFeatures` to compute them.
+
+`scripts/export_neural_find_rate.py CHECKPOINT DIRECTORY` expects a checkpoint with `state_dict` and
+`ratings` maps. Ratings have `mean` and `std` for each training source. The export writes a float
+ONNX model, an ONNX model with per-output-channel int8 weights, and the same int8 weights for the
+TypeScript forward pass. Both runtimes dequantize weights for float arithmetic.
+
+I check input equality and inference parity with initialized weights. The command below adds 300
+critical positions from completed shards to the synthetic cases. With no shard path it checks the
+synthetic cases alone, as in CI.
+
+```sh
+python scripts/check_neural_find_rate.py --positions data/engine/lichess-v1/positions
+```
+
+### Training and evaluation
+
+I kept the existing Chess.com blitz test fold and used the same username hash for Lichess. Hashes
+divisible by five went to test. Among the remaining players, a second base-five digit chose
+validation. I case-folded usernames across sources and checked that the Chess.com test assignment
+still agreed with the existing table. There were 516,340 Chess.com training positions, 129,376
+validation positions and 157,583 test positions. The corresponding Lichess counts were 340,264,
+84,987 and 106,835. The Lichess rows came from the local Stockfish training table.
+
+I refit the logistic and histogram gradient-boosting move models on Chess.com alone. Their
+Chess.com test log losses were 0.44100 and 0.40956. I also fit gradient boosting jointly on the
+Chess.com and Lichess training splits, using the same normalized move features and scalar inputs
+as the full neural model, including the speed one-hot and source flag. Both boosting models used
+the player-grouped validation split for early stopping. Stockfish supplied the labels and best
+moves. All fits excluded its numerical evaluations.
+
+I ran seeds 24, 25 and 26 on my M5 Pro Mac with 6 super cores and 12 performance cores. The
+neural runs used PyTorch MPS, binary cross-entropy, AdamW and batches of 1,024. I restored the
+best validation epoch after four epochs without improvement or a cap of 24, then fitted a logit
+temperature on validation. The rating scales were fitted separately on each source's training
+players. All four repeated models use the same 157,583 Chess.com blitz test positions.
+
+Per-seed scores and paired differences below are in seed order 24, 25 and 26. Each interval is
+a 90% interval from 2,000 paired resamples of Chess.com test players. A negative difference means
+lower log loss than the named reference.
+
+- **Gradient boosting, Chess.com and Lichess.** Mean 0.40835, range 0.40831 to 0.40839. Seeds
+  scored 0.40839, 0.40831 and 0.40834. Differences from Chess.com-only boosting were
+  −0.00117 [−0.00144, −0.00090], −0.00125 [−0.00152, −0.00096] and −0.00122 [−0.00151, −0.00093].
+- **Board, context and move features, Chess.com only.** Mean 0.40663, range 0.40598 to 0.40719.
+  Seeds scored 0.40598, 0.40674 and 0.40719. Differences from Chess.com-only boosting were
+  −0.00358 [−0.00469, −0.00247], −0.00282 [−0.00391, −0.00177] and −0.00237 [−0.00352, −0.00125].
+- **Board and context, Chess.com and Lichess.** Mean 0.40981, range 0.40879 to 0.41119. Seeds
+  scored 0.40945, 0.41119 and 0.40879. Differences from joint boosting were
+  +0.00105 [−0.00019, +0.00229], +0.00288 [+0.00154, +0.00410] and +0.00045 [−0.00078, +0.00167].
+- **Board, context and move features, Chess.com and Lichess.** Mean 0.40366, range 0.40257 to
+  0.40500. Seeds scored 0.40257, 0.40341 and 0.40500. Differences from joint boosting were
+  −0.00583 [−0.00692, −0.00481], −0.00490 [−0.00604, −0.00387] and −0.00334 [−0.00442, −0.00226].
+  Differences from the same neural architecture trained on Chess.com only were
+  −0.00341 [−0.00422, −0.00260], −0.00333 [−0.00414, −0.00249] and −0.00219 [−0.00300, −0.00136].
+
+The full joint model beat joint boosting in all three seeds. The Chess.com-only comparison
+also showed a gain from the full neural architecture on the same data. Adding Lichess to that
+architecture gave a further mean gain of 0.00298. In the seed-24 pilot, the joint board-only model
+scored 0.41797 and joint context plus move features scored 0.41353.
+
+I chose the export architecture by mean Chess.com validation log loss across seeds, then took
+its best seed on the same validation split. The selected full joint model had 81,921 parameters
+and came from seed 24, epoch 7. It reached 0.40257 log loss, 0.13099 Brier and 0.80925 AUC on
+Chess.com, and 0.45893, 0.15217 and 0.79859 on Lichess. It predicted a 79.03% find rate on
+Chess.com blitz, where 79.28% of moves were found. On Lichess, the gap by speed was at most
+1.06 points. Some rating bands within a speed had larger gaps, including 10.72 points for Rapid
+at 400 through 599, with 110 test positions. The per-seed JSON includes the full calibration curves
+and breakdowns by 200-point rating band and time control.
+
+### Trained export and TypeScript timing
+
+I checked the trained weights on 300 Chess.com holdout positions and six synthetic positions.
+The Python and TypeScript inputs matched exactly, and the TypeScript probabilities agreed with
+int8 ONNX within 0.001. Float ONNX and PyTorch differed by at most 0.00000108 on this sample.
+
+On all 157,583 Chess.com test positions, per-output-channel int8 weights raised log loss from
+0.402567 to 0.402610, a change of +0.000043. The largest absolute probability difference was
+0.03703, and 26,481 positions exceeded the 0.005 tolerance. This export missed the maximum-error
+target.
+
+I ran the same bundled TypeScript predictor in Node 26.8.2 and headless Chrome 157.0.8103.79 on
+the M5 Pro Mac. Each runtime used three fresh launches, one warmup pass over the 300 sampled
+Chess.com positions and three measured passes per launch. The medians and 95th percentiles below
+pool 2,700 calls per runtime and mode. The model weights were decoded before timing.
+
+- **Node.** The forward pass took 0.89 ms at the median and 0.93 ms at the 95th percentile.
+  Encoding the FEN, context and move features plus the forward pass took 2.03 ms and 2.92 ms.
+- **Headless Chrome.** The forward pass took 0.90 ms and 1.00 ms. Encoding plus the forward pass
+  took 1.90 ms and 2.80 ms.
+
+The timings cover the standalone TypeScript predictor on this Mac. The offscreen page and its
+ONNX Runtime Web path still need a runtime comparison.
+
+```sh
+engine_data=data/engine
+prepared=eval_results/neural-find-rate/prepared-v1
+runs=eval_results/neural-find-rate/three-seed
+python scripts/prepare_neural_find_rate.py --data-root "$engine_data" --output "$prepared" --workers 12
+for seed in 24 25 26; do
+  python scripts/train_neural_find_rate.py --prepared "$prepared" --output "$runs/seed-$seed" \
+    --seed "$seed" --device mps --models logistic_move boosting_move joint_boosting_move \
+    chesscom_board_context_move joint_board_context joint_board_context_move
+done
+python scripts/summarize_neural_find_rate.py --runs "$runs" --prepared "$prepared" --device mps
+checkpoint=$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["selected"]["checkpoint"])' "$runs/summary.json")
+python scripts/check_neural_find_rate.py --checkpoint "$runs/$checkpoint" --prepared "$prepared" \
+  --data-root "$engine_data" --output "$runs/export"
+python scripts/benchmark_neural_find_rate.py "$runs/export"
+```
+
 ## Deployment
 
 - I run the Python tests, TypeScript tests and build, and Chrome extension build in GitHub Actions on pull requests and pushes to main.

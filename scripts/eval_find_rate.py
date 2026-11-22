@@ -143,9 +143,19 @@ def design(df: pd.DataFrame, which: str) -> pd.DataFrame:
     X["no_clock"] = df.clock_frac.isna().astype(int)
     if which in ("clock", ):
         return X
-    for c in ["is_capture", "gives_check", "is_promotion", "is_castle", "backward", "sideways", "was_attacked",
-              "lands_attacked", "in_check"]:
-        X[c] = df[c]
+    X = pd.concat([X, move_design(df)], axis=1)
+    if which == "move":
+        return X
+    X["gap"] = df.gap / 100
+    X["best_wp"] = df.best_wp / 100
+    X["winning"] = (df.best_wp >= 80).astype(int)
+    return X
+
+
+def move_design(df: pd.DataFrame) -> pd.DataFrame:
+    """The score-free handcrafted inputs in the order the browser encodes them."""
+    X = df[["is_capture", "gives_check", "is_promotion", "is_castle", "backward", "sideways", "was_attacked",
+            "lands_attacked", "in_check"]].copy()
     X["captured_value"] = df.captured_value / 9
     X["log_legal"] = np.log1p(df.legal_moves)
     X["captures_available"] = np.log1p(df.captures_available)
@@ -154,11 +164,6 @@ def design(df: pd.DataFrame, which: str) -> pd.DataFrame:
     X["material"] = df.material_balance.clip(-15, 15) / 15
     for p in range(1, 7):
         X[f"piece_{p}"] = (df.piece == p).astype(int)
-    if which == "move":
-        return X
-    X["gap"] = df.gap / 100
-    X["best_wp"] = df.best_wp / 100
-    X["winning"] = (df.best_wp >= 80).astype(int)
     return X
 
 

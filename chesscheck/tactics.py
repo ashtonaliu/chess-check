@@ -183,46 +183,45 @@ def classify_game(pgn: str, analysis: dict) -> list[dict]:
     """One record per blunder (both players): motifs allowed and missed, piece moved and lost.
     Uses the deep re-check (engine.recheck_blunders) when present: a blunder that is not
     confirmed at the deeper depth is dropped."""
-    game = chess.pgn.read_game(io.StringIO(pgn))
-    board = game.board()
     rows = analysis["moves"]
     out = []
-    for i, mv in enumerate(game.mainline_moves()):
-        row = rows[i] if i < len(rows) else None
-        loss = row.get("deep_loss", row["wp_loss"]) if row else 0
-        if row and row["wp_loss"] >= BLUNDER_DROP and loss >= BLUNDER_DROP:
-            moved = board.piece_at(mv.from_square)
-            rec = {"url": analysis["url"], "ply": row["ply"], "move_no": row["move_no"], "san": row["san"],
-                   "is_me": row["is_me"], "phase": row["phase"], "wp_loss": loss,
-                   "piece": PIECE_NAME[moved.piece_type] if moved else None,
-                   "allowed": [], "missed": [], "lost": None, "refutation": None, "best": row.get("best"),
-                   "fen": board.fen()}
-            best = _san_move(board, row.get("deep_best", row.get("best")))
-            rec["best"] = board.san(best) if best else None
-            if best and best != mv:
-                rec["missed"] = _geometric(board, best)
-                if row.get("deep_cp_before", row["cp_before"]) >= MATE_CP:
-                    rec["missed"] = ["mate"] + rec["missed"]
-            after = board.copy(stack=False)
-            after.push(mv)
-            nxt = rows[i + 1] if i + 1 < len(rows) else None
-            refute = _san_move(after, row.get("deep_refutation") or (nxt.get("best") if nxt else None))
-            if row.get("deep_cp_after", row["cp_after"]) <= -MATE_CP:
-                rec["allowed"].append("mate")
-            if refute:
-                rec["refutation"] = after.san(refute)
-                rec["allowed"] += _geometric(after, refute)
-                cap = after.piece_at(refute.to_square)
-                if cap and cap.color == board.turn:
-                    rec["lost"] = PIECE_NAME[cap.piece_type]
-                fork_piece = after.piece_at(refute.from_square)
-                if "fork" in rec["allowed"] and fork_piece:
-                    rec["fork_by"] = PIECE_NAME[fork_piece.piece_type]
-            if "fork" in rec["missed"] and best:
-                fp = board.piece_at(best.from_square)
-                rec["missed_fork_by"] = PIECE_NAME[fp.piece_type] if fp else None
-            out.append(rec)
-        board.push(mv)
+    for i, row in enumerate(rows):
+        loss = row.get("deep_loss", row["wp_loss"])
+        if not (row["wp_loss"] >= BLUNDER_DROP and loss >= BLUNDER_DROP):
+            continue
+        board = chess.Board(row["fen"])
+        mv = board.parse_san(row["san"])
+        moved = board.piece_at(mv.from_square)
+        rec = {"url": analysis["url"], "ply": row["ply"], "move_no": row["move_no"], "san": row["san"],
+               "is_me": row["is_me"], "phase": row["phase"], "wp_loss": loss,
+               "piece": PIECE_NAME[moved.piece_type] if moved else None,
+               "allowed": [], "missed": [], "lost": None, "refutation": None, "best": row.get("best"),
+               "fen": row["fen"]}
+        best = _san_move(board, row.get("deep_best", row.get("best")))
+        rec["best"] = board.san(best) if best else None
+        if best and best != mv:
+            rec["missed"] = _geometric(board, best)
+            if row.get("deep_cp_before", row["cp_before"]) >= MATE_CP:
+                rec["missed"] = ["mate"] + rec["missed"]
+        after = board.copy(stack=False)
+        after.push(mv)
+        nxt = rows[i + 1] if i + 1 < len(rows) else None
+        refute = _san_move(after, row.get("deep_refutation") or (nxt.get("best") if nxt else None))
+        if row.get("deep_cp_after", row["cp_after"]) <= -MATE_CP:
+            rec["allowed"].append("mate")
+        if refute:
+            rec["refutation"] = after.san(refute)
+            rec["allowed"] += _geometric(after, refute)
+            cap = after.piece_at(refute.to_square)
+            if cap and cap.color == board.turn:
+                rec["lost"] = PIECE_NAME[cap.piece_type]
+            fork_piece = after.piece_at(refute.from_square)
+            if "fork" in rec["allowed"] and fork_piece:
+                rec["fork_by"] = PIECE_NAME[fork_piece.piece_type]
+        if "fork" in rec["missed"] and best:
+            fp = board.piece_at(best.from_square)
+            rec["missed_fork_by"] = PIECE_NAME[fp.piece_type] if fp else None
+        out.append(rec)
     return out
 
 

@@ -54,13 +54,10 @@ def verify(output: str, facts: list[dict], require_citation: bool = True) -> dic
     fact_urls = {_clean_url(u) for u in URL.findall(all_text)}
 
     bad_cites, unsupported, uncited, checked = [], [], [], 0
-    pending_cites: list[str] = []
     for sent in _sentences(output):
         cites = CITE.findall(sent)
         bad_cites += [c for c in cites if c not in by_id]
-        # a citation at the start of the next line often belongs to this one
-        scope = " ".join(by_id[c] for c in cites + pending_cites if c in by_id)
-        pending_cites = []
+        scope = " ".join(by_id[c] for c in cites if c in by_id)
         body = CITE.sub(" ", sent)
 
         for u in URL.findall(body):

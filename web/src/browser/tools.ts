@@ -167,10 +167,14 @@ export class ToolBox {
         const sql = String(input.query ?? "").trim();
         const head = sqlHead(sql);
         if (head !== "SELECT" && head !== "WITH") return done("Error: only SELECT/WITH queries are allowed.", true);
-        this.db ??= this.openDb(this.games, this.moves);
+        const dbPromise = (this.db ??= this.openDb(this.games, this.moves));
         try {
+          const handle = await dbPromise.catch(e => {
+            if (this.db === dbPromise) this.db = null;
+            throw e;
+          });
           // Preparing refuses more than one statement (using DuckDB's own parser).
-          const stmt = await (await this.db).prepare(sql);
+          const stmt = await handle.prepare(sql);
           try {
             const res = await stmt.query();
             const cols = res.schema.fields.map(f => f.name);

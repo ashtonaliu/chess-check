@@ -129,6 +129,18 @@ pub struct Position {
 #[must_use]
 pub struct Undo(Position);
 
+/// Minimal state saved to undo a move piece by piece without copying the whole position.
+/// Kept only for `examples/bench_unmake.rs`: the whole-position copy measured as fast, so the
+/// engine uses [`Position::make_move`] and [`Position::unmake_move`].
+#[doc(hidden)]
+#[must_use]
+pub struct IncrementalUndo {
+    captured: Option<Role>,
+    castling: u8,
+    en_passant: Option<u8>,
+    halfmove: u32,
+}
+
 impl Position {
     fn pieces(&self, color: Color, role: Role) -> u64 {
         self.pieces[color as usize][role as usize]
@@ -369,6 +381,88 @@ impl Position {
         *self = undo.0;
     }
 
+    /// Play a legal move and return only the minimal metadata needed to undo it piece by piece.
+    #[doc(hidden)]
+    pub fn make_move_incremental(&mut self, mv: Move) -> IncrementalUndo {
+        let color = self.turn;
+        let enemy = color.other();
+        let prev_castling = self.castling;
+        let prev_en_passant = self.en_passant;
+        let prev_halfmove = self.halfmove;
+        let capture_square = if mv.role == Role::Pawn && prev_en_passant == Some(mv.to) {
+            enemy.forward(mv.to)
+        } else {
+            mv.to
+        };
+        let mut captured = None;
+        for (idx, mask) in self.pieces[enemy as usize].iter_mut().enumerate() {
+            if *mask & bit(capture_square) != 0 {
+                *mask &= !bit(capture_square);
+                captured = Some(ROLES[idx]);
+                break;
+            }
+        }
+
+        let own = &mut self.pieces[color as usize];
+        own[mv.role as usize] &= !bit(mv.from);
+        own[mv.promotion.unwrap_or(mv.role) as usize] |= bit(mv.to);
+        if mv.role == Role::King && mv.from.abs_diff(mv.to) == 2 {
+            let rook_from = color.home_rank() + if mv.to > mv.from { 7 } else { 0 };
+            own[Role::Rook as usize] ^= bit(rook_from) | bit(mv.from.midpoint(mv.to));
+        }
+
+        self.castling &= !(rights_lost(mv.from) | rights_lost(mv.to));
+        self.en_passant = (mv.role == Role::Pawn && mv.from.abs_diff(mv.to) == 16)
+            .then(|| color.forward(mv.from));
+        self.halfmove = if mv.role == Role::Pawn || captured.is_some() {
+            0
+        } else {
+            self.halfmove.saturating_add(1)
+        };
+        self.fullmove = self
+            .fullmove
+            .saturating_add(u32::from(color == Color::Black));
+        self.turn = enemy;
+
+        IncrementalUndo {
+            captured,
+            castling: prev_castling,
+            en_passant: prev_en_passant,
+            halfmove: prev_halfmove,
+        }
+    }
+
+    /// Undo a move played with [`Self::make_move_incremental`] piece by piece.
+    #[doc(hidden)]
+    pub fn unmake_move_incremental(&mut self, mv: Move, undo: IncrementalUndo) {
+        let enemy = self.turn;
+        let color = enemy.other();
+        self.turn = color;
+        self.fullmove = self
+            .fullmove
+            .saturating_sub(u32::from(color == Color::Black));
+        self.halfmove = undo.halfmove;
+        self.en_passant = undo.en_passant;
+        self.castling = undo.castling;
+
+        let own = &mut self.pieces[color as usize];
+        own[mv.promotion.unwrap_or(mv.role) as usize] &= !bit(mv.to);
+        own[mv.role as usize] |= bit(mv.from);
+        if mv.role == Role::King && mv.from.abs_diff(mv.to) == 2 {
+            let rook_from = color.home_rank() + if mv.to > mv.from { 7 } else { 0 };
+            own[Role::Rook as usize] ^= bit(rook_from) | bit(mv.from.midpoint(mv.to));
+        }
+
+        if let Some(captured) = undo.captured {
+            let capture_square = if mv.role == Role::Pawn && undo.en_passant == Some(mv.to) {
+                enemy.forward(mv.to)
+            } else {
+                mv.to
+            };
+            self.pieces[enemy as usize][captured as usize] |= bit(capture_square);
+        }
+    }
+
     fn apply(&mut self, mv: Move) {
         let color = self.turn;
         let enemy = color.other();
@@ -509,6 +603,40 @@ mod tests {
             let reparsed: Position = output.parse().unwrap();
             assert_eq!(reparsed.to_string(), output);
             assert_eq!(sorted(reparsed.legal_moves()), sorted(pos.legal_moves()));
+        }
+    }
+
+    #[test]
+    fn incremental_unmake_restores_every_position_in_random_games() {
+        let starts: Vec<Position> = include_str!("../tests/perft.txt")
+            .lines()
+            .filter(|line| !line.starts_with('#'))
+            .map(|line| line.split(" | ").nth(1).unwrap().parse().unwrap())
+            .collect();
+        let mut rng = 0x2545_f491_4f6c_dd1du64;
+        for game in 0..512 {
+            let mut pos = starts[game % starts.len()];
+            let mut history = Vec::with_capacity(128);
+            for _ in 0..128 {
+                let moves = pos.legal_moves();
+                if moves.is_empty() {
+                    break;
+                }
+                rng ^= rng << 13;
+                rng ^= rng >> 7;
+                rng ^= rng << 17;
+                let mv = moves[(rng % moves.len() as u64) as usize];
+                let before = pos;
+                let mut via_copy = pos;
+                let _ = via_copy.make_move(mv);
+                let undo = pos.make_move_incremental(mv);
+                assert_eq!(pos, via_copy, "incremental make diverged on {mv}");
+                history.push((before, mv, undo));
+            }
+            while let Some((before, mv, undo)) = history.pop() {
+                pos.unmake_move_incremental(mv, undo);
+                assert_eq!(pos, before, "incremental unmake failed on {mv}");
+            }
         }
     }
 }

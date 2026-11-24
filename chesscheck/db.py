@@ -64,6 +64,23 @@ def opening_groups(games: pd.DataFrame, min_games: int = 3) -> pd.DataFrame:
         con.close()
 
 
+def _sql_head(sql: str) -> str:
+    s = sql.lstrip()
+    while True:
+        if s.startswith("--"):
+            _, _, s = s.partition("\n")
+            s = s.lstrip()
+        elif s.startswith("/*"):
+            end = s.find("*/")
+            if end == -1:
+                return ""
+            s = s[end + 2:].lstrip()
+        else:
+            break
+    s = s.lstrip("(").lstrip()
+    return s.split(None, 1)[0].upper() if s else ""
+
+
 class ReadOnlySQL:
     """SQL tool for the agent: in-memory copy, no file or network access."""
 
@@ -76,8 +93,7 @@ class ReadOnlySQL:
         self.con.execute("SET lock_configuration = true")
 
     def run(self, sql: str) -> str:
-        head = sql.strip().lstrip("(").split(None, 1)[0].upper() if sql.strip() else ""
-        if head not in ("SELECT", "WITH"):
+        if _sql_head(sql) not in ("SELECT", "WITH"):
             return "Error: only SELECT/WITH queries are allowed."
         try:
             df = self.con.execute(sql).df()

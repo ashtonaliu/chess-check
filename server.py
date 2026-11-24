@@ -158,8 +158,10 @@ async def api_coach(r: AnalyzeReq, request: Request):
         a = await run_in_threadpool(_get, r)
         res = await run_in_threadpool(lambda: run_coach_auto(a.username, a.facts, a.games, a.moves,
                                                              summaries=a.summaries))
-    except RuntimeError as e:
-        raise HTTPException(502, str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(502, "The coaching provider failed. Try again shortly.")
     finally:
         _coach_jobs.release()
     return {"report": res.report, "verification": res.verification,

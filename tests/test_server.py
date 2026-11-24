@@ -174,3 +174,33 @@ def test_username_with_trailing_newline_is_rejected(stub):
         server._get(req("hikaru\n"))
     assert rejected.value.status_code == 400
     assert stub["calls"] == 0
+
+
+def test_coach_errors_return_502_without_leaking_internals(monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+
+    from starlette.requests import Request
+
+    monkeypatch.setenv("CHESS_CHECK_COACH_TOKEN", "test-coaching-token")
+    monkeypatch.setattr(server, "_backend", lambda: "api")
+    monkeypatch.setattr(server, "_coach_jobs", threading.BoundedSemaphore(1))
+    monkeypatch.setattr(server, "_get", lambda r: SimpleNamespace(
+        username=r.username, facts=[], games=[], moves=[], summaries=[]))
+
+    request = Request({
+        "type": "http",
+        "client": ("192.0.2.1", 10000),
+        "headers": [(b"authorization", b"Bearer test-coaching-token")],
+    })
+
+    class UpstreamAPIError(Exception):
+        pass
+
+    for exc in (RuntimeError("Claude Code failed: /Users/local/secret.py"), UpstreamAPIError("api key sk-secret")):
+        monkeypatch.setattr(server, "run_coach_auto", lambda *a, _exc=exc, **kw: (_ for _ in ()).throw(_exc))
+        with pytest.raises(server.HTTPException) as err:
+            asyncio.run(server.api_coach(req(), request))
+        assert err.value.status_code == 502
+        assert "/Users/local/secret.py" not in err.value.detail
+        assert "sk-secret" not in err.value.detail

@@ -212,7 +212,7 @@ def player_risk(moves: pd.DataFrame, n_splits: int = 5, model: str = "hgb") -> d
     X, y, groups = features(moves)
     me = moves.is_me.to_numpy().astype(bool)
     n_groups = len(np.unique(groups))
-    if y[~me].sum() < 10 or n_groups < n_splits:
+    if not me.any() or y[~me].sum() < 10 or n_groups < n_splits:
         return None
     make = {"hgb": _hgb, "logreg": _logreg}[model]
     fold = group_folds(groups, n_splits)
@@ -222,10 +222,13 @@ def player_risk(moves: pd.DataFrame, n_splits: int = 5, model: str = "hgb") -> d
         te = np.where(fold == k)[0]
         mdl = make().fit(X.iloc[tr_opp], y[tr_opp])
         oof[te] = mdl.predict_proba(X.iloc[te])[:, 1]
+    expected = float(oof[me].sum())
+    if expected <= 0:
+        return None
     out = {"model": MODEL_NAMES[model], "moves": int(me.sum()), "actual": int(y[me].sum()),
-           "expected": float(oof[me].sum()), "buckets": []}
-    out["ratio"] = out["actual"] / out["expected"] if out["expected"] else float("nan")
-    out["ci_low"], out["ci_high"] = poisson_ratio_interval(out["actual"], out["expected"])
+           "expected": expected, "buckets": []}
+    out["ratio"] = out["actual"] / expected
+    out["ci_low"], out["ci_high"] = poisson_ratio_interval(out["actual"], expected)
     frac = pd.to_numeric(moves.get("clock_frac"), errors="coerce").to_numpy()
     for lo, hi, label in CLOCK_BUCKETS:
         sel = me & (frac > lo) & (frac <= hi)

@@ -235,6 +235,10 @@ def _text(resp) -> str:
     return "".join(b.text for b in resp.content if b.type == "text").strip()
 
 
+class CoachError(RuntimeError):
+    """A coaching failure whose message is written for the user and safe to show."""
+
+
 def _agent_turns(client, messages, box: ToolBox, usage: dict):
     """Run until the model stops calling tools; returns the final response."""
     for _ in range(MAX_TOOL_TURNS + 1):
@@ -242,7 +246,7 @@ def _agent_turns(client, messages, box: ToolBox, usage: dict):
         for k in ("input_tokens", "output_tokens"):
             usage[k] = usage.get(k, 0) + getattr(resp.usage, k, 0)
         if resp.stop_reason == "refusal":
-            raise RuntimeError("The model declined to write this report.")
+            raise CoachError("The model declined to write this report.")
         messages.append({"role": "assistant", "content": resp.content})
         if resp.stop_reason == "pause_turn":
             continue
@@ -255,7 +259,7 @@ def _agent_turns(client, messages, box: ToolBox, usage: dict):
             results.append({"type": "tool_result", "tool_use_id": u.id,
                             "content": out, "is_error": is_err})
         messages.append({"role": "user", "content": results})
-    raise RuntimeError("Coach used too many tool calls.")
+    raise CoachError("Coach used too many tool calls.")
 
 
 def run_coach(username: str, facts: list[dict], games: pd.DataFrame,

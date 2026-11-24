@@ -204,3 +204,13 @@ def test_coach_errors_return_502_without_leaking_internals(monkeypatch):
         assert err.value.status_code == 502
         assert "/Users/local/secret.py" not in err.value.detail
         assert "sk-secret" not in err.value.detail
+
+    from chesscheck.coach import CoachError
+
+    monkeypatch.setattr(server, "run_coach_auto", lambda *a, **kw: (_ for _ in ()).throw(
+        CoachError("The model declined to write this report.")))
+    with pytest.raises(server.HTTPException) as err:
+        asyncio.run(server.api_coach(req(), request))
+    assert err.value.status_code == 502
+    assert err.value.detail == "The model declined to write this report."
+

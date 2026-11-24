@@ -28,6 +28,7 @@ export interface ChessBindings {
   advanceBatch(batch: string): string;
   moveFeaturesBatch(batch: string): string;
   parsePgnBatch(batch: string): string;
+  motifsBatch(batch: string): string;
 }
 interface ChessModule extends ChessBindings { default(init?: { module_or_path: Uint8Array }): Promise<unknown> }
 
@@ -68,6 +69,10 @@ export class WasmChess {
 
   parsePgns(pgns: string[]): (ParsedPgn | null)[] {
     return call(this.bindings.parsePgnBatch, pgns);
+  }
+
+  motifs(moves: MoveAt[]): (string[] | null)[] {
+    return call(this.bindings.motifsBatch, moves);
   }
 }
 

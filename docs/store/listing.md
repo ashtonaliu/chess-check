@@ -30,6 +30,10 @@ https://github.com/ashtonaliu/chess-check/issues
 
 https://ashtonaliu.github.io/chess-check/privacy.html
 
+## What's new in 0.8.0
+
+Review cards now use a neural find-rate model to estimate how often players at your rating find the best move. Analysis uses a Rust chess core compiled to WebAssembly.
+
 ## Privacy practices fields
 
 **Single purpose**

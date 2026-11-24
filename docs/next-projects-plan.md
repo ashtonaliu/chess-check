@@ -1,6 +1,6 @@
 # Plan: three technical projects
 
-Status: Phase A ingest and cloud comparison measured. Local Stockfish is the training label source.
+Status: Phases A (#78–#84), B (#91–#92), and C (#86–#90, #93–#100, #102–#103) are done.
 Order: A, then B, then C. Each phase ships as its own pull requests and its own write-up, and each one
 ends in a measured result. If a phase's main result is negative, that is
 still a finished phase: report it the way the odds study reports its null results.

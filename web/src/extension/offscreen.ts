@@ -295,7 +295,7 @@ export async function handle(req: Request): Promise<Reply> {
     const a = job.analysis, err = job.error;
     const empty: GameAnalysis = { url: game.url, color: game.color, moves: [], opening_eval: null };
     const recap = buildRecap(game, a?.analysis ?? empty, a?.blunders ?? [],
-      profile?.rows ?? archive?.rows ?? [], profile?.tactics ?? null, note, null);
+      profile?.rows ?? archive?.rows ?? [], profile?.tactics ?? null, note);
     if (profile && (a || err) && job.opponentDone) {
       jobs.delete(key);
       if (err) {
@@ -349,7 +349,7 @@ if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
       // Measure one finished recap separately, after the build's IndexedDB save and outside its window.
       const game = nameCallbackOpening(finished, profile.games);
       const { analysis, blunders } = await analyzeGame(game, ENGINE_URL);
-      const recap = buildRecap(game, analysis, blunders, profile.rows, profile.tactics, null, null);
+      const recap = buildRecap(game, analysis, blunders, profile.rows, profile.tactics);
       const turning = recap.turning;
       if (!turning?.best || !moveFeatures(turning.fen, turning.best)) {
         throw new Error("The fixture did not exercise find-rate features");

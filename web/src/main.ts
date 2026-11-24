@@ -6,6 +6,7 @@ import { turningBoard } from "./ui/board";
 import { esc, notificationText, PLURAL, PUZZLE, recapCard } from "./ui/recapCard";
 import { exampleCard, initExampleViewers, openExamples, type DialogItem } from "./ui/lineViewer";
 import { embed } from "./browser/search";
+import { configureWasmChess } from "./browser/wasmChess";
 
 // Chess Check UI. Plain TypeScript, no framework. In the static demo the
 // analysis runs in the browser (browser/pipeline.ts); with the Python server it
@@ -55,6 +56,7 @@ const cap1 = (s: string) => s[0].toUpperCase() + s.slice(1);
 interface StaticConfig { analysis: string; report: string; repo: string; browser?: boolean; }
 const STATIC = (window as unknown as { CHESS_CHECK_STATIC?: StaticConfig }).CHESS_CHECK_STATIC ?? null;
 const ENGINE_URL = new URL("engine/stockfish-19-lite-single.js", import.meta.url).href;
+configureWasmChess(new URL("engine/engine_core.js", import.meta.url).href);
 const BROWSER_DEPTH = 8;
 
 let findingList: Finding[] = [];

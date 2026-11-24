@@ -211,6 +211,7 @@ function classifyGameInto(pgn: string, a: GameAnalysis, pending: PendingMotif[] 
       const after = new Chess(afterFen);
       const cap = after.get(refute.to as never);
       if (cap && cap.color === mv.color) rec.lost = NAME[cap.type as PT];
+      else if (refute.flags.includes("e")) rec.lost = "pawn";   // en passant: the pawn is not on the target square
       if (!pending && rec.allowed.includes("fork")) rec.fork_by = NAME[refute.piece];
     }
     if (!pending && rec.missed.includes("fork") && best) {

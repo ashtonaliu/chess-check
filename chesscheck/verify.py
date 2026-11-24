@@ -17,7 +17,7 @@ CITE = re.compile(r"\[([FT]\d+)\]")
 URL = re.compile(r"https?://\S+")
 MOVE = re.compile(
     r"(?<![\w.])(?:\d+\.(?:\.\.)?\s?)?"
-    r"(?:O-O(?:-O)?|[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|[a-h]x[a-h][1-8]|"
+    r"(?:O-O(?:-O)?|[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|[a-h]x[a-h][1-8](?:=[QRBN])?|"
     r"[a-h][1-8](?:=[QRBN])?)[+#]?(?![\w])")
 NUM = re.compile(r"(?<![\w.])[-+−]?\d+(?:\.\d+)?")
 LIST_MARK = re.compile(r"^\s*(?:\**\d+[.)]\**|[-*])\s+", re.M)

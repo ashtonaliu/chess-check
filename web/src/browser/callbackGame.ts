@@ -58,7 +58,7 @@ export function gameFromCallback(cb: Callback, user: string, kind: "live" | "dai
   const stamps = (g.moveTimestamps ?? "").split(",").filter(Boolean).map(Number);
   decodeTcn(g.moveList).forEach((m, i) => {
     replay.move(m);
-    if (stamps.length) replay.setComment(`[%clk ${clock(stamps[i])}]`);
+    if (i < stamps.length && Number.isFinite(stamps[i])) replay.setComment(`[%clk ${clock(stamps[i])}]`);
   });
   const result = String(h.Result ?? "*");
   replay.setHeader("White", white); replay.setHeader("Black", black); replay.setHeader("Result", result);

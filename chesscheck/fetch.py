@@ -151,6 +151,8 @@ def fetch_games(user: str, max_games: int = 300,
 
 
 TRIES = 3
+# The server waits inside a request, so a long Retry-After is cut short.
+MAX_RETRY_WAIT = 10.0
 
 
 def _retry_delay(response: requests.Response, attempt: int) -> float:
@@ -171,9 +173,16 @@ def _retry_delay(response: requests.Response, attempt: int) -> float:
 
 def _get_with_retry(session: requests.Session, url: str, timeout: int) -> requests.Response:
     for attempt in range(1, TRIES + 1):
-        r = session.get(url, headers=HEADERS, timeout=timeout)
+        try:
+            r = session.get(url, headers=HEADERS, timeout=timeout)
+        except (requests.ConnectionError, requests.Timeout):
+            # Like getWithRetry in the browser, a dropped connection or timeout is tried again.
+            if attempt == TRIES:
+                raise
+            time.sleep(float(attempt))
+            continue
         if (r.status_code == 429 or r.status_code >= 500) and attempt < TRIES:
-            time.sleep(_retry_delay(r, attempt))
+            time.sleep(min(_retry_delay(r, attempt), MAX_RETRY_WAIT))
             continue
         return r
     raise AssertionError("unreachable")

@@ -370,3 +370,21 @@ def test_fetch_retries_429_and_5xx_with_backoff_and_retry_after(monkeypatch):
         fetch.fetch_games("someone", max_games=5, session=missing)
     assert len(missing.calls) == 1
     assert sleeps == []
+
+    # A long Retry-After is capped, and a dropped connection is retried
+    sleeps.clear()
+    flaky = FakeSession([FakeResponse(429, headers={"Retry-After": "3600"}),
+                         FakeResponse(200, {"archives": []})])
+    real_get = flaky.get
+    dropped = []
+
+    def get(url, **kwargs):
+        if not dropped:
+            dropped.append(url)
+            raise requests.ConnectionError("reset")
+        return real_get(url, **kwargs)
+
+    flaky.get = get
+    assert fetch.fetch_games("someone", max_games=5, session=flaky) == []
+    assert sleeps == [1.0, fetch.MAX_RETRY_WAIT]
+

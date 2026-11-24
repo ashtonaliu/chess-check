@@ -69,7 +69,9 @@ def build_raw() -> None:
 def move_features(fen: str, uci: str) -> dict:
     """What kind of move the best move is, from the position alone (computable in the browser)."""
     board = chess.Board(fen)
-    move = chess.Move.from_uci(uci)
+    if not board.is_valid():
+        raise ValueError(f"Invalid position: {fen}")
+    move = board.parse_uci(uci)
     piece = board.piece_at(move.from_square)
     captured = board.piece_at(move.to_square)
     if board.is_en_passant(move):
@@ -78,11 +80,17 @@ def move_features(fen: str, uci: str) -> dict:
     forward = (chess.square_rank(move.to_square) - chess.square_rank(move.from_square)) * (1 if me == chess.WHITE else -1)
     attacked_before = board.is_attacked_by(not me, move.from_square)
     gives_check = board.gives_check(move)
-    legal = board.legal_moves.count()
-    captures = sum(1 for m in board.legal_moves if board.is_capture(m))
-    checks = sum(1 for m in board.legal_moves if board.gives_check(m))
-    material = sum(VALUE[p.piece_type] * (1 if p.color == me else -1) for p in board.piece_map().values())
-    non_pawn = sum(VALUE[p.piece_type] for p in board.piece_map().values() if p.piece_type not in (chess.PAWN, chess.KING))
+    moves = list(board.legal_moves)
+    legal = len(moves)
+    captures = sum(1 for m in moves if board.is_capture(m))
+    checks = sum(1 for m in moves if board.gives_check(m))
+    material = 0
+    non_pawn = 0
+    for p in board.piece_map().values():
+        v = VALUE[p.piece_type]
+        material += v if p.color == me else -v
+        if p.piece_type not in (chess.PAWN, chess.KING):
+            non_pawn += v
     after = board.copy(stack=False)
     after.push(move)
     lands_attacked = after.is_attacked_by(not me, move.to_square)

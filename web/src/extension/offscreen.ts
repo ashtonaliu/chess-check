@@ -6,7 +6,7 @@
 // When the engine runs: the profile is built when the cube asks to "warm" it,
 // which it does only on pages that are not a game or the play page, and for a
 // finished game. Nothing here runs while the player is in a game.
-import { gameFromCallback, nameCallbackOpening, type Callback } from "../browser/callbackGame";
+import { gameFromCallback, isStandardCallback, nameCallbackOpening, type Callback } from "../browser/callbackGame";
 import { defaultWorkers, pruneAnalysisCache, type GameAnalysis } from "../browser/engine";
 import { moveFeatures } from "../browser/findRate";
 import { analyzeGame, type Profile } from "../browser/follow";
@@ -272,7 +272,11 @@ export async function handle(req: Request): Promise<Reply> {
     if (!canShowRecap(req.gameId, finished)) return { status: "pending" };
     let job = jobs.get(key);
     const probe = job?.game ?? gameFromCallback(req.callback, req.username, req.kind, []);
-    if (!probe) return { status: "pending" };
+    if (!probe) {
+      // A finished Chess960 or odds game would otherwise sit on "appears when this game ends".
+      return isStandardCallback(req.callback) ? { status: "pending" }
+        : { status: "error", message: "Chess Check only reviews standard chess games." };
+    }
     const slotKey = `${req.username.toLowerCase()}|${probe.timeClass}`;
     const previousArchive = slots.get(slotKey)?.archive;
     // Keep the finished game's search ahead of the profile build and the player's archive, which

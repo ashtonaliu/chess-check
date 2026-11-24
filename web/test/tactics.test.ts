@@ -3,12 +3,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
+import { Chess } from "chess.js";
 
 import type { GameAnalysis } from "../src/browser/engine";
 import { buildFacts, pyFixed } from "../src/browser/facts";
 import type { Game } from "../src/browser/games";
 import { withExpected } from "../src/browser/stats";
-import { motifs, normPpf, ratioInterval, summarize } from "../src/browser/tactics";
+import { classifyGame, motifs, normPpf, ratioInterval, summarize } from "../src/browser/tactics";
 
 const fx = JSON.parse(readFileSync(new URL("./fixtures/tactics.json", import.meta.url), "utf8"));
 const num = (x: unknown) => (x === "Infinity" ? Infinity : x === null ? NaN : (x as number));
@@ -64,4 +65,23 @@ test("Python-style fixed formatting rounds exact halves to even", () => {
   assert.deepEqual([pyFixed(1.125, 2), pyFixed(1.135, 2), pyFixed(0.25, 1), pyFixed(2.675, 2), pyFixed(0.375, 2),
                     pyFixed(-0.125, 2), pyFixed(3.5, 0), pyFixed(4.5, 0)],
                    ["1.12", "1.14", "0.2", "2.67", "0.38", "-0.12", "4", "4"]);
+});
+
+test("a pawn lost to en passant is recorded as a lost pawn", () => {
+  const pgn = "1. e4 a6 2. e5 d5 3. Nf3";
+  const board = new Chess();
+  const rows = ["e4", "a6", "e5", "d5", "Nf3"].map((san, ply) => {
+    const fen = board.fen();
+    board.move(san);
+    const blunder = ply === 3;
+    return { ply, move_no: Math.floor(ply / 2) + 1, san, best: ply === 3 ? "c6" : ply === 4 ? "exd6" : null,
+      mover: ply % 2 ? "black" : "white", is_me: ply % 2 === 1, phase: "opening", fen,
+      cp_before: 0, cp_after: blunder ? 300 : 0, wp_loss: blunder ? 30 : 0, clock: null, clock_frac: null,
+      time_spent: null, legal_moves: 20, in_check: 0, captures_available: 0, material_balance: 0,
+      non_pawn_material: 62, is_capture: 0 };
+  });
+  const [rec] = classifyGame(pgn, { url: "https://www.chess.com/game/live/1", color: "black", moves: rows,
+    opening_eval: null } as GameAnalysis);
+  assert.equal(rec.refutation, "exd6");
+  assert.equal(rec.lost, "pawn");
 });

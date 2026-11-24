@@ -4,11 +4,13 @@ mod attacks;
 mod features;
 mod fen;
 mod san;
+mod tactics;
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 
 pub use features::{BOARD_PLANES, MOVE_FEATURE_COUNT, MoveFeatures};
 pub use fen::ParseFenError;
+pub use tactics::{MOTIF_NAMES, Motifs};
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -129,6 +131,18 @@ pub struct Position {
 #[must_use]
 pub struct Undo(Position);
 
+/// Minimal state saved to undo a move piece by piece without copying the whole position.
+/// Kept only for `examples/bench_unmake.rs`: the whole-position copy measured as fast, so the
+/// engine uses [`Position::make_move`] and [`Position::unmake_move`].
+#[doc(hidden)]
+#[must_use]
+pub struct IncrementalUndo {
+    captured: Option<Role>,
+    castling: u8,
+    en_passant: Option<u8>,
+    halfmove: u32,
+}
+
 impl Position {
     fn pieces(&self, color: Color, role: Role) -> u64 {
         self.pieces[color as usize][role as usize]
@@ -236,26 +250,26 @@ impl Position {
         self.en_passant_moves().next().is_some()
     }
 
-    /// Generate all legal moves, including the four promotion choices.
-    pub fn legal_moves(&self) -> Vec<Move> {
+    /// Generate all legal moves into `moves` (clearing any previous entries), including promotions.
+    pub fn legal_moves_into(&self, moves: &mut Vec<Move>) {
+        moves.clear();
         let color = self.turn;
         let enemy = color.other();
         let own = self.occupied_by(color);
         let opposing = self.occupied_by(enemy);
         let occupied = own | opposing;
         let king = self.king_square(color);
-        let mut moves = Vec::with_capacity(48);
 
         // Remove the king from the board so a slider's attack continues past its square.
         let without_king = occupied & !bit(king);
         let king_targets = squares(attacks::KING[king as usize] & !own)
             .filter(|&to| !self.is_attacked(to, enemy, without_king))
             .fold(0, |all, to| all | bit(to));
-        Self::push_moves(&mut moves, Role::King, king, king_targets);
+        Self::push_moves(moves, Role::King, king, king_targets);
 
         let checkers = self.attackers(king, enemy, occupied);
         if checkers.count_ones() > 1 {
-            return moves;
+            return;
         }
         // In check, another piece must capture the checker or block its line.
         let evasions = if checkers == 0 {
@@ -286,15 +300,76 @@ impl Position {
                     // A pinned piece can only move along the ray from the king through it.
                     targets &= attacks::ray(king, from);
                 }
-                Self::push_moves(&mut moves, role, from, targets);
+                Self::push_moves(moves, role, from, targets);
             }
         }
         // En passant removes two pawns from one rank, which can expose the king along it.
         moves.extend(self.en_passant_moves());
         if checkers == 0 {
-            self.castles(occupied, &mut moves);
+            self.castles(occupied, moves);
         }
+    }
+
+    /// Generate all legal moves, including the four promotion choices.
+    pub fn legal_moves(&self) -> Vec<Move> {
+        let mut moves = Vec::with_capacity(48);
+        self.legal_moves_into(&mut moves);
         moves
+    }
+
+    /// Return whether the side to move has at least one legal move, without allocating.
+    pub fn has_any_legal_move(&self) -> bool {
+        let color = self.turn;
+        let enemy = color.other();
+        let own = self.occupied_by(color);
+        let opposing = self.occupied_by(enemy);
+        let occupied = own | opposing;
+        let king = self.king_square(color);
+
+        let without_king = occupied & !bit(king);
+        if squares(attacks::KING[king as usize] & !own)
+            .any(|to| !self.is_attacked(to, enemy, without_king))
+        {
+            return true;
+        }
+
+        let checkers = self.attackers(king, enemy, occupied);
+        if checkers.count_ones() > 1 {
+            return false;
+        }
+        let evasions = if checkers == 0 {
+            !0
+        } else {
+            checkers | attacks::between(king, checkers.trailing_zeros() as u8)
+        };
+
+        let [_, _, bishops, rooks, queens, _] = self.pieces[enemy as usize];
+        let snipers = attacks::rook(king, opposing) & (rooks | queens)
+            | attacks::bishop(king, opposing) & (bishops | queens);
+        let pinned = squares(snipers)
+            .map(|sniper| attacks::between(king, sniper) & occupied)
+            .filter(|blockers| blockers.count_ones() == 1 && blockers & own != 0)
+            .fold(0, |all, blocker| all | blocker);
+
+        for role in [
+            Role::Pawn,
+            Role::Knight,
+            Role::Bishop,
+            Role::Rook,
+            Role::Queen,
+        ] {
+            for from in squares(self.pieces(color, role)) {
+                let mut targets = self.targets(role, from, opposing, occupied) & !own & evasions;
+                if pinned & bit(from) != 0 {
+                    targets &= attacks::ray(king, from);
+                }
+                if targets != 0 {
+                    return true;
+                }
+            }
+        }
+        // Castling requires an unattacked transit square, so a legal castle implies a legal king step above.
+        self.has_legal_en_passant()
     }
 
     /// The previous generator: every pseudo-legal move, kept if the king is safe afterward.
@@ -367,6 +442,88 @@ impl Position {
     /// Restore the state saved by the corresponding call to [`Self::make_move`].
     pub fn unmake_move(&mut self, undo: Undo) {
         *self = undo.0;
+    }
+
+    /// Play a legal move and return only the minimal metadata needed to undo it piece by piece.
+    #[doc(hidden)]
+    pub fn make_move_incremental(&mut self, mv: Move) -> IncrementalUndo {
+        let color = self.turn;
+        let enemy = color.other();
+        let prev_castling = self.castling;
+        let prev_en_passant = self.en_passant;
+        let prev_halfmove = self.halfmove;
+        let capture_square = if mv.role == Role::Pawn && prev_en_passant == Some(mv.to) {
+            enemy.forward(mv.to)
+        } else {
+            mv.to
+        };
+        let mut captured = None;
+        for (idx, mask) in self.pieces[enemy as usize].iter_mut().enumerate() {
+            if *mask & bit(capture_square) != 0 {
+                *mask &= !bit(capture_square);
+                captured = Some(ROLES[idx]);
+                break;
+            }
+        }
+
+        let own = &mut self.pieces[color as usize];
+        own[mv.role as usize] &= !bit(mv.from);
+        own[mv.promotion.unwrap_or(mv.role) as usize] |= bit(mv.to);
+        if mv.role == Role::King && mv.from.abs_diff(mv.to) == 2 {
+            let rook_from = color.home_rank() + if mv.to > mv.from { 7 } else { 0 };
+            own[Role::Rook as usize] ^= bit(rook_from) | bit(mv.from.midpoint(mv.to));
+        }
+
+        self.castling &= !(rights_lost(mv.from) | rights_lost(mv.to));
+        self.en_passant = (mv.role == Role::Pawn && mv.from.abs_diff(mv.to) == 16)
+            .then(|| color.forward(mv.from));
+        self.halfmove = if mv.role == Role::Pawn || captured.is_some() {
+            0
+        } else {
+            self.halfmove.saturating_add(1)
+        };
+        self.fullmove = self
+            .fullmove
+            .saturating_add(u32::from(color == Color::Black));
+        self.turn = enemy;
+
+        IncrementalUndo {
+            captured,
+            castling: prev_castling,
+            en_passant: prev_en_passant,
+            halfmove: prev_halfmove,
+        }
+    }
+
+    /// Undo a move played with [`Self::make_move_incremental`] piece by piece.
+    #[doc(hidden)]
+    pub fn unmake_move_incremental(&mut self, mv: Move, undo: IncrementalUndo) {
+        let enemy = self.turn;
+        let color = enemy.other();
+        self.turn = color;
+        self.fullmove = self
+            .fullmove
+            .saturating_sub(u32::from(color == Color::Black));
+        self.halfmove = undo.halfmove;
+        self.en_passant = undo.en_passant;
+        self.castling = undo.castling;
+
+        let own = &mut self.pieces[color as usize];
+        own[mv.promotion.unwrap_or(mv.role) as usize] &= !bit(mv.to);
+        own[mv.role as usize] |= bit(mv.from);
+        if mv.role == Role::King && mv.from.abs_diff(mv.to) == 2 {
+            let rook_from = color.home_rank() + if mv.to > mv.from { 7 } else { 0 };
+            own[Role::Rook as usize] ^= bit(rook_from) | bit(mv.from.midpoint(mv.to));
+        }
+
+        if let Some(captured) = undo.captured {
+            let capture_square = if mv.role == Role::Pawn && undo.en_passant == Some(mv.to) {
+                enemy.forward(mv.to)
+            } else {
+                mv.to
+            };
+            self.pieces[enemy as usize][captured as usize] |= bit(capture_square);
+        }
     }
 
     fn apply(&mut self, mv: Move) {
@@ -509,6 +666,40 @@ mod tests {
             let reparsed: Position = output.parse().unwrap();
             assert_eq!(reparsed.to_string(), output);
             assert_eq!(sorted(reparsed.legal_moves()), sorted(pos.legal_moves()));
+        }
+    }
+
+    #[test]
+    fn incremental_unmake_restores_every_position_in_random_games() {
+        let starts: Vec<Position> = include_str!("../tests/perft.txt")
+            .lines()
+            .filter(|line| !line.starts_with('#'))
+            .map(|line| line.split(" | ").nth(1).unwrap().parse().unwrap())
+            .collect();
+        let mut rng = 0x2545_f491_4f6c_dd1du64;
+        for game in 0..512 {
+            let mut pos = starts[game % starts.len()];
+            let mut history = Vec::with_capacity(128);
+            for _ in 0..128 {
+                let moves = pos.legal_moves();
+                if moves.is_empty() {
+                    break;
+                }
+                rng ^= rng << 13;
+                rng ^= rng >> 7;
+                rng ^= rng << 17;
+                let mv = moves[(rng % moves.len() as u64) as usize];
+                let before = pos;
+                let mut via_copy = pos;
+                let _ = via_copy.make_move(mv);
+                let undo = pos.make_move_incremental(mv);
+                assert_eq!(pos, via_copy, "incremental make diverged on {mv}");
+                history.push((before, mv, undo));
+            }
+            while let Some((before, mv, undo)) = history.pop() {
+                pos.unmake_move_incremental(mv, undo);
+                assert_eq!(pos, before, "incremental unmake failed on {mv}");
+            }
         }
     }
 }

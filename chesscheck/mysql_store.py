@@ -20,6 +20,8 @@ from urllib.parse import unquote, urlparse
 import pandas as pd
 import pymysql
 
+from .db import _sql_head
+
 DIALECT = "MySQL 8"
 MAX_ROWS = 50
 TIMEOUT_MS = 5000
@@ -115,12 +117,18 @@ def load(games: pd.DataFrame, moves: pd.DataFrame | None, writer_url: str | None
             cur.execute("DROP TABLE IF EXISTS moves, games")
             cur.execute(GAMES_DDL)
             cur.execute(MOVES_DDL)
-            cur.executemany(
-                f"INSERT INTO games ({', '.join(GAMES_COLS)}) VALUES ({', '.join(['%s'] * len(GAMES_COLS))})",
-                game_rows)
-            sql = f"INSERT INTO moves ({', '.join(MOVES_COLS)}) VALUES ({', '.join(['%s'] * len(MOVES_COLS))})"
-            for i in range(0, len(move_rows), 2000):
-                cur.executemany(sql, move_rows[i:i + 2000])
+            conn.begin()
+            try:
+                cur.executemany(
+                    f"INSERT INTO games ({', '.join(GAMES_COLS)}) VALUES ({', '.join(['%s'] * len(GAMES_COLS))})",
+                    game_rows)
+                sql = f"INSERT INTO moves ({', '.join(MOVES_COLS)}) VALUES ({', '.join(['%s'] * len(MOVES_COLS))})"
+                for i in range(0, len(move_rows), 2000):
+                    cur.executemany(sql, move_rows[i:i + 2000])
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
             cur.execute("CREATE TABLE analysis_ready (completed BOOL NOT NULL)")
     finally:
         conn.close()
@@ -139,8 +147,7 @@ class MySQLReadOnlySQL:
             cur.execute(f"SET SESSION max_execution_time = {TIMEOUT_MS}")
 
     def run(self, sql: str) -> str:
-        head = sql.strip().lstrip("(").split(None, 1)[0].upper() if sql.strip() else ""
-        if head not in ("SELECT", "WITH"):
+        if _sql_head(sql) not in ("SELECT", "WITH"):
             return "Error: only SELECT/WITH queries are allowed."
         try:
             with self.conn.cursor() as cur:

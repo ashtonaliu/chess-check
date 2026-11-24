@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use wasm_bindgen::prelude::*;
 
-use crate::{Color, MOVE_FEATURE_COUNT, Move, Position, Role, attacks, fen::parse_square};
+use crate::{Color, MOVE_FEATURE_COUNT, Move, Position, Role, fen::parse_square};
 
 const START: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -198,10 +198,7 @@ impl GameReplay {
         let mut counts = HashMap::new();
         let mut history = history.lines();
         loop {
-            let ep = pos.en_passant.filter(|&sq| {
-                positions.is_empty()
-                    || attacks::pawn(pos.turn.other(), sq) & pos.pieces(pos.turn, Role::Pawn) != 0
-            });
+            let ep = pos.en_passant.filter(|_| pos.has_legal_en_passant());
             let count = counts
                 .entry((pos.pieces, pos.turn as u8, pos.castling, ep))
                 .or_insert(0);
@@ -295,4 +292,20 @@ pub fn move_features_batch(batch: &str) -> Result<String, JsError> {
 pub fn parse_pgn_batch(batch: &str) -> Result<String, JsError> {
     let games: Vec<String> = unpack(batch)?;
     pack(&games.iter().map(|pgn| pgn::parse(pgn)).collect::<Vec<_>>())
+}
+
+#[wasm_bindgen(js_name = "motifsBatch")]
+pub fn motifs_batch(batch: &str) -> Result<String, JsError> {
+    let moves: Vec<MoveAt> = unpack(batch)?;
+    let rows: Vec<Option<Vec<&'static str>>> = moves
+        .into_iter()
+        .map(|m| {
+            let pos: Position = m.fen.parse().ok()?;
+            let legal = pos.legal_moves();
+            let mv = read_uci(&legal, &m.chess_move)
+                .or_else(|| read_san(&pos, &legal, &m.chess_move))?;
+            Some(pos.motifs(mv).to_names())
+        })
+        .collect();
+    pack(&rows)
 }

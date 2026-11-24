@@ -3,7 +3,7 @@ name: Deploy static demo to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ["web/**", "scripts/build_static.sh", ".github/workflows/pages.yml"]
+    paths: ["web/**", "engine-core/**", "scripts/build_static.sh", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:
@@ -28,6 +28,20 @@ jobs:
       - name: Build TypeScript frontend
         working-directory: web
         run: npm ci && npm test && npm run build
+      # Same pinned toolchain and checksummed wasm-bindgen release as the CI workflow.
+      - name: Install the Rust WebAssembly target and wasm-bindgen
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --target wasm32-unknown-unknown
+          release=wasm-bindgen-0.2.130-x86_64-unknown-linux-musl
+          curl --retry 3 -fsSL "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.130/$release.tar.gz" -o "$RUNNER_TEMP/$release.tar.gz"
+          echo "9687f3bb551b9f66f37ed32a40d7913a00f7962db653054e56857bc306c3227f  $RUNNER_TEMP/$release.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/$release.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/$release" >> "$GITHUB_PATH"
+      - name: Build engine-core WebAssembly
+        working-directory: web
+        env:
+          RUSTUP_TOOLCHAIN: '1.99.1'
+        run: npm run build:wasm:web
       - name: Assemble static site
         run: scripts/build_static.sh
       - uses: actions/configure-pages@v5

@@ -45,12 +45,21 @@ def phase(board: chess.Board, ply: int) -> str:
     return "endgame" if non_pawn_material(board) <= 26 else "middlegame"
 
 
-def material_balance(board: chess.Board, color: bool) -> int:
-    s = 0
+def material_stats(board: chess.Board, color: bool) -> tuple[int, int]:
+    balance = 0
+    non_pawn = 0
     for p in board.piece_map().values():
-        if p.piece_type != chess.KING:
-            s += PIECE_VALUES[p.piece_type] * (1 if p.color == color else -1)
-    return s
+        if p.piece_type == chess.KING:
+            continue
+        v = PIECE_VALUES[p.piece_type]
+        balance += v if p.color == color else -v
+        if p.piece_type != chess.PAWN:
+            non_pawn += v
+    return balance, non_pawn
+
+
+def material_balance(board: chess.Board, color: bool) -> int:
+    return material_stats(board, color)[0]
 
 
 def base_seconds(time_control: str) -> float | None:
@@ -158,14 +167,15 @@ def _analyse(game: Game, path: str, depth: int, engines: EnginePool) -> dict:
         mv = node.move
         mover = board.turn
         sign = 1 if mover == chess.WHITE else -1
-        ph = phase(board, ply)
+        mat_bal, non_pawn = material_stats(board, mover)
+        ph = "opening" if ply < OPENING_PLIES else ("endgame" if non_pawn <= 26 else "middlegame")
+        legal = list(board.legal_moves)
         feats = {
-            "legal_moves": board.legal_moves.count(),
+            "legal_moves": len(legal),
             "in_check": int(board.is_check()),
-            "captures_available": sum(1 for m in board.legal_moves
-                                      if board.is_capture(m)),
-            "material_balance": material_balance(board, mover),
-            "non_pawn_material": non_pawn_material(board),
+            "captures_available": sum(1 for m in legal if board.is_capture(m)),
+            "material_balance": mat_bal,
+            "non_pawn_material": non_pawn,
         }
         san = board.san(mv)
         is_capture = int(board.is_capture(mv))

@@ -72,7 +72,7 @@ impl Position {
         next.apply(mv);
         let occupied = next.occupied_by(Color::White) | next.occupied_by(Color::Black);
         if next.is_attacked(next.king_square(enemy), color, occupied) {
-            if next.legal_moves().is_empty() {
+            if !next.has_any_legal_move() {
                 out.push('#');
             } else {
                 out.push('+');

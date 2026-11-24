@@ -15,6 +15,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup toolchain install 1.99.1 --profile minimal --component clippy
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            engine-core/target/
+          key: ${{ runner.os }}-engine-core-1.99.1-${{ hashFiles('engine-core/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-engine-core-1.99.1-
       - run: rustup run 1.99.1 bash scripts/check_engine_core.sh
       - run: cargo +1.99.1 clippy --locked --all-targets --manifest-path engine-core/Cargo.toml -- -D warnings
 
@@ -24,6 +33,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup toolchain install 1.99.1 --profile minimal
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            tools/lichess-ingest/target/
+          key: ${{ runner.os }}-lichess-ingest-1.99.1-${{ hashFiles('tools/lichess-ingest/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-lichess-ingest-1.99.1-
       - run: cargo +1.99.1 test --locked --manifest-path tools/lichess-ingest/Cargo.toml
       - run: cargo +1.99.1 build --locked --manifest-path tools/lichess-ingest/Cargo.toml
       - uses: actions/setup-python@v5

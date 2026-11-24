@@ -167,3 +167,10 @@ def test_local_coach_is_explicit_and_loopback_only(monkeypatch):
     monkeypatch.setenv("CHESS_CHECK_LOCAL_COACH", "1")
     assert server._coach_access(local) == "local"
     assert server._coach_access(remote) is None
+
+
+def test_username_with_trailing_newline_is_rejected(stub):
+    with pytest.raises(server.HTTPException) as rejected:
+        server._get(req("hikaru\n"))
+    assert rejected.value.status_code == 400
+    assert stub["calls"] == 0

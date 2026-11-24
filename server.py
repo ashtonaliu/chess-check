@@ -29,7 +29,7 @@ load_env()
 
 app = FastAPI(title="Chess Check")
 WEB = Path(__file__).parent / "web"
-USER_RE = re.compile(r"^[A-Za-z0-9_-]{3,25}$")
+USER_RE = re.compile(r"\A[A-Za-z0-9_-]{3,25}\Z")
 CACHE_TTL = 3600
 CACHE_MAX = int(os.environ.get("CHESS_CHECK_CACHE_MAX", 32))     # finished analyses kept in memory
 MAX_JOBS = int(os.environ.get("CHESS_CHECK_MAX_JOBS", 2))        # analyses allowed to run at once
@@ -67,7 +67,7 @@ def _cached(key: tuple) -> Analysis | None:
 def _get(r: AnalyzeReq) -> Analysis:
     """One analysis per request key: identical requests that arrive while it runs wait for the same
     result, at most MAX_JOBS analyses run at once, and the cache keeps at most CACHE_MAX results."""
-    if not USER_RE.match(r.username):
+    if not USER_RE.fullmatch(r.username):
         raise HTTPException(400, "That doesn't look like a Chess.com username.")
     key = _key(r)
     with _state:

@@ -112,21 +112,29 @@ function unpackFloat16(layer: PackedLayer, inputs: number, outputs: number): Lay
 }
 
 function convolve(input: Float32Array, layer: Layer, channels: number): Float32Array {
-  const output = new Float32Array(layer.bias.length * SQUARES);
-  for (let o = 0; o < layer.bias.length; o++) {
+  // Zero-pad each 8x8 plane into a 10x10 frame so the 3x3 inner loop needs no bounds checks.
+  const padded = new Float32Array(channels * 100);
+  for (let c = 0; c < channels; c++) {
+    const srcBase = c * SQUARES, dstBase = c * 100;
     for (let row = 0; row < 8; row++) {
+      padded.set(input.subarray(srcBase + row * 8, srcBase + row * 8 + 8), dstBase + (row + 1) * 10 + 1);
+    }
+  }
+  const output = new Float32Array(layer.bias.length * SQUARES);
+  const w = layer.weights;
+  for (let o = 0; o < layer.bias.length; o++) {
+    const outBase = o * SQUARES, bias = layer.bias[o], kOut = o * channels * 9;
+    for (let row = 0; row < 8; row++) {
+      const r0 = row * 10, r1 = r0 + 10, r2 = r0 + 20, outRow = outBase + row * 8;
       for (let file = 0; file < 8; file++) {
-        let sum = layer.bias[o];
+        let sum = bias;
         for (let c = 0; c < channels; c++) {
-          const kernel = (o * channels + c) * 9;
-          for (let y = Math.max(0, 1 - row); y < Math.min(3, 9 - row); y++) {
-            for (let x = Math.max(0, 1 - file); x < Math.min(3, 9 - file); x++) {
-              const square = (row + y - 1) * 8 + file + x - 1;
-              sum += input[c * SQUARES + square] * layer.weights[kernel + y * 3 + x];
-            }
-          }
+          const p = c * 100 + file, k = kOut + c * 9;
+          sum += padded[p + r0] * w[k] + padded[p + r0 + 1] * w[k + 1] + padded[p + r0 + 2] * w[k + 2]
+               + padded[p + r1] * w[k + 3] + padded[p + r1 + 1] * w[k + 4] + padded[p + r1 + 2] * w[k + 5]
+               + padded[p + r2] * w[k + 6] + padded[p + r2 + 1] * w[k + 7] + padded[p + r2 + 2] * w[k + 8];
         }
-        output[o * SQUARES + row * 8 + file] = Math.max(0, sum);
+        output[outRow + file] = sum > 0 ? sum : 0;
       }
     }
   }

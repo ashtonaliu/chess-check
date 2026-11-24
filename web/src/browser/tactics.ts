@@ -52,8 +52,50 @@ function attacks(b: Board, sq: number): number[] {
   return out;
 }
 
-const attackers = (b: Board, color: Col, sq: number) =>
-  b.map((p, s) => (p && p.c === color && attacks(b, s).includes(sq) ? s : -1)).filter(s => s >= 0);
+function attackers(b: Board, color: Col, sq: number): number[] {
+  const f0 = sq % 8, r0 = Math.floor(sq / 8), out: number[] = [];
+  const pawnRank = r0 + (color === "w" ? -1 : 1);
+  if (pawnRank >= 0 && pawnRank < 8) {
+    for (const df of [-1, 1]) {
+      const f = f0 + df;
+      if (f >= 0 && f < 8) {
+        const s = f + 8 * pawnRank, p = b[s];
+        if (p && p.c === color && p.t === "p") out.push(s);
+      }
+    }
+  }
+  for (const [df, dr] of KNIGHT) {
+    const f = f0 + df, r = r0 + dr;
+    if (f >= 0 && f < 8 && r >= 0 && r < 8) {
+      const s = f + 8 * r, p = b[s];
+      if (p && p.c === color && p.t === "n") out.push(s);
+    }
+  }
+  for (const [df, dr] of KING) {
+    const f = f0 + df, r = r0 + dr;
+    if (f >= 0 && f < 8 && r >= 0 && r < 8) {
+      const s = f + 8 * r, p = b[s];
+      if (p && p.c === color && p.t === "k") out.push(s);
+    }
+  }
+  for (const [df, dr] of DIRS.r) {
+    let f = f0 + df, r = r0 + dr;
+    while (f >= 0 && f < 8 && r >= 0 && r < 8) {
+      const s = f + 8 * r, p = b[s];
+      if (p) { if (p.c === color && (p.t === "r" || p.t === "q")) out.push(s); break; }
+      f += df; r += dr;
+    }
+  }
+  for (const [df, dr] of DIRS.b) {
+    let f = f0 + df, r = r0 + dr;
+    while (f >= 0 && f < 8 && r >= 0 && r < 8) {
+      const s = f + 8 * r, p = b[s];
+      if (p) { if (p.c === color && (p.t === "b" || p.t === "q")) out.push(s); break; }
+      f += df; r += dr;
+    }
+  }
+  return out;
+}
 const defended = (b: Board, sq: number, color: Col) => attackers(b, color, sq).length > 0;
 const other = (c: Col): Col => (c === "w" ? "b" : "w");
 
@@ -174,19 +216,17 @@ interface PendingMotif {
   matePrefix: boolean;
 }
 
-function classifyGameInto(pgn: string, a: GameAnalysis, pending: PendingMotif[] | null): BlunderRec[] {
+function classifyGameInto(_pgn: string, a: GameAnalysis, pending: PendingMotif[] | null): BlunderRec[] {
   const rows = a.moves as (MoveRow & DeepFields)[];
-  if (!rows.some(row => row.wp_loss >= BLUNDER_DROP && (row.deep_loss ?? row.wp_loss) >= BLUNDER_DROP)) return [];
-  const replay = new Chess();
-  replay.loadPgn(pgn);
-  const history = replay.history({ verbose: true });
   const out: BlunderRec[] = [];
-  history.forEach((mv, i) => {
+  for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
-    if (!row) return;
     const loss = row.deep_loss ?? row.wp_loss;
-    if (!(row.wp_loss >= BLUNDER_DROP && loss >= BLUNDER_DROP)) return;
-    const fen = mv.before;
+    if (!(row.wp_loss >= BLUNDER_DROP && loss >= BLUNDER_DROP)) continue;
+    const fen = row.fen;
+    const board = new Chess(fen);
+    const mv = board.move(row.san);
+    const afterFen = board.fen();
     const rec: BlunderRec = { url: a.url, ply: row.ply, move_no: row.move_no, san: row.san, is_me: row.is_me,
       phase: row.phase, wp_loss: loss, piece: NAME[mv.piece], allowed: [], missed: [],
       lost: null, refutation: null, best: row.best ?? null, fen };
@@ -200,7 +240,6 @@ function classifyGameInto(pgn: string, a: GameAnalysis, pending: PendingMotif[] 
         if (matePrefix) rec.missed = ["mate", ...rec.missed];
       }
     }
-    const afterFen = mv.after;
     const nxt = rows[i + 1];
     const refute = sanMove(afterFen, row.deep_refutation || (nxt ? nxt.best : null));
     if ((row.deep_cp_after ?? row.cp_after) <= -MATE_CP) rec.allowed.push("mate");
@@ -208,8 +247,7 @@ function classifyGameInto(pgn: string, a: GameAnalysis, pending: PendingMotif[] 
       rec.refutation = refute.san;
       if (pending) pending.push({ rec, kind: "allowed", fen: afterFen, move: refute, matePrefix: false });
       else rec.allowed.push(...geometric(afterFen, refute));
-      const after = new Chess(afterFen);
-      const cap = after.get(refute.to as never);
+      const cap = board.get(refute.to as never);
       if (cap && cap.color === mv.color) rec.lost = NAME[cap.type as PT];
       else if (refute.flags.includes("e")) rec.lost = "pawn";   // en passant: the pawn is not on the target square
       if (!pending && rec.allowed.includes("fork")) rec.fork_by = NAME[refute.piece];
@@ -218,7 +256,7 @@ function classifyGameInto(pgn: string, a: GameAnalysis, pending: PendingMotif[] 
       rec.missed_fork_by = NAME[best.piece];
     }
     out.push(rec);
-  });
+  }
   return out;
 }
 

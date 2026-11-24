@@ -93,6 +93,9 @@ export function getWasmChess(): Promise<WasmChess | null> | undefined {
   ready ??= import(asset).then(async (module: ChessModule) => {
     await module.default(wasmBytes ? { module_or_path: wasmBytes } : undefined);
     return new WasmChess(module);
-  }).catch(() => null);
+  }).catch(() => {
+    ready = undefined;
+    return null;
+  });
   return ready;
 }

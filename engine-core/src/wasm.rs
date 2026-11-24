@@ -196,7 +196,10 @@ impl GameReplay {
         let mut positions = Vec::new();
         let mut plies = Vec::new();
         let mut counts = HashMap::new();
-        let mut history = history.lines();
+        let mut history = (!history.is_empty())
+            .then(|| history.split('\n'))
+            .into_iter()
+            .flatten();
         loop {
             let ep = pos.en_passant.filter(|_| pos.has_legal_en_passant());
             let count = counts

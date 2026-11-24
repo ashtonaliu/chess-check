@@ -46,18 +46,24 @@ export function nameCallbackOpening(game: Game, history: Game[]): Game {
   return opening === game.opening && family === game.family ? game : { ...game, opening, family };
 }
 
-const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+// Chess.com sends SetUp "1" and this FEN even for standard games, so only the first four fields
+// (placement, side to move, castling, en passant) are compared, never the move counters.
+const START_POSITION = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+
+/** True for standard chess from the usual starting position (not Chess960, odds or a set-up board). */
+export function isStandardCallback(cb: Callback): boolean {
+  const h = cb.game.pgnHeaders;
+  const variant = String(h.Variant ?? "").trim().toLowerCase();
+  if (variant && variant !== "standard") return false;
+  return h.FEN === undefined || String(h.FEN).trim().split(/\s+/).slice(0, 4).join(" ") === START_POSITION;
+}
 
 /** The game as `user` saw it, or null if it is not finished, not standard chess, or `user` did not
  *  play in it. Ratings are the ones going into the game (the endpoint's ratings already include the
  *  game's change). */
 export function gameFromCallback(cb: Callback, user: string, kind: "live" | "daily", history: Game[]): Game | null {
   const g = cb.game, h = g.pgnHeaders;
-  if (!g.isFinished) return null;
-  const variant = h.Variant ? String(h.Variant).toLowerCase() : "";
-  if (variant && variant !== "standard") return null;
-  if (h.FEN && String(h.FEN) !== START_FEN) return null;
-  if (h.SetUp !== undefined && String(h.SetUp) !== "0" && (!h.FEN || String(h.FEN) !== START_FEN)) return null;
+  if (!g.isFinished || !isStandardCallback(cb)) return null;
   const white = String(h.White), black = String(h.Black), u = user.toLowerCase();
   const color = white.toLowerCase() === u ? "white" : black.toLowerCase() === u ? "black" : null;
   if (!color) return null;

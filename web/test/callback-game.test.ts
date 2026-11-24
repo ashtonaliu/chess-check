@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 
-import { gameFromCallback, timeClassOf } from "../src/browser/callbackGame";
+import { gameFromCallback, isStandardCallback, timeClassOf } from "../src/browser/callbackGame";
 import { parseGame } from "../src/browser/games";
 
 const fixture = (f: string) => JSON.parse(readFileSync(new URL(`./fixtures/${f}`, import.meta.url), "utf8"));
@@ -78,4 +78,15 @@ test("non-standard variants and custom starting FENs return null instead of thro
     },
   };
   assert.equal(gameFromCallback(odds, "ashton-iwnl", "live", []), null);
+});
+
+test("standard games still parse when the start FEN has different move counters", () => {
+  const cb = fixture("callback_187138001290.json");
+  assert.equal(isStandardCallback(cb), true);
+  const counters = { game: { ...cb.game, pgnHeaders: { ...cb.game.pgnHeaders,
+    FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 0" } } };
+  assert.equal(isStandardCallback(counters), true);
+  assert.notEqual(gameFromCallback(counters, "ashton-iwnl", "live", []), null);
+  const { FEN: _fen, SetUp: _setUp, ...plain } = cb.game.pgnHeaders;
+  assert.equal(isStandardCallback({ game: { ...cb.game, pgnHeaders: plain } }), true);
 });

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import logging
 import os
 import re
 import secrets
@@ -21,9 +22,12 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from chesscheck.coach import CoachError
 from chesscheck.coach_cli import available as claude_code_available, run_coach_auto
 from chesscheck.env import load_env
 from chesscheck.pipeline import Analysis, analyze, to_payload
+
+log = logging.getLogger(__name__)
 
 load_env()
 
@@ -158,8 +162,15 @@ async def api_coach(r: AnalyzeReq, request: Request):
         a = await run_in_threadpool(_get, r)
         res = await run_in_threadpool(lambda: run_coach_auto(a.username, a.facts, a.games, a.moves,
                                                              summaries=a.summaries))
-    except RuntimeError as e:
+    except HTTPException:
+        raise
+    except CoachError as e:
         raise HTTPException(502, str(e))
+    except Exception:
+        # Provider errors can carry Claude Code output, local paths or request details, so they go
+        # to the server log and the client gets a generic message.
+        log.exception("Coaching failed for %s", r.username)
+        raise HTTPException(502, "The coaching provider failed. Try again shortly.")
     finally:
         _coach_jobs.release()
     return {"report": res.report, "verification": res.verification,

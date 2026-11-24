@@ -145,7 +145,7 @@ export function playerRisk(rows: Row[], nSplits = 5, folds?: number[]): Risk | n
   const { X, y, groups } = features(rows);
   const me = rows.map(r => r.is_me);
   const oppBlunders = y.reduce((a, v, i) => a + (me[i] ? 0 : v), 0);
-  if (oppBlunders < 10 || new Set(groups).size < nSplits) return null;
+  if (!me.some(Boolean) || oppBlunders < 10 || new Set(groups).size < nSplits) return null;
   const fold = folds ?? groupFolds(groups, nSplits);
   const oof = new Array(rows.length).fill(0);
   for (let k = 0; k < nSplits; k++) {
@@ -155,6 +155,7 @@ export function playerRisk(rows: Row[], nSplits = 5, folds?: number[]): Risk | n
   }
   const sum = (sel: (i: number) => boolean, v: number[]) => v.reduce((a, x, i) => a + (sel(i) ? x : 0), 0);
   const actual = sum(i => me[i], y), expected = sum(i => me[i], oof);
+  if (expected <= 0) return null;
   const [ci_low, ci_high] = poissonRatioInterval(actual, expected);
   const out: Risk = { model: "logistic regression", moves: me.filter(Boolean).length, actual, expected,
                       ratio: actual / expected, ci_low, ci_high, buckets: [] };

@@ -255,6 +255,12 @@ def test_player_risk_buckets():
     assert 0.5 < r["ratio"] < 1.5
 
 
+def test_player_risk_returns_none_with_no_player_moves():
+    df = _synthetic_moves()
+    df["is_me"] = False
+    assert model.player_risk(df) is None
+
+
 def test_verify_url_punctuation_on_both_sides():
     facts = [{"id": "T1", "text": "- https://www.chess.com/game/live/42: you lost"}]
     r = verify("Replay https://www.chess.com/game/live/42, then review it [T1].", facts)

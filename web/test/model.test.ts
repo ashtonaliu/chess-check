@@ -49,3 +49,8 @@ test("Poisson interval is close to the exact chi-square interval", () => {
   const [lo, hi] = poissonRatioInterval(13, 1);
   assert.ok(Math.abs(lo - 7.690) < 0.01 && Math.abs(hi - 20.669) < 0.01, `${lo} ${hi}`);
 });
+
+test("playerRisk returns null instead of NaN/Infinity when the player has no moves", () => {
+  const oppOnly = rows.map(r => ({ ...r, is_me: false }));
+  assert.equal(playerRisk(oppOnly), null);
+});

@@ -13,7 +13,6 @@ The detector is validated against Lichess puzzle themes (scripts/eval_tactics.py
 """
 from __future__ import annotations
 
-import io
 import math
 from collections import Counter
 

@@ -1,0 +1,6 @@
+# Lint for likely bugs (pyflakes and bugbear), not style. The code keeps short statements on
+# one line on purpose. B905 (zip without strict=) is left off because adding strict=True would
+# change what the research scripts do on uneven input.
+[lint]
+select = ["E9", "F", "B"]
+ignore = ["B905"]

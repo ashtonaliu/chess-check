@@ -63,7 +63,11 @@ fn find_rate_features_and_board_encoding_match_python() {
 
     for (idx, item) in positions.iter().enumerate() {
         let row = item.as_array().unwrap();
-        assert_eq!(row.len(), 4, "position {idx} expected [fen, uci, feats, b64]");
+        assert_eq!(
+            row.len(),
+            4,
+            "position {idx} expected [fen, uci, feats, b64]"
+        );
         let fen = row[0].as_str().unwrap();
         let uci = row[1].as_str().unwrap();
         let expected_feats_val = row[2].as_array().unwrap();
@@ -97,9 +101,14 @@ fn find_rate_features_and_board_encoding_match_python() {
         for (plane, &mask) in expected_planes.iter().enumerate() {
             let base = plane * 64;
             for sq in 0..64 {
-                let expected_val = if (mask >> sq) & 1 != 0 { 1.0f32 } else { 0.0f32 };
+                let expected_val = if (mask >> sq) & 1 != 0 {
+                    1.0f32
+                } else {
+                    0.0f32
+                };
                 assert_eq!(
-                    tensor[base + sq], expected_val,
+                    tensor[base + sq],
+                    expected_val,
                     "position {idx} ({fen} {uci}) tensor[{plane}, {sq}] mismatch"
                 );
             }

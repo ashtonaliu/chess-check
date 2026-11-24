@@ -100,7 +100,10 @@ fn decode_after_fen(before_fen: &str, diff: &str, flags: Option<&str>) -> String
 
 #[test]
 fn parity_with_chess_js() {
-    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/chess_js_parity.json");
+    let path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/chess_js_parity.json"
+    );
     let text = fs::read_to_string(path).unwrap_or_else(|e| panic!("failed to read {path}: {e}"));
     let fixture: serde_json::Value =
         serde_json::from_str(&text).unwrap_or_else(|e| panic!("failed to parse {path}: {e}"));

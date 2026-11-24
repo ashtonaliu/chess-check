@@ -40,10 +40,7 @@ fn tactics_motifs_match_python_on_3000_lichess_puzzles() {
             .find(|m| m.to_string() == uci)
             .unwrap_or_else(|| panic!("puzzle {idx} ({fen}) missing legal move {uci}"));
         let got = pos.motifs(mv).to_names();
-        assert_eq!(
-            got, expected,
-            "puzzle {idx} ({fen} {uci}) motif mismatch"
-        );
+        assert_eq!(got, expected, "puzzle {idx} ({fen} {uci}) motif mismatch");
     }
 
     println!(

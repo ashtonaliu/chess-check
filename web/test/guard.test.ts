@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { canReview, canShowRecap, gameIdFromApiUrl, gameIdFromPage } from "../src/extension/guard";
+import { canReview, canShowRecap, gameIdFromApiUrl, gameIdFromPage, isPlayPage, pageSafetyKey } from "../src/extension/guard";
 
 test("every Chess.com game address form maps to the game ID", () => {
   const id = "187138001290";
@@ -50,4 +50,27 @@ test("the review queue stays off the play page and off a game until it is confir
   assert.equal(canReview("https://www.chess.com/game/187502325560", false), false);   // may be in progress
   assert.equal(canReview("https://www.chess.com/game/live/187502325560?move=43", true), true);
   assert.equal(canReview("not a url", true), false);
+});
+
+test("language-prefixed addresses are guarded like the English ones", () => {
+  const id = "187138001290";
+  for (const prefix of ["/es", "/fr", "/de", "/pt-BR", "/zh-TW"]) {
+    for (const path of [`/game/${id}`, `/game/live/${id}`, `/live/game/${id}`, `/analysis/game/live/${id}/review`]) {
+      const u = `https://www.chess.com${prefix}${path}`;
+      assert.equal(gameIdFromPage(u), id, u);
+      assert.equal(pageSafetyKey(u), `game:${id}`, u);
+      assert.equal(canReview(u, false), false, u);   // not confirmed over: no review queue
+    }
+    for (const path of ["/play", "/play/online", "/play/computer"]) {
+      const u = `https://www.chess.com${prefix}${path}`;
+      assert.ok(isPlayPage(new URL(u)), u);
+      assert.equal(pageSafetyKey(u), "play", u);
+      assert.equal(canReview(u, true), false, u);
+    }
+    assert.equal(pageSafetyKey(`https://www.chess.com${prefix}/home`), "other");
+  }
+  // A prefix-shaped segment deeper in the path, or a longer first segment, is not a language prefix.
+  assert.equal(isPlayPage(new URL("https://www.chess.com/news/play/online")), false);
+  assert.equal(gameIdFromPage("https://www.chess.com/member/es/game/123"), null);
+  assert.equal(gameIdFromPage("https://www.chess.com/abc/game/123"), null);
 });

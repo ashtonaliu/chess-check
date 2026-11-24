@@ -10,13 +10,20 @@
  *   /game/live/187138001290       (older live-game pages, and the public API)
  *   /game/daily/9001
  *   /analysis/game/live/187138001290/review
+ * Each can also carry a language prefix, such as /es/game/187138001290 or /pt-BR/play/online.
  */
+// Chess.com serves every page under an optional language prefix (/es, /fr, /pt-BR). Missing it
+// would treat a Spanish-language Play page or game page as an ordinary page.
+const LOCALE = String.raw`(?:\/[a-z]{2}(?:-[a-z]{2,4})?)?`;
+const GAME_PATH = new RegExp(String.raw`^${LOCALE}\/(?:analysis\/)?(?:(?:live|daily)\/)?game\/(?:(?:live|daily)\/)?(\d+)(?:\/|$)`, "i");
+const PLAY_PATH = new RegExp(String.raw`^${LOCALE}\/play(?:\/|$)`, "i");
+
 export function gameIdFromPage(pageUrl: string | undefined | null): string | null {
   if (!pageUrl) return null;
   let u: URL;
   try { u = new URL(pageUrl); } catch { return null; }
   if (u.hostname !== "www.chess.com" && u.hostname !== "chess.com") return null;
-  const m = u.pathname.match(/^\/(?:analysis\/)?(?:(?:live|daily)\/)?game\/(?:(?:live|daily)\/)?(\d+)(?:\/|$)/);
+  const m = u.pathname.match(GAME_PATH);
   return m ? m[1] : null;
 }
 
@@ -30,7 +37,7 @@ export function canShowRecap(gameId: string | null, finishedIds: Set<string>): b
 
 /** Chess.com's Play pages can lead straight into a new game. */
 export function isPlayPage(url: URL): boolean {
-  return /^\/play(\/|$)/.test(url.pathname);
+  return PLAY_PATH.test(url.pathname);
 }
 
 /** The review queue is never shown on the page games are played from, or on a game page until

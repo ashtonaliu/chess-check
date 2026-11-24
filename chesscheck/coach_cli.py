@@ -68,8 +68,8 @@ def _claude(prompt: str, state: Path, resume: str | None = None, model: str = MO
                           timeout=TIMEOUT)
     try:
         out = _parse(proc.stdout)
-    except json.JSONDecodeError:
-        raise RuntimeError(f"Claude Code failed: {(proc.stderr or proc.stdout)[-500:]}")
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Claude Code failed: {(proc.stderr or proc.stdout)[-500:]}") from e
     if out.get("is_error"):
         raise RuntimeError(f"Claude Code error: {out.get('result') or out}")
     return out

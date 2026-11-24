@@ -130,7 +130,10 @@ mod tests {
         let wanted = HashSet::from([b"bbbbbbbb".to_vec()]);
         extract(pgn.as_bytes(), &mut out, wanted).unwrap();
         let text = String::from_utf8(out).unwrap();
-        assert!(!text.contains("aaaaaaaa"), "leaked previous game header:\n{text}");
+        assert!(
+            !text.contains("aaaaaaaa"),
+            "leaked previous game header:\n{text}"
+        );
         assert!(text.contains("bbbbbbbb"));
         assert!(text.contains("1. e4 e5 1-0"));
     }

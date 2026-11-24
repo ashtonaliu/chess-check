@@ -117,13 +117,10 @@ impl Visitor for GameReader {
 
     fn begin_movetext(&mut self, tags: Tags) -> ControlFlow<Self::Output, Movetext> {
         let url = tags.site;
-        let game_id = tags
-            .game_id
-            .filter(|id| valid_id(id))
-            .or_else(|| {
-                let id = url.as_deref()?.rsplit('/').next()?;
-                valid_id(id).then(|| id.to_owned())
-            });
+        let game_id = tags.game_id.filter(|id| valid_id(id)).or_else(|| {
+            let id = url.as_deref()?.rsplit('/').next()?;
+            valid_id(id).then(|| id.to_owned())
+        });
         let time_control = tags.time_control;
         let clock = time_control.as_deref().and_then(time_control_seconds);
         let start_ts = tags

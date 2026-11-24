@@ -3,4 +3,5 @@ onnx>=1.16
 onnxruntime>=1.18
 pyarrow>=18
 pytest
+ruff==0.17.6
 scikit-learn>=1.7  # explicit validation sets for the boosting baseline

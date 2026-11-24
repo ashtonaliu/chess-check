@@ -10,8 +10,8 @@ mod wasm;
 
 pub use features::{BOARD_PLANES, MOVE_FEATURE_COUNT, MoveFeatures};
 pub use fen::ParseFenError;
-pub use tactics::{MOTIF_NAMES, Motifs};
 use std::fmt;
+pub use tactics::{MOTIF_NAMES, Motifs};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Color {

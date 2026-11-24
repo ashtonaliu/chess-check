@@ -34,8 +34,9 @@ impl Position {
                 let occupied = self.occupied_by(color) | opposing;
                 // Knight, bishop, rook and queen attacks are symmetric, so reverse lookups from
                 // the destination find every other same-role piece that can pseudo-legally reach it.
-                let candidates =
-                    self.targets(mv.role, mv.to, 0, occupied) & self.pieces(color, mv.role) & !bit(mv.from);
+                let candidates = self.targets(mv.role, mv.to, 0, occupied)
+                    & self.pieces(color, mv.role)
+                    & !bit(mv.from);
                 let mut ambiguous = 0u64;
                 for from in squares(candidates) {
                     let alt = Move {

@@ -183,7 +183,7 @@ def evaluate() -> None:
             trm = np.zeros(n, bool); trm[tr] = True
             X = make_X(trm)
             inner = [(tr[a], tr[b]) for a, b in GroupKFold(4).split(tr, y[tr], groups[tr])]
-            def score(c):
+            def score(c, X=X, inner=inner):
                 return np.mean(np.concatenate([(lambda p: (p[:, 2] + 0.5 * p[:, 1] - y[b] / 2) ** 2)(
                     fit_predict(X, a, b, c)) for a, b in inner]))
             c = min(cs, key=score)

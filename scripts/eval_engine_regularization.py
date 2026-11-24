@@ -107,7 +107,7 @@ elo = np.array([r["elo"] for r in rows])
 print(f"\nRating gap: median |gap| {np.median(np.abs(gap)):.0f} points, 90% within {np.quantile(np.abs(gap), 0.9):.0f}; "
       f"middle 90% of Elo expected scores {np.quantile(elo, 0.05):.2f} to {np.quantile(elo, 0.95):.2f}")
 per = []
-for (focal, raw, gid, ratings, past), r in zip(plan_rows, rows):
+for (_focal, _raw, _gid, ratings, _past), r in zip(plan_rows, rows):
     for who, rating in (("focal", ratings[0]), ("opponent", ratings[1])):
         per.append((rating, r[f"{who}_loss"], r[f"{who}_missed_tactics"], r[f"{who}_low_clock_blunders"], r[f"{who}_conversion"]))
 per = np.array(per, dtype=float); per = per[np.all(np.isfinite(per), axis=1)]

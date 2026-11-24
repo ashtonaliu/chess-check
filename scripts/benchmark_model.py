@@ -29,7 +29,7 @@ def main():
         games = [g for g in fetch_games(u, args.games, {args.time_class}) if g.url not in seen]
         seen |= {g.url for g in games}
         an = engine.analyse_games(games, depth=args.depth,
-                                  progress=lambda d, n: print(f"\r{u}: {d}/{n}", end="", flush=True))
+                                  progress=lambda d, n, u=u: print(f"\r{u}: {d}/{n}", end="", flush=True))
         print()
         frames.append(db.moves_frame(an))
     moves = pd.concat(frames, ignore_index=True)

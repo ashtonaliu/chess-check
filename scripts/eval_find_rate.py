@@ -133,7 +133,7 @@ def build() -> None:
     df["gap"] = df.best_wp - df.second_wp
     df["clock_frac"] = (df.clock_before / df.base_seconds).clip(0, 1.5)
     df["test"] = (pd.util.hash_pandas_object(df.player, index=False) % TEST_MOD == 0).astype(int)
-    out = df.drop(columns=["fen", "move_uci", "second_uci"])
+    out = df.drop(columns=["fen", "move_uci", "second_uci"])  # noqa: F841 (read by name in the SQL below)
     duckdb.sql(f"COPY (SELECT * FROM out) TO '{TABLE}' (FORMAT parquet)")
     print(f"wrote {TABLE} ({len(df):,} rows, {df.test.mean():.1%} test, found {df.found.mean():.1%})")
 

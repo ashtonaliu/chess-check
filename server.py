@@ -90,7 +90,7 @@ def _get(r: AnalyzeReq) -> Analysis:
                 a = analyze(r.username, max_games=min(r.games, MAX_GAMES),
                             time_class=r.time_class, depth=ENGINE_DEPTH)
             except ValueError as e:
-                raise HTTPException(404, str(e))
+                raise HTTPException(404, str(e)) from e
         with _state:
             _cache[key] = (time.time(), a)
             _cache.move_to_end(key)
@@ -165,12 +165,12 @@ async def api_coach(r: AnalyzeReq, request: Request):
     except HTTPException:
         raise
     except CoachError as e:
-        raise HTTPException(502, str(e))
+        raise HTTPException(502, str(e)) from e
     except Exception:
         # Provider errors can carry Claude Code output, local paths or request details, so they go
         # to the server log and the client gets a generic message.
         log.exception("Coaching failed for %s", r.username)
-        raise HTTPException(502, "The coaching provider failed. Try again shortly.")
+        raise HTTPException(502, "The coaching provider failed. Try again shortly.") from None
     finally:
         _coach_jobs.release()
     return {"report": res.report, "verification": res.verification,

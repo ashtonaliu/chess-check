@@ -213,3 +213,24 @@ def test_evaluations_are_reused_and_label_the_pre_move_board(ingested, tmp_path,
         assert con.execute("""
             SELECT ply, best_uci, depth, found, pregame_rating FROM read_parquet(?)
         """, [str(labels / "training.parquet")]).fetchall() == [(2, "g1f3", 15, True, 1701)]
+
+
+def test_lichess_scripts_exit_clearly_when_data_dir_is_missing(tmp_path, monkeypatch):
+    import sys
+
+    from scripts import label_lichess, stockfish_lichess
+
+    missing = tmp_path / "lichess"
+    monkeypatch.setattr(label_lichess, "LICHESS", missing)
+    monkeypatch.setattr(sys, "argv", ["label_lichess.py"])
+    with pytest.raises(SystemExit) as err:
+        label_lichess.main()
+    assert "scripts/lichess_data.py" in str(err.value)
+    assert not missing.exists()
+
+    monkeypatch.setattr(stockfish_lichess, "LICHESS", missing)
+    monkeypatch.setattr(sys, "argv", ["stockfish_lichess.py", "benchmark"])
+    with pytest.raises(SystemExit) as err:
+        stockfish_lichess.main()
+    assert "scripts/lichess_data.py" in str(err.value)
+    assert not missing.exists()

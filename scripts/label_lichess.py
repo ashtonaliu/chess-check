@@ -191,6 +191,10 @@ def main():
     args = parser.parse_args()
     if len(args.month) != 7 or args.month[4] != "-" or not (args.month[:4] + args.month[5:]).isdigit():
         parser.error("month must use YYYY-MM")
+    if not LICHESS.is_dir():
+        raise SystemExit(
+            f"{LICHESS} does not exist. Run scripts/lichess_data.py fetch, ingest, and convert-evals first."
+        )
     with (LICHESS / ".lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         build(args.month)

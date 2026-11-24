@@ -96,6 +96,12 @@ class ReadOnlySQL:
         if _sql_head(sql) not in ("SELECT", "WITH"):
             return "Error: only SELECT/WITH queries are allowed."
         try:
+            stmts = self.con.extract_statements(sql)
+        except Exception as e:
+            return f"SQL error: {e}"
+        if len(stmts) != 1 or stmts[0].type != duckdb.StatementType.SELECT:
+            return "Error: only a single SELECT/WITH query is allowed."
+        try:
             df = self.con.execute(sql).df()
         except Exception as e:  # report SQL errors back to the model
             return f"SQL error: {e}"

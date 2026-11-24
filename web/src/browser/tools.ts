@@ -65,29 +65,71 @@ export const TOOLS = [
 
 // ---------- DuckDB-WASM (loaded only when the coach runs) ----------
 
-type Conn = { query: (sql: string) => Promise<{ toArray(): Record<string, unknown>[]; schema: { fields: { name: string }[] } }> };
+type QueryResult = { toArray(): Record<string, unknown>[]; schema: { fields: { name: string }[] } };
+type PreparedStmt = { query: () => Promise<QueryResult>; close: () => Promise<void> };
+export interface DuckHandle {
+  prepare: (sql: string) => Promise<PreparedStmt>;
+  close: () => Promise<void>;
+}
 
-async function openDuckDb(games: GameRow[], moves: Row[]): Promise<Conn> {
+/** First SQL keyword after skipping leading -- and /* ... *\/ comments and opening parens. */
+export function sqlHead(sql: string): string {
+  let s = sql.trimStart();
+  while (true) {
+    if (s.startsWith("--")) {
+      const nl = s.indexOf("\n");
+      s = nl === -1 ? "" : s.slice(nl + 1).trimStart();
+    } else if (s.startsWith("/*")) {
+      const end = s.indexOf("*/");
+      if (end === -1) return "";
+      s = s.slice(end + 2).trimStart();
+    } else {
+      break;
+    }
+  }
+  s = s.replace(/^\(+/, "").trimStart();
+  return s ? s.split(/\s+/, 1)[0].toUpperCase() : "";
+}
+
+async function openDuckDb(games: GameRow[], moves: Row[]): Promise<DuckHandle> {
   const duckdb = await import("@duckdb/duckdb-wasm");
   const bundle = await duckdb.selectBundle(duckdb.getJsDelivrBundles());
   const workerUrl = URL.createObjectURL(new Blob([`importScripts("${bundle.mainWorker}");`], { type: "text/javascript" }));
-  const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), new Worker(workerUrl));
-  await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
-  URL.revokeObjectURL(workerUrl);
-  const conn = await db.connect();
-  const gamesOut = games.map(g => ({
-    url: g.url, color: g.color, my_rating: g.myRating, opp_rating: g.oppRating, score: g.score,
-    expected: g.expected, residual: g.residual, time_class: g.timeClass, eco: g.eco, opening: g.opening,
-    family: g.family, end_time: g.endTime, moves: g.moves.slice(0, 16).join(" "),
-  }));
-  const movesOut = moves.map(({ fen: _fen, ...m }) => m);
-  await db.registerFileText("games.json", JSON.stringify(gamesOut));
-  await db.registerFileText("moves.json", JSON.stringify(movesOut));
-  await conn.query("CREATE TABLE games AS SELECT * FROM read_json_auto('games.json')");
-  await conn.query("CREATE TABLE moves AS SELECT * FROM read_json_auto('moves.json')");
-  await conn.query("SET enable_external_access = false");
-  await conn.query("SET lock_configuration = true");
-  return conn as unknown as Conn;
+  const worker = new Worker(workerUrl);
+  const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
+  let conn: Awaited<ReturnType<typeof db.connect>> | null = null;
+  let closed = false;
+  const close = async () => {
+    if (closed) return;
+    closed = true;
+    try { await conn?.close(); } catch { /* already closed */ }
+    try { await db.terminate(); } catch { /* already terminated */ }
+    worker.terminate();
+    URL.revokeObjectURL(workerUrl);
+  };
+  try {
+    await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+    conn = await db.connect();
+    const gamesOut = games.map(g => ({
+      url: g.url, color: g.color, my_rating: g.myRating, opp_rating: g.oppRating, score: g.score,
+      expected: g.expected, residual: g.residual, time_class: g.timeClass, eco: g.eco, opening: g.opening,
+      family: g.family, end_time: g.endTime, moves: g.moves.slice(0, 16).join(" "),
+    }));
+    const movesOut = moves.map(({ fen: _fen, ...m }) => m);
+    await db.registerFileText("games.json", JSON.stringify(gamesOut));
+    await db.registerFileText("moves.json", JSON.stringify(movesOut));
+    await conn.query("CREATE TABLE games AS SELECT * FROM read_json_auto('games.json')");
+    await conn.query("CREATE TABLE moves AS SELECT * FROM read_json_auto('moves.json')");
+    await conn.query("SET enable_external_access = false");
+    await conn.query("SET lock_configuration = true");
+    return {
+      prepare: sql => conn!.prepare(sql) as unknown as Promise<PreparedStmt>,
+      close,
+    };
+  } catch (e) {
+    await close();
+    throw e;
+  }
 }
 
 function csv(rows: Record<string, unknown>[], cols: string[], max = 50): string {
@@ -104,12 +146,13 @@ function csv(rows: Record<string, unknown>[], cols: string[], max = 50): string 
 
 export class ToolBox {
   calls: { name: string; input: Record<string, unknown>; error: boolean }[] = [];
-  private conn: Promise<Conn> | null = null;
+  private db: Promise<DuckHandle> | null = null;
   private index: GameIndex | null = null;
   private engine: Engine | null = null;
 
   constructor(private games: GameRow[], private moves: Row[], public facts: Fact[], private engineUrl: string,
-              private summaries: [string, string][] = []) {}
+              private summaries: [string, string][] = [],
+              private openDb: (games: GameRow[], moves: Row[]) => Promise<DuckHandle> = openDuckDb) {}
 
   private register(text: string): string {
     const id = `T${this.facts.filter(f => f.id.startsWith("T")).length + 1}`;
@@ -122,13 +165,19 @@ export class ToolBox {
     try {
       if (name === "run_sql") {
         const sql = String(input.query ?? "").trim();
-        const head = sql.replace(/^\(+/, "").split(/\s+/)[0]?.toUpperCase();
+        const head = sqlHead(sql);
         if (head !== "SELECT" && head !== "WITH") return done("Error: only SELECT/WITH queries are allowed.", true);
-        this.conn ??= openDuckDb(this.games, this.moves);
+        this.db ??= this.openDb(this.games, this.moves);
         try {
-          const res = await (await this.conn).query(sql);
-          const cols = res.schema.fields.map(f => f.name);
-          return done(this.register(`Query: ${sql}\nResult:\n${csv(res.toArray(), cols)}`));
+          // Preparing refuses more than one statement (using DuckDB's own parser).
+          const stmt = await (await this.db).prepare(sql);
+          try {
+            const res = await stmt.query();
+            const cols = res.schema.fields.map(f => f.name);
+            return done(this.register(`Query: ${sql}\nResult:\n${csv(res.toArray(), cols)}`));
+          } finally {
+            await stmt.close();
+          }
         } catch (e) {
           return done(`SQL error: ${(e as Error).message}`, true);
         }
@@ -171,5 +220,10 @@ export class ToolBox {
     return `Position ${fen}: ${sideName} to move, eval ${v >= 0 ? "+" : ""}${v.toFixed(1)} pawns for ${sideName}, best move ${best}.`;
   }
 
-  close() { this.engine?.terminate(); }
+  close() {
+    this.engine?.terminate();
+    const pending = this.db;
+    this.db = null;
+    if (pending) void pending.then(h => h.close(), () => {});
+  }
 }

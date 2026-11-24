@@ -94,10 +94,34 @@ test("agent loop: tool call, citation of the tool result, and a repair turn", as
 });
 
 test("agent loop: SQL tool rejects writes before touching the database", async () => {
-  const { ToolBox } = await import("../src/browser/tools");
-  const box = new ToolBox([], [], [], "unused");
-  const r = await box.run("run_sql", { query: "DROP TABLE games" });
-  assert.ok(r.isError && /only SELECT/.test(r.out));
+  const { ToolBox, sqlHead } = await import("../src/browser/tools");
+  assert.equal(sqlHead("-- top openings\nSELECT 1"), "SELECT");
+  assert.equal(sqlHead("/* note */ (WITH t AS (SELECT 1) SELECT * FROM t)"), "WITH");
+  assert.equal(sqlHead("-- SELECT\nDROP TABLE games"), "DROP");
+  assert.equal(sqlHead("/* unterminated SELECT"), "");
+
+  let closed = 0, prepared: string[] = [];
+  const box = new ToolBox([], [], [], "unused", [], async () => ({
+    async prepare(sql: string) {
+      prepared.push(sql);
+      if (sql.includes("DROP")) throw new Error("Cannot prepare multiple statements");
+      return {
+        async query() { return { toArray: () => [{ sep: ";" }], schema: { fields: [{ name: "sep" }] } }; },
+        async close() {},
+      };
+    },
+    async close() { closed++; },
+  }));
+  const bad = await box.run("run_sql", { query: "DROP TABLE games" });
+  assert.ok(bad.isError && /only SELECT/.test(bad.out));
+  const ok = await box.run("run_sql", { query: "/* note */ SELECT ';' AS sep;" });
+  assert.ok(!ok.isError && ok.out.includes(";"), ok.out);
+  const multi = await box.run("run_sql", { query: "SELECT 1; DROP TABLE games;" });
+  assert.ok(multi.isError && /Cannot prepare multiple statements/.test(multi.out), multi.out);
+  assert.equal(prepared.length, 2);
+  box.close();
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(closed, 1);
 });
 
 test("half-way values round like Python (to even)", async () => {

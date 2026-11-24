@@ -191,6 +191,9 @@ class ToolBox:
                          f"{r.opening}; {format_moves(' '.join(r.moves.split()[:12]))}")
         return "\n".join(lines)
 
+    def close(self) -> None:
+        self.sql.close()
+
 
 def _engine_eval(fen: str) -> str:
     import chess
@@ -199,6 +202,8 @@ def _engine_eval(fen: str) -> str:
     from .engine import find_stockfish
 
     board = chess.Board(fen)
+    if not board.is_valid():
+        raise ValueError(f"Invalid chess position: {fen}")
     with chess.engine.SimpleEngine.popen_uci(find_stockfish()) as eng:
         info = eng.analyse(board, chess.engine.Limit(depth=16))
     cp = info["score"].pov(board.turn).score(mate_score=3000)
@@ -259,26 +264,29 @@ def run_coach(username: str, facts: list[dict], games: pd.DataFrame,
     client = client or _client()
     facts = [dict(f) for f in facts]  # tool results get appended
     box = ToolBox(games, moves, facts, summaries)
-    usage: dict = {}
-    messages = [{"role": "user", "content":
-                 f"Player: {username}\n\nFacts:\n{facts_text(facts)}\n\n"
-                 "Write the report. Use the tools if a weakness needs more detail."}]
-    resp = _agent_turns(client, messages, box, usage)
-    report = first_report = _text(resp)
-    first = verify(report, box.facts)
-    final, repaired = first, False
-    if repair and not first["ok"]:
-        messages.append({"role": "user", "content":
-                         "A checker found claims in your report that are not supported "
-                         "by any fact or tool result:\n" + feedback(first) +
-                         "\n\nRewrite the full report fixing only these. Remove a claim "
-                         "rather than guess, or look it up with a tool and cite it."})
+    try:
+        usage: dict = {}
+        messages = [{"role": "user", "content":
+                     f"Player: {username}\n\nFacts:\n{facts_text(facts)}\n\n"
+                     "Write the report. Use the tools if a weakness needs more detail."}]
         resp = _agent_turns(client, messages, box, usage)
-        report = _text(resp)
-        final, repaired = verify(report, box.facts), True
-    return CoachResult(report=report, verification=final, first_verification=first,
-                       facts=box.facts, tool_calls=box.calls, repaired=repaired,
-                       usage=usage, first_report=first_report)
+        report = first_report = _text(resp)
+        first = verify(report, box.facts)
+        final, repaired = first, False
+        if repair and not first["ok"]:
+            messages.append({"role": "user", "content":
+                             "A checker found claims in your report that are not supported "
+                             "by any fact or tool result:\n" + feedback(first) +
+                             "\n\nRewrite the full report fixing only these. Remove a claim "
+                             "rather than guess, or look it up with a tool and cite it."})
+            resp = _agent_turns(client, messages, box, usage)
+            report = _text(resp)
+            final, repaired = verify(report, box.facts), True
+        return CoachResult(report=report, verification=final, first_verification=first,
+                           facts=box.facts, tool_calls=box.calls, repaired=repaired,
+                           usage=usage, first_report=first_report)
+    finally:
+        box.close()
 
 
 def to_json(r: CoachResult) -> str:

@@ -4,11 +4,13 @@ mod attacks;
 mod features;
 mod fen;
 mod san;
+mod tactics;
 #[cfg(target_arch = "wasm32")]
 mod wasm;
 
 pub use features::{BOARD_PLANES, MOVE_FEATURE_COUNT, MoveFeatures};
 pub use fen::ParseFenError;
+pub use tactics::{MOTIF_NAMES, Motifs};
 use std::fmt;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

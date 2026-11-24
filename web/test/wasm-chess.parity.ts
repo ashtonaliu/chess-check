@@ -99,3 +99,24 @@ test("archive PGNs and one-board replay match chess.js, including promotions and
   assert.deepEqual(wasm.san([{ fen: new Chess().fen(), move: "e2e9" }, { fen: "bad", move: "e2e4" }]), [null, null]);
   assert.equal(wasm.replay(undefined, ["Ne9"]), null);
 });
+
+test("the tactic summary is identical with the WebAssembly motif detector", async () => {
+  const { summarize } = await import("../src/browser/tactics");
+  const fx = json("fixtures/tactics.json");
+  const pgns = new Map<string, string>(fx.games.map((g: { url: string; pgn: string }) => [g.url, g.pgn]));
+  const viaJs = summarize(fx.analyses, pgns);
+  const viaWasm = summarize(fx.analyses, pgns, 16, wasm);
+  assert.ok(viaJs.blunders.length > 40, `${viaJs.blunders.length} blunders`);
+  assert.deepEqual(viaWasm, viaJs);
+});
+
+test("the WebAssembly motif detector matches TypeScript on all 3,000 puzzle positions", async () => {
+  const { motifs } = await import("../src/browser/tactics");
+  const fx = json("fixtures/tactics.json");
+  const positions: { fen: string; from: string; to: string; promotion: string | null }[] = fx.positions;
+  const found = wasm.motifs(positions.map(p => ({ fen: p.fen, move: `${p.from}${p.to}${p.promotion ?? ""}` })));
+  for (const [i, p] of positions.entries()) {
+    const js = motifs(p.fen, { from: p.from, to: p.to, promotion: p.promotion ?? undefined });
+    assert.deepEqual([...(found[i] ?? [])].sort(), [...js].sort(), `${p.fen} ${p.from}${p.to}`);
+  }
+});

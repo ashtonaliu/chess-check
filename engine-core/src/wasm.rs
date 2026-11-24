@@ -296,3 +296,19 @@ pub fn parse_pgn_batch(batch: &str) -> Result<String, JsError> {
     let games: Vec<String> = unpack(batch)?;
     pack(&games.iter().map(|pgn| pgn::parse(pgn)).collect::<Vec<_>>())
 }
+
+#[wasm_bindgen(js_name = "motifsBatch")]
+pub fn motifs_batch(batch: &str) -> Result<String, JsError> {
+    let moves: Vec<MoveAt> = unpack(batch)?;
+    let rows: Vec<Option<Vec<&'static str>>> = moves
+        .into_iter()
+        .map(|m| {
+            let pos: Position = m.fen.parse().ok()?;
+            let legal = pos.legal_moves();
+            let mv = read_uci(&legal, &m.chess_move)
+                .or_else(|| read_san(&pos, &legal, &m.chess_move))?;
+            Some(pos.motifs(mv).to_names())
+        })
+        .collect();
+    pack(&rows)
+}

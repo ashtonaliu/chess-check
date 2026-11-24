@@ -25,6 +25,7 @@ fn extract(
     let mut site_id = Vec::new();
     let mut moves = false;
     let mut selected = false;
+    let mut blank_after_header = false;
     loop {
         line.clear();
         if input.read_until(b'\n', &mut line)? == 0 {
@@ -32,7 +33,7 @@ fn extract(
         }
         // The rated archive emits each game's tag section at the start of its own lines.
         if line.starts_with(b"[") {
-            if moves {
+            if moves || blank_after_header {
                 if wanted.is_empty() {
                     break;
                 }
@@ -41,6 +42,7 @@ fn extract(
                 site_id.clear();
                 moves = false;
                 selected = false;
+                blank_after_header = false;
             }
             header.extend_from_slice(&line);
             ensure!(header.len() <= 1_000_000, "oversized PGN header");
@@ -57,8 +59,13 @@ fn extract(
             if selected {
                 output.write_all(&line)?;
             }
-        } else if !line.iter().all(|byte| byte.is_ascii_whitespace()) {
+        } else if line.iter().all(|byte| byte.is_ascii_whitespace()) {
+            if !header.is_empty() {
+                blank_after_header = true;
+            }
+        } else {
             moves = true;
+            blank_after_header = false;
             selected = wanted.remove(if game_id.is_empty() {
                 &site_id
             } else {
@@ -98,4 +105,33 @@ fn main() -> Result<()> {
         BufWriter::new(io::stdout().lock()),
         wanted,
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_movetext_game_does_not_corrupt_next_game_headers_or_id() {
+        let host = concat!("https:", "//lichess.org");
+        let pgn = format!(
+            "[Event \"Rated Blitz game\"]\n\
+             [GameId \"aaaaaaaa\"]\n\
+             [Site \"{host}/aaaaaaaa\"]\n\
+             [Result \"*\"]\n\
+             \n\
+             [Event \"Rated Blitz game\"]\n\
+             [Site \"{host}/bbbbbbbb\"]\n\
+             [Result \"1-0\"]\n\
+             \n\
+             1. e4 e5 1-0\n"
+        );
+        let mut out = Vec::new();
+        let wanted = HashSet::from([b"bbbbbbbb".to_vec()]);
+        extract(pgn.as_bytes(), &mut out, wanted).unwrap();
+        let text = String::from_utf8(out).unwrap();
+        assert!(!text.contains("aaaaaaaa"), "leaked previous game header:\n{text}");
+        assert!(text.contains("bbbbbbbb"));
+        assert!(text.contains("1. e4 e5 1-0"));
+    }
 }

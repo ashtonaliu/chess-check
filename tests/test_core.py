@@ -301,3 +301,90 @@ def test_pregame_ratings_come_from_the_previous_game():
     out = pregame_ratings([g("4", "blitz", 1508, 1492), g("3", "rapid", 1700, 1650),
                            g("2", "blitz", 1500, 1510), g("1", "blitz", 1510, 1480)])
     assert [(x.my_rating, x.opp_rating) for x in out] == [(1500, 1500), (1700, 1650), (1510, 1500), (1510, 1480)]
+
+
+def test_fetch_retries_429_and_5xx_with_backoff_and_retry_after(monkeypatch):
+    import requests
+    from chesscheck import fetch
+
+    sleeps = []
+    monkeypatch.setattr(fetch.time, "sleep", sleeps.append)
+
+    class FakeResponse:
+        def __init__(self, status, payload=None, headers=None):
+            self.status_code = status
+            self._payload = payload or {}
+            self.headers = headers or {}
+
+        def json(self):
+            return self._payload
+
+        def raise_for_status(self):
+            if self.status_code >= 400:
+                raise requests.HTTPError(f"HTTP {self.status_code}")
+
+    raw_game = {
+        "url": "game/1",
+        "rules": "chess",
+        "time_class": "blitz",
+        "end_time": 100,
+        "white": {"username": "someone", "rating": 1500, "result": "win"},
+        "black": {"username": "other", "rating": 1500, "result": "resigned"},
+        "pgn": '[Event "Live Chess"]\n\n1. e4 e5 1-0',
+    }
+
+    class FakeSession:
+        def __init__(self, plan):
+            self.plan = list(plan)
+            self.calls = []
+
+        def get(self, url, **kwargs):
+            self.calls.append(url)
+            return self.plan.pop(0)
+
+    # Retries 429 (with Retry-After) and 503 (default 1s/2s backoff) across archives + month calls
+    session = FakeSession([
+        FakeResponse(429, headers={"Retry-After": "4"}),
+        FakeResponse(503),
+        FakeResponse(200, {"archives": ["archives/2026/10"]}),
+        FakeResponse(502),
+        FakeResponse(429),
+        FakeResponse(200, {"games": [raw_game]}),
+    ])
+    games = fetch.fetch_games("someone", max_games=5, session=session)
+    assert len(games) == 1
+    assert sleeps == [4.0, 2.0, 1.0, 2.0]
+
+    # Exhausting 3 attempts raises HTTPError
+    sleeps.clear()
+    failing = FakeSession([FakeResponse(503), FakeResponse(503), FakeResponse(503)])
+    with pytest.raises(requests.HTTPError):
+        fetch.fetch_games("someone", max_games=5, session=failing)
+    assert len(failing.calls) == 3
+    assert sleeps == [1.0, 2.0]
+
+    # 404 is not retried
+    sleeps.clear()
+    missing = FakeSession([FakeResponse(404)])
+    with pytest.raises(ValueError, match="No Chess.com player"):
+        fetch.fetch_games("someone", max_games=5, session=missing)
+    assert len(missing.calls) == 1
+    assert sleeps == []
+
+    # A long Retry-After is capped, and a dropped connection is retried
+    sleeps.clear()
+    flaky = FakeSession([FakeResponse(429, headers={"Retry-After": "3600"}),
+                         FakeResponse(200, {"archives": []})])
+    real_get = flaky.get
+    dropped = []
+
+    def get(url, **kwargs):
+        if not dropped:
+            dropped.append(url)
+            raise requests.ConnectionError("reset")
+        return real_get(url, **kwargs)
+
+    flaky.get = get
+    assert fetch.fetch_games("someone", max_games=5, session=flaky) == []
+    assert sleeps == [1.0, fetch.MAX_RETRY_WAIT]
+

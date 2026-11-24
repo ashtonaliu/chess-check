@@ -132,6 +132,30 @@ test("agent loop: SQL tool rejects writes before touching the database", async (
   assert.equal(closed, 1);
 });
 
+test("agent loop: SQL tool retries openDb after an initial failure", async () => {
+  const { ToolBox } = await import("../src/browser/tools");
+  let attempts = 0;
+  const box = new ToolBox([], [], [], "unused", [], async () => {
+    attempts++;
+    if (attempts === 1) throw new Error("CDN offline");
+    return {
+      async prepare() {
+        return {
+          async query() { return { toArray: () => [{ n: 1 }], schema: { fields: [{ name: "n" }] } }; },
+          async close() {},
+        };
+      },
+      async close() {},
+    };
+  });
+  const first = await box.run("run_sql", { query: "SELECT 1 AS n" });
+  assert.ok(first.isError && /CDN offline/.test(first.out), first.out);
+  const second = await box.run("run_sql", { query: "SELECT 1 AS n" });
+  assert.ok(!second.isError && second.out.includes("1"), second.out);
+  assert.equal(attempts, 2);
+  box.close();
+});
+
 test("half-way values round like Python (to even)", async () => {
   const { pyRound } = await import("../src/browser/facts");
   assert.deepEqual([36.5, 37.5, 22.5, 20.5, -0.5, 2.4, 2.6].map(pyRound), [36, 38, 22, 20, -0, 2, 3]);

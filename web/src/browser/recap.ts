@@ -3,7 +3,6 @@
 // nothing is computed or shown before or during a game (Chess.com's fair-play
 // rules forbid outside help while playing).
 import { BLUNDER_DROP, moveLabel, winPct, type GameAnalysis } from "./engine";
-import { findRate } from "./findRate";
 import { gameId } from "./ids";
 import type { Game } from "./games";
 import { openingTable, pregameExpected, type GameRow } from "./stats";
@@ -16,9 +15,7 @@ export interface Recap {
   opening: { name: string; family: string; history: { n: number; score: number; expected: number } | null; flag: string | null };
   turning: null | { label: string; loss: number; phase: string; best: string | null; fen: string; ply: number; moveNo: number; san: string;
                     tactics: { kind: "allowed" | "missed"; motif: string }[]; clockFrac: number | null;
-                    chances?: { before: number; after: number };
-                    /** How often players near your rating find the best move (findRate.ts), when there is one. */
-                    findRate?: number | null };
+                    chances?: { before: number; after: number } };
   pattern: null | { kind: string; motif: string; count: number; verdict: string };
   clean: boolean;
   opponentNote: string | null;
@@ -55,8 +52,7 @@ export function howEnded(g: Game): string {
  * against the player's `history` (earlier games, which must not include this one).
  */
 export function buildRecap(game: Game, analysis: GameAnalysis, blunders: BlunderRec[], history: GameRow[],
-                           tactics: TacticSummary | null, opponentNote: string | null = null,
-                           estimateFindRate: typeof findRate | null = findRate): Recap {
+                           tactics: TacticSummary | null, opponentNote: string | null = null): Recap {
   const started = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ ? performance.now() : 0;
   const odds = game.ratingSource === "after-game" ? "unknown" : game.ratingSource === "estimated" ? "estimated" : "exact";
   const expected = pregameExpected(game.myRating, game.oppRating, game.color, game.timeClass);
@@ -88,9 +84,7 @@ export function buildRecap(game: Game, analysis: GameAnalysis, blunders: Blunder
     const chances = typeof before === "number" && Number.isFinite(before) && typeof after === "number" && Number.isFinite(after)
       ? { before: winPct(before), after: winPct(after) } : undefined;
     turning = { label: moveLabel(worst.m), loss: worst.loss, phase: worst.m.phase, best: worst.best, fen: worst.m.fen,
-      ply: worst.m.ply, moveNo: worst.m.move_no, san: worst.m.san, tactics: tags, clockFrac: worst.m.clock_frac, chances,
-      findRate: estimateFindRate && worst.best && worst.best !== worst.m.san
-        ? estimateFindRate(worst.m.fen, worst.best, game.myRating) : null };
+      ply: worst.m.ply, moveNo: worst.m.move_no, san: worst.m.san, tactics: tags, clockFrac: worst.m.clock_frac, chances };
     // does it match one of the player's known patterns? (only problems: rates above the opponents')
     for (const t of tags) {
       const stat = tactics?.motifs.find(s => s.kind === t.kind && s.motif === t.motif);

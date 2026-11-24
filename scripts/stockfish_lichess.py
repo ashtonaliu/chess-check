@@ -444,6 +444,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("action", choices=["benchmark", "label", "compare"])
     args = parser.parse_args()
+    if not LICHESS.is_dir():
+        raise SystemExit(
+            f"{LICHESS} does not exist. Run scripts/lichess_data.py fetch and ingest first."
+        )
     with (LICHESS / ".lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         OUT.mkdir(parents=True, exist_ok=True)

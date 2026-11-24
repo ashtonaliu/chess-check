@@ -98,6 +98,8 @@ test("archive PGNs and one-board replay match chess.js, including promotions and
   assert.deepEqual(wasm.parsePgns(["1. e4 missing e5", "1. e4 } e5"]), [null, null]);
   assert.deepEqual(wasm.san([{ fen: new Chess().fen(), move: "e2e9" }, { fen: "bad", move: "e2e4" }]), [null, null]);
   assert.equal(wasm.replay(undefined, ["Ne9"]), null);
+  assert.equal(wasm.replay(undefined, [""]), null);
+  assert.equal(wasm.replay(undefined, ["e4", ""]), null);
 });
 
 test("the tactic summary is identical with the WebAssembly motif detector", async () => {

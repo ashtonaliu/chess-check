@@ -40,7 +40,7 @@ export class WasmChess {
   constructor(private bindings: ChessBindings) {}
 
   replay(fen: string | undefined, moves: readonly string[]) {
-    if (moves.some(move => /[\r\n]/.test(move))) return null;
+    if (moves.some(move => !move || /[\r\n]/.test(move))) return null;
     let replay: ReplayBinding;
     try { replay = new this.bindings.GameReplay(fen, moves.join("\n")); }
     catch { return null; }

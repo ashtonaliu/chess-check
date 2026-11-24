@@ -74,3 +74,20 @@ test("language-prefixed addresses are guarded like the English ones", () => {
   assert.equal(gameIdFromPage("https://www.chess.com/member/es/game/123"), null);
   assert.equal(gameIdFromPage("https://www.chess.com/abc/game/123"), null);
 });
+
+test("classic /live pages are guarded as play pages while /live/game/<id> stays a game page", () => {
+  const origin = "https://www.chess.com";
+  for (const path of ["/live", "/live/", "/live#g=187138001290", "/es/live", "/pt-BR/live#g=187138001290"]) {
+    const u = `${origin}${path}`;
+    assert.equal(isPlayPage(new URL(u)), true, u);
+    assert.equal(pageSafetyKey(u), "play", u);
+    assert.equal(canReview(u, false), false, u);
+    assert.equal(canReview(u, true), false, u);
+    assert.equal(gameIdFromPage(u), null, u);
+  }
+  const gameUrl = `${origin}/live/game/187138001290`;
+  assert.equal(isPlayPage(new URL(gameUrl)), false);
+  assert.equal(pageSafetyKey(gameUrl), "game:187138001290");
+  assert.equal(canReview(gameUrl, true), true);
+  assert.equal(isPlayPage(new URL(`${origin}/news/live`)), false);
+});

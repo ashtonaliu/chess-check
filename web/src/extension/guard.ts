@@ -16,7 +16,7 @@
 // would treat a Spanish-language Play page or game page as an ordinary page.
 const LOCALE = String.raw`(?:\/[a-z]{2}(?:-[a-z]{2,4})?)?`;
 const GAME_PATH = new RegExp(String.raw`^${LOCALE}\/(?:analysis\/)?(?:(?:live|daily)\/)?game\/(?:(?:live|daily)\/)?(\d+)(?:\/|$)`, "i");
-const PLAY_PATH = new RegExp(String.raw`^${LOCALE}\/play(?:\/|$)`, "i");
+const PLAY_PATH = new RegExp(String.raw`^${LOCALE}\/(?:play(?:\/|$)|live\/?$)`, "i");
 
 export function gameIdFromPage(pageUrl: string | undefined | null): string | null {
   if (!pageUrl) return null;

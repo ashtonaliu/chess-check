@@ -18,3 +18,9 @@ for (const [name, what] of [["187138001290", "an ordinary game"], ["promo", "an 
     assert.deepEqual(replay.history(), want.history());
   });
 }
+
+test("promotion codes past the last valid entry throw instead of returning an invalid square", () => {
+  for (const bad of ["a=", "g+", "a+"]) {
+    assert.throws(() => decodeTcn(bad), /Unreadable move code/);
+  }
+});

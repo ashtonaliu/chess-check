@@ -53,3 +53,11 @@ test("time classes follow Chess.com's estimated game length", () => {
   assert.equal(timeClassOf("600"), "rapid");
   assert.equal(timeClassOf("1/86400"), "daily");
 });
+
+test("shorter moveTimestamps never produce NaN clock comments", () => {
+  const cb = fixture("callback_187138001290.json");
+  const g = gameFromCallback({ game: { ...cb.game, moveTimestamps: "1800,1795" } }, "ashton-iwnl", "live", [])!;
+  const clocks = [...g.pgn.matchAll(/\[%clk ([^\]]+)\]/g)].map(m => m[1]);
+  assert.equal(clocks.length, 2);
+  assert.ok(!g.pgn.includes("NaN"), g.pgn);
+});

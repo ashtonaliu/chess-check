@@ -19,6 +19,7 @@ export function decodeTcn(tcn: string): TcnMove[] {
     if (to > 63) {
       promotion = PROMO[Math.floor((to - 64) / 3)];
       to = from + (from < 16 ? -8 : 8) + ((to - 1) % 3) - 1;
+      if (!promotion || to < 0 || to > 63) throw new Error(`Unreadable move code "${tcn.slice(i, i + 2)}".`);
     }
     out.push({ from: square(from), to: square(to), ...(promotion ? { promotion } : {}) });
   }

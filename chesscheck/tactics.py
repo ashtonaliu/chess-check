@@ -215,6 +215,8 @@ def classify_game(pgn: str, analysis: dict) -> list[dict]:
                 cap = after.piece_at(refute.to_square)
                 if cap and cap.color == board.turn:
                     rec["lost"] = PIECE_NAME[cap.piece_type]
+                elif after.is_en_passant(refute):  # the taken pawn is not on the target square
+                    rec["lost"] = "pawn"
                 fork_piece = after.piece_at(refute.from_square)
                 if "fork" in rec["allowed"] and fork_piece:
                     rec["fork_by"] = PIECE_NAME[fork_piece.piece_type]

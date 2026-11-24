@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::ControlFlow};
+use std::ops::ControlFlow;
 
 use chrono::NaiveDateTime;
 use pgn_reader::{RawComment, RawTag, Skip, Visitor};
@@ -30,7 +30,30 @@ table! {
     }
 }
 
-type Tags = HashMap<Vec<u8>, String>;
+#[derive(Default)]
+pub struct Tags {
+    site: Option<String>,
+    game_id: Option<String>,
+    time_control: Option<String>,
+    utc_date: Option<String>,
+    utc_time: Option<String>,
+    white_elo: Option<i32>,
+    black_elo: Option<i32>,
+    white_rating_diff: Option<i32>,
+    black_rating_diff: Option<i32>,
+    variant: Option<String>,
+    white_title_bot: bool,
+    black_title_bot: bool,
+    fen: Option<String>,
+    white_berserk: bool,
+    black_berserk: bool,
+    white: Option<String>,
+    black: Option<String>,
+    eco: Option<String>,
+    opening: Option<String>,
+    result: Option<String>,
+    termination: Option<String>,
+}
 
 pub struct GameReader {
     pub modulus: u64,
@@ -54,7 +77,7 @@ impl Visitor for GameReader {
     type Output = (Game, Vec<MoveRow>);
 
     fn begin_tags(&mut self) -> ControlFlow<Self::Output, Tags> {
-        ControlFlow::Continue(HashMap::with_capacity(20))
+        ControlFlow::Continue(Tags::default())
     }
 
     fn tag(
@@ -63,44 +86,68 @@ impl Visitor for GameReader {
         name: &[u8],
         value: RawTag<'_>,
     ) -> ControlFlow<Self::Output> {
-        tags.insert(name.to_vec(), value.decode_utf8_lossy().into_owned());
+        let parse_i32 = || std::str::from_utf8(value.as_bytes()).ok()?.parse().ok();
+        let decode = || value.decode_utf8_lossy().into_owned();
+        match name {
+            b"Site" => tags.site = Some(decode()),
+            b"GameId" => tags.game_id = Some(decode()),
+            b"TimeControl" => tags.time_control = Some(decode()),
+            b"UTCDate" => tags.utc_date = Some(decode()),
+            b"UTCTime" => tags.utc_time = Some(decode()),
+            b"WhiteElo" => tags.white_elo = parse_i32(),
+            b"BlackElo" => tags.black_elo = parse_i32(),
+            b"WhiteRatingDiff" => tags.white_rating_diff = parse_i32(),
+            b"BlackRatingDiff" => tags.black_rating_diff = parse_i32(),
+            b"Variant" => tags.variant = Some(decode()),
+            b"WhiteTitle" => tags.white_title_bot = value.as_bytes() == b"BOT",
+            b"BlackTitle" => tags.black_title_bot = value.as_bytes() == b"BOT",
+            b"FEN" => tags.fen = Some(decode()),
+            b"WhiteBerserk" => tags.white_berserk = true,
+            b"BlackBerserk" => tags.black_berserk = true,
+            b"White" => tags.white = Some(decode()),
+            b"Black" => tags.black = Some(decode()),
+            b"ECO" => tags.eco = Some(decode()),
+            b"Opening" => tags.opening = Some(decode()),
+            b"Result" => tags.result = Some(decode()),
+            b"Termination" => tags.termination = Some(decode()),
+            _ => (),
+        }
         ControlFlow::Continue(())
     }
 
-    fn begin_movetext(&mut self, mut tags: Tags) -> ControlFlow<Self::Output, Movetext> {
-        let url = tags.remove(b"Site".as_slice());
+    fn begin_movetext(&mut self, tags: Tags) -> ControlFlow<Self::Output, Movetext> {
+        let url = tags.site;
         let game_id = tags
-            .remove(b"GameId".as_slice())
+            .game_id
             .filter(|id| valid_id(id))
             .or_else(|| {
                 let id = url.as_deref()?.rsplit('/').next()?;
                 valid_id(id).then(|| id.to_owned())
             });
-        let time_control = tags.remove(b"TimeControl".as_slice());
+        let time_control = tags.time_control;
         let clock = time_control.as_deref().and_then(time_control_seconds);
         let start_ts = tags
-            .get(b"UTCDate".as_slice())
-            .zip(tags.get(b"UTCTime".as_slice()))
+            .utc_date
+            .as_deref()
+            .zip(tags.utc_time.as_deref())
             .and_then(|(date, time)| {
                 NaiveDateTime::parse_from_str(&format!("{date} {time}"), "%Y.%m.%d %H:%M:%S").ok()
             })
             .map(|date| date.and_utc().timestamp());
-        let rating = |tag: &[u8]| tags.get(tag).and_then(|value| value.parse::<i32>().ok());
-        let white_rating_before = rating(b"WhiteElo");
-        let black_rating_before = rating(b"BlackElo");
+        let white_rating_before = tags.white_elo;
+        let black_rating_before = tags.black_elo;
         let white_rating_after = white_rating_before
-            .zip(rating(b"WhiteRatingDiff"))
+            .zip(tags.white_rating_diff)
             .and_then(|(before, diff)| before.checked_add(diff));
         let black_rating_after = black_rating_before
-            .zip(rating(b"BlackRatingDiff"))
+            .zip(tags.black_rating_diff)
             .and_then(|(before, diff)| before.checked_add(diff));
-        let at = |tag: &[u8]| tags.get(tag).map(String::as_str);
         let exclusion = if game_id.is_none() {
             Some("missing_id")
-        } else if matches!(at(b"Variant"), Some(variant) if !variant.eq_ignore_ascii_case("standard"))
+        } else if matches!(tags.variant.as_deref(), Some(variant) if !variant.eq_ignore_ascii_case("standard"))
         {
             Some("nonstandard")
-        } else if at(b"WhiteTitle") == Some("BOT") || at(b"BlackTitle") == Some("BOT") {
+        } else if tags.white_title_bot || tags.black_title_bot {
             Some("bot")
         } else if clock.is_none() {
             Some("nonclocked")
@@ -112,7 +159,7 @@ impl Visitor for GameReader {
                 .as_ref()
                 .is_some_and(|id| xxh3_64(id.as_bytes()) % self.modulus == self.bucket);
         let board = sampled
-            .then(|| match at(b"FEN") {
+            .then(|| match tags.fen.as_deref() {
                 Some(fen) => fen
                     .parse::<Fen>()
                     .ok()?
@@ -121,7 +168,7 @@ impl Visitor for GameReader {
                 None => Some(Chess::default()),
             })
             .flatten();
-        let berserk = [at(b"BlackBerserk").is_some(), at(b"WhiteBerserk").is_some()];
+        let berserk = [tags.black_berserk, tags.white_berserk];
         let game = Game {
             game_id,
             url,
@@ -131,15 +178,15 @@ impl Visitor for GameReader {
             black_rating_before,
             white_rating_after,
             black_rating_after,
-            white: tags.remove(b"White".as_slice()),
-            black: tags.remove(b"Black".as_slice()),
+            white: tags.white,
+            black: tags.black,
             base_seconds: clock.map(|(base, _)| base),
             increment_seconds: clock.map(|(_, inc)| inc),
             time_class: clock.map(|(base, inc)| time_class(base, inc).into()),
-            eco: tags.remove(b"ECO".as_slice()),
-            opening: tags.remove(b"Opening".as_slice()),
-            result: tags.remove(b"Result".as_slice()),
-            termination: tags.remove(b"Termination".as_slice()),
+            eco: tags.eco,
+            opening: tags.opening,
+            result: tags.result,
+            termination: tags.termination,
             source: Some("lichess".into()),
             exclusion: exclusion.map(str::to_owned),
             ..Game::default()

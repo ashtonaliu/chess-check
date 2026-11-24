@@ -49,7 +49,10 @@ fn bench(
     let mut pos: Position = fen.parse().unwrap();
     let original = pos;
     // One untimed warmup run so attack tables are initialized and caches are warm.
-    assert_eq!(f(&mut pos, 3.min(depth)), perft_copy(&mut pos.clone(), 3.min(depth)));
+    assert_eq!(
+        f(&mut pos, 3.min(depth)),
+        perft_copy(&mut pos.clone(), 3.min(depth))
+    );
     assert_eq!(pos, original);
 
     let mut times = Vec::with_capacity(runs);

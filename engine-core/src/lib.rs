@@ -130,6 +130,9 @@ pub struct Position {
 pub struct Undo(Position);
 
 /// Minimal state saved to undo a move piece by piece without copying the whole position.
+/// Kept only for `examples/bench_unmake.rs`: the whole-position copy measured as fast, so the
+/// engine uses [`Position::make_move`] and [`Position::unmake_move`].
+#[doc(hidden)]
 #[must_use]
 pub struct IncrementalUndo {
     captured: Option<Role>,
@@ -379,6 +382,7 @@ impl Position {
     }
 
     /// Play a legal move and return only the minimal metadata needed to undo it piece by piece.
+    #[doc(hidden)]
     pub fn make_move_incremental(&mut self, mv: Move) -> IncrementalUndo {
         let color = self.turn;
         let enemy = color.other();
@@ -429,6 +433,7 @@ impl Position {
     }
 
     /// Undo a move played with [`Self::make_move_incremental`] piece by piece.
+    #[doc(hidden)]
     pub fn unmake_move_incremental(&mut self, mv: Move, undo: IncrementalUndo) {
         let enemy = self.turn;
         let color = enemy.other();

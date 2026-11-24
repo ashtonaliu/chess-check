@@ -46,11 +46,18 @@ export function nameCallbackOpening(game: Game, history: Game[]): Game {
   return opening === game.opening && family === game.family ? game : { ...game, opening, family };
 }
 
-/** The game as `user` saw it, or null if it is not finished or `user` did not play in it. Ratings
- *  are the ones going into the game (the endpoint's ratings already include the game's change). */
+const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+
+/** The game as `user` saw it, or null if it is not finished, not standard chess, or `user` did not
+ *  play in it. Ratings are the ones going into the game (the endpoint's ratings already include the
+ *  game's change). */
 export function gameFromCallback(cb: Callback, user: string, kind: "live" | "daily", history: Game[]): Game | null {
   const g = cb.game, h = g.pgnHeaders;
   if (!g.isFinished) return null;
+  const variant = h.Variant ? String(h.Variant).toLowerCase() : "";
+  if (variant && variant !== "standard") return null;
+  if (h.FEN && String(h.FEN) !== START_FEN) return null;
+  if (h.SetUp !== undefined && String(h.SetUp) !== "0" && (!h.FEN || String(h.FEN) !== START_FEN)) return null;
   const white = String(h.White), black = String(h.Black), u = user.toLowerCase();
   const color = white.toLowerCase() === u ? "white" : black.toLowerCase() === u ? "black" : null;
   if (!color) return null;

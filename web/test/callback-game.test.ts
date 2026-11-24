@@ -61,3 +61,21 @@ test("shorter moveTimestamps never produce NaN clock comments", () => {
   assert.equal(clocks.length, 2);
   assert.ok(!g.pgn.includes("NaN"), g.pgn);
 });
+
+test("non-standard variants and custom starting FENs return null instead of throwing", () => {
+  const cb = fixture("callback_187138001290.json");
+  const chess960 = {
+    game: {
+      ...cb.game,
+      pgnHeaders: { ...cb.game.pgnHeaders, Variant: "Chess960", SetUp: "1", FEN: "bbqnnrkr/pppppppp/8/8/8/8/PPPPPPPP/BBQNNRKR w KQkq - 0 1" },
+    },
+  };
+  assert.equal(gameFromCallback(chess960, "ashton-iwnl", "live", []), null);
+  const odds = {
+    game: {
+      ...cb.game,
+      pgnHeaders: { ...cb.game.pgnHeaders, SetUp: "1", FEN: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNB1KBNR w KQkq - 0 1" },
+    },
+  };
+  assert.equal(gameFromCallback(odds, "ashton-iwnl", "live", []), null);
+});

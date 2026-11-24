@@ -162,10 +162,54 @@ def test_coach_tool_loop_and_repair():
 
 def test_sql_tool_is_read_only():
     box = coach.ToolBox(_games(), None, [])
-    out, err = box.run("run_sql", {"query": "DROP TABLE games"})
-    assert err
-    out, err = box.run("run_sql", {"query": "SELECT * FROM read_csv('/etc/passwd')"})
-    assert err
+    try:
+        out, err = box.run("run_sql", {"query": "DROP TABLE games"})
+        assert err
+        out, err = box.run("run_sql", {"query": "SELECT * FROM read_csv('/etc/passwd')"})
+        assert err
+    finally:
+        box.close()
+
+
+def test_run_coach_closes_sql_connection(monkeypatch):
+    closed = []
+    orig = coach.ReadOnlySQL.close
+
+    def track_close(self):
+        closed.append(True)
+        return orig(self)
+
+    monkeypatch.setattr(coach.ReadOnlySQL, "close", track_close)
+    games = _games()
+    facts = [{"id": "F1", "kind": "overall", "text": "Across 42 games you scored 40%."}]
+    coach.run_coach("someone", facts, games, None, client=FakeClient())
+    assert len(closed) == 1
+
+    class FailingClient:
+        def __init__(self):
+            self.beta = NS(messages=NS(create=self.create))
+
+        def create(self, **kw):
+            raise RuntimeError("boom")
+
+    with pytest.raises(RuntimeError, match="boom"):
+        coach.run_coach("someone", facts, games, None, client=FailingClient())
+    assert len(closed) == 2
+
+
+def test_engine_eval_rejects_invalid_fen_without_starting_stockfish(monkeypatch):
+    import chess.engine
+
+    def fail_popen(*args, **kwargs):
+        raise AssertionError("Stockfish should not be started for an invalid FEN")
+
+    monkeypatch.setattr(chess.engine.SimpleEngine, "popen_uci", staticmethod(fail_popen))
+    box = coach.ToolBox(_games(), None, [])
+    try:
+        out, err = box.run("engine_eval", {"fen": "8/8/8/8/8/8/8/8 w - - 0 1"})
+        assert err and "invalid" in out.lower(), out
+    finally:
+        box.close()
 
 
 # ---------- model ----------

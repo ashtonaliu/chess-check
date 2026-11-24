@@ -101,8 +101,8 @@ def shrink(groups: pd.DataFrame, sigma2: float, mu: float = 0.0) -> pd.DataFrame
     sd = np.sqrt(v)
     cdf = np.einsum("t,tgx->gx", w,
                     norm.cdf((THETA_GRID[None, None, :] - m[:, :, None]) / sd[:, :, None]))
-    lo = THETA_GRID[np.argmax(cdf >= 0.05, axis=1)]
-    hi = THETA_GRID[np.argmax(cdf >= 0.95, axis=1)]
+    lo = np.where((cdf >= 0.05).any(axis=1), THETA_GRID[np.argmax(cdf >= 0.05, axis=1)], THETA_GRID[-1])
+    hi = np.where((cdf >= 0.95).any(axis=1), THETA_GRID[np.argmax(cdf >= 0.95, axis=1)], THETA_GRID[-1])
     p0 = (w[:, None] * norm.cdf((0 - m) / sd)).sum(0)
 
     g["shrunk"] = post_mean

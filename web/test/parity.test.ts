@@ -69,3 +69,14 @@ test("worst branches match Python", () => {
     assert.equal(b.n, branch.n, family);
   }
 });
+
+test("openingTable clamps ci_high to 1.0 instead of NaN when residual is near +1", () => {
+  const mk = (i: number): Game => ({
+    url: `u${i}`, color: "white", myRating: 800, oppRating: 2000, score: 1,
+    timeClass: "daily", timeControl: "1/86400", eco: "C50", opening: "Italian Game", family: "Italian Game",
+    endTime: i, result: "win", oppResult: "resigned", moves: ["e4", "e5"], pgn: "1. e4 e5",
+  });
+  const [row] = openingTable(withExpected([mk(1), mk(2), mk(3), mk(4), mk(5)]));
+  assert.equal(row.ci_high, 1.0);
+  assert.ok(row.ci_low < row.ci_high);
+});

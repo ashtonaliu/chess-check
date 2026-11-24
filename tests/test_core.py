@@ -41,6 +41,13 @@ def test_shrinkage_pulls_small_samples_harder():
     assert out.post_sd[0] > out.post_sd[1]
 
 
+def test_shrinkage_clamps_ci_high_at_grid_top():
+    g = pd.DataFrame({"n": [3], "mean_resid": [0.95]})
+    out = shrink(g, sigma2=0.2, mu=0.95)
+    assert out.ci_high.iloc[0] == 1.0
+    assert out.ci_low.iloc[0] < out.ci_high.iloc[0]
+
+
 def test_opening_names_canonical():
     assert opening_names("x/Closed-Sicilian-Defense-3.g3")[1] == "Sicilian Defense"
     assert opening_names("x/Caro-Kann")[1] == "Caro-Kann Defense"

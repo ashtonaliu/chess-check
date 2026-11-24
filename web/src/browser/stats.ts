@@ -100,7 +100,9 @@ function shrink(groups: { n: number; mean_resid: number }[], sigma2: number, mu:
       if (Number.isNaN(lo) && c >= 0.05) lo = x;
       if (c >= 0.95) { hi = x; break; }
     }
-    return { shrunk: pm, post_sd: Math.sqrt(Math.max(second - pm * pm, 0)), ci_low: lo, ci_high: hi, p_below: p0 };
+    const top = THETA_GRID[THETA_GRID.length - 1];
+    return { shrunk: pm, post_sd: Math.sqrt(Math.max(second - pm * pm, 0)),
+      ci_low: Number.isNaN(lo) ? top : lo, ci_high: Number.isNaN(hi) ? top : hi, p_below: p0 };
   });
 }
 

@@ -211,7 +211,7 @@ export const factsText = (facts: Fact[]) => facts.map(f => `[${f.id}] ${f.text}`
 
 const CITE = /\[([FT]\d+)\]/g;
 const URL_RE = /https?:\/\/\S+/g;
-const MOVE = /(?<![\w.])(?:\d+\.(?:\.\.)?\s?)?(?:O-O(?:-O)?|[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|[a-h]x[a-h][1-8]|[a-h][1-8](?:=[QRBN])?)[+#]?(?!\w)/g;
+const MOVE = /(?<![\w.])(?:\d+\.(?:\.\.)?\s?)?(?:O-O(?:-O)?|[KQRBN][a-h]?[1-8]?x?[a-h][1-8]|[a-h]x[a-h][1-8](?:=[QRBN])?|[a-h][1-8](?:=[QRBN])?)[+#]?(?!\w)/g;
 const NUM = /(?<![\w.])[-+−]?\d+(?:\.\d+)?/g;
 const LIST_MARK = /^\s*(?:\**\d+[.)]\**|[-*])\s+/gm;
 

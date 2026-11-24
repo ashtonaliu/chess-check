@@ -62,6 +62,14 @@ test("verifier: bad citations, unknown links, punctuation after links", () => {
   assert.ok(verify("Replay https://www.chess.com/game/live/42, then review it [T1].", t).ok);
 });
 
+test("verifier checks capture-promotion piece and check suffix", () => {
+  const facts = [{ id: "F1", text: "Your move 42.exd8=Q+ (endgame) lost 25 win%." }];
+  assert.ok(verify("You played 42.exd8=Q+ [F1].", facts).ok);
+  const wrongPiece = verify("You played 42.exd8=N [F1].", facts);
+  assert.ok(!wrongPiece.ok && wrongPiece.unsupported.some(u => u.type === "move" && u.claim === "exd8=N"));
+  assert.ok(!verify("You played 42.exd8 [F1].", facts).ok);
+});
+
 // ---------- agent loop ----------
 
 test("agent loop: tool call, citation of the tool result, and a repair turn", async () => {

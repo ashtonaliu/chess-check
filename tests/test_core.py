@@ -122,6 +122,16 @@ def test_verify_catches_bad_citation_and_url():
     assert any(u["type"] == "url" for u in r["unsupported"])
 
 
+def test_verify_checks_capture_promotion_piece_and_check():
+    facts = [{"id": "F1", "text": "Your move 42.exd8=Q+ (endgame) lost 25 win%."}]
+    assert verify("You played 42.exd8=Q+ [F1].", facts)["ok"]
+    wrong_piece = verify("You played 42.exd8=N [F1].", facts)
+    assert not wrong_piece["ok"]
+    assert ("move", "exd8=N") in {(u["type"], u["claim"]) for u in wrong_piece["unsupported"]}
+    dropped = verify("You played 42.exd8 [F1].", facts)
+    assert not dropped["ok"]
+
+
 # ---------- coach agent loop (fake client, no API calls) ----------
 
 def _block(**kw):

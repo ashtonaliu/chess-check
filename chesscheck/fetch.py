@@ -3,7 +3,10 @@ from __future__ import annotations
 
 import io
 import re
+import time
 from dataclasses import dataclass, field, replace
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 
 import chess.pgn
 import requests
@@ -147,16 +150,45 @@ def fetch_games(user: str, max_games: int = 300,
     return pregame_ratings(_fetch_stored(user, max_games + 1, time_classes, session))[:max_games]
 
 
+TRIES = 3
+
+
+def _retry_delay(response: requests.Response, attempt: int) -> float:
+    header = response.headers.get("Retry-After") if getattr(response, "headers", None) else None
+    if header is not None:
+        try:
+            return max(0.0, float(header))
+        except ValueError:
+            try:
+                dt = parsedate_to_datetime(header)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                return max(0.0, (dt - datetime.now(timezone.utc)).total_seconds())
+            except (TypeError, ValueError):
+                pass
+    return float(attempt)
+
+
+def _get_with_retry(session: requests.Session, url: str, timeout: int) -> requests.Response:
+    for attempt in range(1, TRIES + 1):
+        r = session.get(url, headers=HEADERS, timeout=timeout)
+        if (r.status_code == 429 or r.status_code >= 500) and attempt < TRIES:
+            time.sleep(_retry_delay(r, attempt))
+            continue
+        return r
+    raise AssertionError("unreachable")
+
+
 def _fetch_stored(user: str, max_games: int, time_classes: set[str] | None,
                   session: requests.Session | None) -> list[Game]:
     s = session or requests.Session()
-    r = s.get(API.format(user=user.lower()), headers=HEADERS, timeout=20)
+    r = _get_with_retry(s, API.format(user=user.lower()), timeout=20)
     if r.status_code == 404:
         raise ValueError(f"No Chess.com player named {user!r}")
     r.raise_for_status()
     games: list[Game] = []
     for month_url in reversed(r.json().get("archives", [])):
-        m = s.get(month_url, headers=HEADERS, timeout=30)
+        m = _get_with_retry(s, month_url, timeout=30)
         m.raise_for_status()
         for raw in sorted(m.json().get("games", []),
                           key=lambda g: g.get("end_time", 0), reverse=True):

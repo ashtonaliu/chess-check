@@ -3,7 +3,7 @@ name: Deploy static demo to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ["web/**", "engine-core/**", "scripts/build_static.sh", ".github/workflows/pages.yml"]
+    paths: ["web/**", "engine-core/**", "scripts/build_static.sh", "scripts/build_engine_wasm.sh", ".github/workflows/pages.yml"]
   workflow_dispatch:
 
 permissions:

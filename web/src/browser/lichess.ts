@@ -157,7 +157,8 @@ export function parseLichessGame(raw: unknown, user: string): Game | null {
   const opening = g.opening?.name ?? "Unknown";
   const family = openingFamily(opening);
 
-  replay.setHeader("Site", `${LICHESS_HOST}/${g.id}`);
+  const url = `${LICHESS_HOST}/game/${g.id}`;
+  replay.setHeader("Site", url);
   replay.setHeader("White", playerName(white));
   replay.setHeader("Black", playerName(black));
   replay.setHeader("Result", pgnResult);
@@ -169,7 +170,8 @@ export function parseLichessGame(raw: unknown, user: string): Game | null {
 
   const endMs = g.lastMoveAt ?? g.createdAt ?? 0;
   return {
-    url: `${LICHESS_HOST}/${g.id}`,
+    site: "lichess",
+    url,
     ratingSource: "pregame",
     color,
     myRating: typeof me?.rating === "number" ? me.rating : 0,

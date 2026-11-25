@@ -62,7 +62,8 @@ test("20-game parity with Phase A Lichess ingest on moves, ratings, result, spee
 
     const whiteView = parseLichessGame(raw, exp.white);
     assert.ok(whiteView, `parseLichessGame failed for ${exp.url} (white=${exp.white})`);
-    assert.equal(whiteView.url, `${BASE}/${exp.game_id}`, exp.url);
+    assert.equal(whiteView.url, exp.url, exp.url);
+    assert.equal(whiteView.site, "lichess", exp.url);
     assert.deepEqual(whiteView.moves, exp.moves.map(m => m.san), exp.url);
     assert.equal(whiteView.myRating, exp.white_rating_before, exp.url);
     assert.equal(whiteView.oppRating, exp.black_rating_before, exp.url);
@@ -164,6 +165,6 @@ test("parseLichessNdjson skips malformed lines and non-matching games without th
     JSON.stringify(baseExport({ id: "Game0004" })),
   ].join("\n");
   const { games, skipped } = parseLichessNdjson(ndjson, "alice");
-  assert.deepEqual(games.map(g => g.url), [`${BASE}/Game0001`, `${BASE}/Game0004`]);
+  assert.deepEqual(games.map(g => g.url), [`${BASE}/game/Game0001`, `${BASE}/game/Game0004`]);
   assert.equal(skipped, 3);
 });

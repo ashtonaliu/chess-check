@@ -41,14 +41,16 @@ const RESERVED_8CHAR_ROUTES = new Set([
   "marathon",
 ]);
 
-const GAME_PATH = /^\/([A-Za-z0-9]{8}(?:[A-Za-z0-9]{4})?)(?:\/(?:white|black))?\/?$/;
+// Lichess serves games at /game/{id}. Root-level addresses are older and now redirect there.
+const GAME_PATH = /^\/(game\/)?([A-Za-z0-9]{8}(?:[A-Za-z0-9]{4})?)(?:\/(?:white|black))?\/?$/;
 const ORDINARY_PATH = /^\/(?:analysis(?:\/|$)|study(?:\/|$)|training(?:\/|$)|@\/[^/]+(?:\/|$))/;
 const EXPLICIT_PLAY_PATH = /^\/(?:$|setup(?:\/|$)|tournament(?:\/|$)|swiss(?:\/|$)|simul(?:\/|$)|tv(?:\/|$))/;
 
 /**
  * The canonical 8-character Lichess game ID for a game page, or null if the URL
  * is not a Lichess game page. Both 8-character spectator IDs and 12-character
- * player IDs (with or without /white or /black) return the first 8 characters.
+ * player IDs (with or without /white or /black, under /game/ or at the root)
+ * return the first 8 characters.
  */
 export function gameIdFromPage(pageUrl: string | undefined | null): string | null {
   if (!pageUrl) return null;
@@ -57,8 +59,8 @@ export function gameIdFromPage(pageUrl: string | undefined | null): string | nul
   if (u.hostname !== "lichess.org") return null;
   const m = u.pathname.match(GAME_PATH);
   if (!m) return null;
-  const raw = m[1];
-  if (raw.length === 8 && RESERVED_8CHAR_ROUTES.has(raw.toLowerCase())) return null;
+  const raw = m[2];
+  if (!m[1] && raw.length === 8 && RESERVED_8CHAR_ROUTES.has(raw.toLowerCase())) return null;
   return raw.slice(0, 8);
 }
 

@@ -1720,6 +1720,66 @@ bash scripts/build_extension.sh
 wc -c web/src/extension/neuralFindRateWeights.json dist/chess-check-extension.zip
 ```
 
+### Retraining with Chess.com rapid and bullet
+
+I extended `scripts/prepare_neural_find_rate.py` (`--chesscom-extra`) to append the 95,683 non-test Chess.com rapid and bullet critical positions (`data/engine/chesscom-rapid-train-v1/training.parquet`) to the v1 inputs (`1,431,068` total rows in `prepared-v2`, asserting zero `hash % 5 == 0` test players in the extra rows). The three held-out test sets stayed untouched throughout training, early stopping, temperature scaling, and seed selection: v1 Chess.com blitz (`157,583`), Lichess (`106,835`), and `data/engine/chesscom-rapid-v1` (`20,069`).
+
+I kept the existing per-source `RatingScale` so the exported weight format and browser predictor remain unchanged. Adding Chess.com rapid and bullet widened the Chess.com training rating distribution from mean `1665.82` and std `115.23` (blitz only) to mean `1643.82` and std `223.37`, while Lichess stayed at mean `1659.46` and std `367.13`.
+
+I trained `joint_board_context_move` across seeds 24, 25, and 26 on Ashton's M5 Pro Mac (18 cores, PyTorch CPU with 12 threads, AdamW, batch size 1,024, patience 4, logit temperature fitted on validation):
+
+- **Seed 24:** best epoch 8, validation log loss `0.422738` (temperature `1.04306`, `1,155.9` s).
+- **Seed 25:** best epoch 6, validation log loss `0.421950` (temperature `1.05255`, `958.3` s). Selected on validation.
+- **Seed 26:** best epoch 8, validation log loss `0.423924` (temperature `1.07279`, `1,144.6` s).
+
+`scripts/eval_retrained_find_rate.py` compares the validation-selected seed-25 checkpoint against the shipped float16 weights (`web/src/extension/neuralFindRateWeights.json`) on all eight held-out `(site, speed)` pairs using 2,000 player-grouped paired bootstrap resamples (negative log-loss delta favors the retrained model).
+
+**Recorded clock:**
+
+| Site | Speed | Held-out n | Shipped LL | Retrained LL | Delta (90% CI) | Shipped Brier | Retrained Brier | Pred (ship / new) | Actual |
+|---|---|---:|---:|---:|---|---:|---:|---|---:|
+| Chess.com | blitz | 157,583 | 0.40257 | 0.40197 | -0.00060 [-0.00132, +0.00013] | 0.13099 | 0.13078 | 0.7903 / 0.7929 | 0.7928 |
+| Lichess | blitz | 21,508 | 0.40752 | 0.40619 | -0.00133 [-0.00347, +0.00087] | 0.13297 | 0.13243 | 0.7839 / 0.7869 | 0.7876 |
+| Lichess | rapid | 22,413 | 0.42947 | 0.43174 | +0.00227 [+0.00010, +0.00436] | 0.14035 | 0.14110 | 0.7646 / 0.7864 | 0.7720 |
+| Lichess | bullet | 20,861 | 0.44504 | 0.44385 | -0.00119 [-0.00335, +0.00108] | 0.14683 | 0.14631 | 0.7466 / 0.7525 | 0.7499 |
+| Lichess | classical | 19,559 | 0.41613 | 0.41431 | -0.00181 [-0.00420, +0.00058] | 0.13482 | 0.13394 | 0.7877 / 0.8020 | 0.7922 |
+| Lichess | ultraBullet | 22,494 | 0.58753 | 0.58604 | -0.00148 [-0.00407, +0.00104] | 0.20236 | 0.20160 | 0.5848 / 0.6014 | 0.5954 |
+| Chess.com | rapid | 9,693 | 0.39090 | 0.36979 | -0.02111 [-0.02610, -0.01605] | 0.12566 | 0.11810 | 0.7753 / 0.8129 | 0.8164 |
+| Chess.com | bullet | 10,376 | 0.45857 | 0.43843 | -0.02014 [-0.02552, -0.01520] | 0.15110 | 0.14400 | 0.7926 / 0.7624 | 0.7513 |
+
+**Review clock fixed at 0.6561:**
+
+| Site | Speed | Held-out n | Shipped LL | Retrained LL | Delta (90% CI) | Shipped Brier | Retrained Brier | Pred (ship / new) | Actual |
+|---|---|---:|---:|---:|---|---:|---:|---|---:|
+| Chess.com | blitz | 157,583 | 0.40312 | 0.40260 | -0.00052 [-0.00125, +0.00020] | 0.13106 | 0.13092 | 0.7932 / 0.7962 | 0.7928 |
+| Lichess | blitz | 21,508 | 0.40784 | 0.40661 | -0.00123 [-0.00337, +0.00098] | 0.13302 | 0.13251 | 0.7862 / 0.7893 | 0.7876 |
+| Lichess | rapid | 22,413 | 0.42929 | 0.43078 | +0.00150 [-0.00063, +0.00358] | 0.14032 | 0.14081 | 0.7620 / 0.7836 | 0.7720 |
+| Lichess | bullet | 20,861 | 0.44681 | 0.44541 | -0.00139 [-0.00359, +0.00088] | 0.14706 | 0.14657 | 0.7528 / 0.7589 | 0.7499 |
+| Lichess | classical | 19,559 | 0.41474 | 0.41197 | -0.00276 [-0.00511, -0.00042] | 0.13448 | 0.13328 | 0.7817 / 0.7958 | 0.7922 |
+| Lichess | ultraBullet | 22,494 | 0.59059 | 0.58934 | -0.00125 [-0.00390, +0.00129] | 0.20354 | 0.20291 | 0.5893 / 0.6057 | 0.5954 |
+| Chess.com | rapid | 9,693 | 0.39252 | 0.37005 | -0.02247 [-0.02738, -0.01748] | 0.12608 | 0.11810 | 0.7732 / 0.8105 | 0.8164 |
+| Chess.com | bullet | 10,376 | 0.46209 | 0.44097 | -0.02111 [-0.02649, -0.01615] | 0.15182 | 0.14460 | 0.7966 / 0.7673 | 0.7513 |
+
+**The ship gate failed.** Retraining cut log loss sharply on both new targets (Chess.com rapid `-0.02111` recorded / `-0.02247` review clock; Chess.com bullet `-0.02014` recorded / `-0.02111` review clock) and lowered point-estimate log loss on Chess.com blitz and four of five Lichess speeds. However, Lichess rapid regressed by `+0.00227` (`[+0.00010, +0.00436]`) on recorded clock and `+0.00150` (`[-0.00063, +0.00358]`) on review clock, exceeding the `+0.001` 90% CI upper-bound guard. On Lichess rapid, mean predicted find rate moved from `0.7646` to `0.7864` against `0.7720` actual while Chess.com rapid moved from `0.7753` to `0.8129` against `0.8164` actual, because the model shares one `rapid` speed indicator and one 32-unit hidden layer across both sites without explicit site-by-speed terms or per-speed rating scales. In addition, Lichess bullet (`+0.00108` recorded) and ultraBullet (`+0.00104` recorded, `+0.00129` review) had 90% CI upper bounds slightly above `+0.001` despite negative point estimates. I kept the shipped weights (`web/src/extension/neuralFindRateWeights.json`) and `REVIEW_RATE_RANGES` unchanged.
+
+```sh
+python scripts/prepare_neural_find_rate.py --data-root data/engine \
+  --chesscom-extra data/engine/chesscom-rapid-train-v1/training.parquet \
+  --base-prepared eval_results/neural-find-rate/prepared-v1 \
+  --output eval_results/neural-find-rate/prepared-v2 --workers 1
+for seed in 24 25 26; do
+  python scripts/train_neural_find_rate.py --prepared eval_results/neural-find-rate/prepared-v2 \
+    --output eval_results/neural-find-rate/retrain-v2/seed-$seed --seed $seed \
+    --device cpu --threads 12 --models joint_board_context_move
+done
+python scripts/eval_retrained_find_rate.py \
+  --prepared eval_results/neural-find-rate/prepared-v2 \
+  --chesscom-extra data/engine/chesscom-rapid-v1/training.parquet \
+  --shipped-weights web/src/extension/neuralFindRateWeights.json \
+  --candidate eval_results/neural-find-rate/retrain-v2/seed-25/joint_board_context_move.pt \
+  --output eval_results/neural-find-rate/retrain-v2/eval-seed-25.json --workers 1
+```
+
 ## Deployment
 
 - I run the Python tests, TypeScript tests and build, and Chrome extension build in GitHub Actions on pull requests and pushes to main.

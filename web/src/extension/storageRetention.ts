@@ -1,4 +1,4 @@
-import { gameId } from "../browser/ids";
+import { gameCacheId } from "../browser/ids";
 import type { SiteId } from "../browser/site";
 import { QUEUE_PREFIX, queueKey } from "./queueStore";
 import { playerKey } from "./storageKeys";
@@ -26,7 +26,7 @@ export function reviewDependencies(storage: Record<string, unknown>) {
     const legacy = new Set<string>();
     for (const item of value as ReviewItem[]) {
       if (item.done) continue;
-      const id = gameId(item.url);
+      const id = gameCacheId(item.url);
       games.add(id);
       if (!item.fen || item.timeClass === undefined) legacy.add(id);
     }

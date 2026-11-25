@@ -1,11 +1,13 @@
 // Service worker: relays the cube's requests to the offscreen analysis page
 // (creating it when needed), and toggles the cube when the toolbar icon is clicked.
 
-import { DEFAULT_SITE, siteTabPatterns } from "../browser/site";
+import { DEFAULT_SITE, siteTabPatterns, type SafetyKey } from "../browser/site";
 import { pageSafety } from "./guard";
 import { QUEUE_PREFIX } from "./queueStore";
 import type { Reply } from "./offscreen";
+import { LICHESS_COOLDOWN_KEY, LichessRequests, type LichessHistoryRequest } from "./lichessRequests";
 
+const lichessRequests = new LichessRequests(until => chrome.storage.session.set({ [LICHESS_COOLDOWN_KEY]: until }));
 const SAFETY_KEY = "analysis-paused-tabs";
 type PageSafety = NonNullable<ReturnType<typeof pageSafety>>;
 const safetyKey = ({ site, key }: PageSafety) => key.startsWith("game:") ? `${site}:${key}` : key;
@@ -16,6 +18,7 @@ let pauseWork = Promise.resolve();
 const hasPausedTab = () => Array.from(tabStates.values()).some(tab => tab.paused);
 
 function stopAnalysis() {
+  lichessRequests.stopHistory();
   pauseWork = pauseWork.then(async () => {
     if (await chrome.offscreen.hasDocument()) await toOffscreen({ type: "stop" });
   }).catch(() => { /* a closed offscreen document already stopped its workers */ });
@@ -40,7 +43,8 @@ function setTab(id: number, key: string | null, finished?: boolean, resetConfirm
 }
 
 const safetyReady = (async () => {
-  const [tabs, saved] = await Promise.all([chrome.tabs.query({ url: siteTabPatterns }), chrome.storage.session.get([SAFETY_KEY])]);
+  const [tabs, saved] = await Promise.all([chrome.tabs.query({ url: siteTabPatterns }), chrome.storage.session.get([SAFETY_KEY, LICHESS_COOLDOWN_KEY])]);
+  lichessRequests.restoreCooldown(saved[LICHESS_COOLDOWN_KEY]);
   const previous = new Map((saved[SAFETY_KEY] as [number, { key: string; paused: boolean }][] | undefined) ?? []);
   for (const tab of tabs) {
     const page = pageSafety(tab.url);
@@ -63,9 +67,13 @@ chrome.tabs.onUpdated.addListener((id, change, tab) => {
     if (key || change.status === "complete") setTab(id, key);
   }).catch(() => {});
 });
-chrome.tabs.onRemoved.addListener(id => { void safetyReady.then(() => setTab(id, null)).catch(() => {}); });
+chrome.tabs.onRemoved.addListener(id => {
+  lichessRequests.forgetTab(id);
+  void safetyReady.then(() => setTab(id, null)).catch(() => {});
+});
 chrome.tabs.onReplaced.addListener((added, removed) => {
   // A replaced page has no active content script confirmation yet.
+  lichessRequests.forgetTab(removed);
   void safetyReady.then(async () => {
     const tabs = await chrome.tabs.query({ url: siteTabPatterns });
     const tab = tabs.find(item => item.id === added);
@@ -103,7 +111,23 @@ async function toOffscreen(msg: object, gated = false): Promise<unknown> {
 // reload by hand. An install from the Chrome Web Store has installType "normal" and ignores both.
 const isDevInstall = () => chrome.management.getSelf().then(s => s.installType === "development", () => false);
 
-chrome.runtime.onMessage.addListener((msg: { target?: string; type?: string; url?: string; finished?: boolean }, sender, sendResponse) => {
+interface BackgroundMessage extends Partial<LichessHistoryRequest> {
+  target?: string; type?: string; url?: string; finished?: boolean; pageKey?: SafetyKey; gameId?: string;
+}
+
+chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendResponse) => {
+  if (msg.target === "lichess-history") {
+    if (sender.url !== chrome.runtime.getURL("offscreen.html")) return false;
+    const { user, timeClass, max } = msg;
+    void safetyReady.then(() => {
+      if (hasPausedTab()) throw new Error("Lichess history was paused.");
+      if (!user || max === undefined || !Number.isInteger(max) || max < 1 || max > 150) {
+        throw new Error("Invalid Lichess history request.");
+      }
+      return lichessRequests.history({ user, timeClass: timeClass ?? null, max });
+    }).then(sendResponse, error => sendResponse({ status: "error", message: (error as Error).message }));
+    return true;
+  }
   if (msg.target === "review-dependencies" && sender.url === chrome.runtime.getURL("offscreen.html")) {
     // Chrome only exposes the runtime API to the offscreen page.
     void chrome.storage.local.get(null).then(storage => {
@@ -136,12 +160,24 @@ chrome.runtime.onMessage.addListener((msg: { target?: string; type?: string; url
       const key = safetyKey(page);
       if (msg.type === "page-state") {
         const reported = pageSafety(msg.url);
-        if (reported?.site === page.site && reported.key === page.key) setTab(id, key, msg.finished === true);
+        if (msg.pageKey === page.key || (reported?.site === page.site && reported.key === page.key)) {
+          setTab(id, key, msg.finished === true);
+        }
         sendResponse({ status: "ready" });
         return;
       }
       // A newly opened or not-yet-confirmed game cannot start analysis.
       if (key !== "other" && tabStates.get(id)?.key !== key) setTab(id, key);
+      if (msg.type === "lichess-status") {
+        if (page.site === "lichess" && page.key.startsWith("game:") && page.key.slice(5) === msg.gameId) {
+          sendResponse(await lichessRequests.check(id, msg.gameId));
+        } else sendResponse({ status: "pending" });
+        return;
+      }
+      if (page.site === "lichess" && msg.type === "recap" && page.key !== `game:${msg.gameId}`) {
+        sendResponse({ status: "pending" });
+        return;
+      }
       if (hasPausedTab()) {
         sendResponse({ status: "paused" });
         return;

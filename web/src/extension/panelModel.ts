@@ -9,7 +9,7 @@ import { canReview, gameIdFromPage } from "./guard";
 
 // "finished": a finished game opened from the review queue, whose own recap is not asked for
 // unless you want it (so reviewing does not run Stockfish on every old game).
-export type State = "idle" | "loading" | "choose" | "pending" | "building" | "ready" | "finished" | "error";
+export type State = "idle" | "loading" | "choose" | "pending" | "building" | "ready" | "finished" | "aborted" | "error";
 export type View = "game" | "review";
 
 export { LIVE_POLL_MS, DAILY_POLL_MS } from "../browser/sites/chesscomPages";
@@ -92,6 +92,7 @@ export function reviewCard(due: ReviewItem[], current: string | null, state: Sta
 
 export type AfterLookup =
   | { next: "pending"; delay: number }
+  | { next: "aborted" }
   | { next: "choose"; open?: true }
   | { next: "review"; viewer: string; item: string }
   | { next: "recap"; viewer: string; open?: true };
@@ -101,9 +102,11 @@ export type AfterLookup =
  * yet, or not finished), ask which player you are, reopen the review the page was opened for, or
  * ask for the recap.
  */
-export function afterLookup(game: { finished: boolean; white: string; black: string } | null, pageUrl: string,
+export function afterLookup(game: { finished: boolean; white: string; black: string } | { retryAfterMs: number } | "aborted" | null, pageUrl: string,
                             signedIn: string | null, accounts: string[], reviewing: string | null,
                             reopen = false): AfterLookup {
+  if (game === "aborted") return { next: "aborted" };
+  if (game && "retryAfterMs" in game) return { next: "pending", delay: game.retryAfterMs };
   if (!game || !game.finished) return { next: "pending", delay: pollDelay(pageUrl) };
   const me = signedIn?.toLowerCase();
   const viewer = [game.white, game.black].find(n => me ? n.toLowerCase() === me : accounts.includes(n.toLowerCase()));

@@ -1,5 +1,6 @@
 import type { Game } from "./games";
 import { chesscomPages } from "./sites/chesscomPages";
+import { lichessPages } from "./sites/lichessPages";
 
 export type SiteId = "chesscom" | "lichess";
 export const DEFAULT_SITE: SiteId = "chesscom";
@@ -8,6 +9,8 @@ export interface FinishedPage {
   players: { white: string; black: string };
   evidence: unknown;
 }
+
+export type PageLookup = FinishedPage | "aborted" | { retryAfterMs: number } | null;
 
 export type SafetyKey = "play" | "other" | `game:${string}`;
 
@@ -22,7 +25,8 @@ export interface SitePages {
   isPlayPage(url: URL): boolean;
   pageSafetyKey(url: URL): SafetyKey;
   signedInUser(doc: Document): string | null;
-  lookupFinishedPage(id: string, url: URL, signal: AbortSignal): Promise<FinishedPage | null>;
+  lookupFinishedPage(id: string, url: URL, signal: AbortSignal): Promise<PageLookup>;
+  publicPageUrl?(url: URL): string;
   pollDelay(url: URL): number;
   moveLink(url: string, ply: number): string;
   isAtPly(url: URL, ply: number): boolean;
@@ -36,7 +40,7 @@ export interface Site extends SitePages {
   nameOpening(game: Game, history: Game[]): Game;
 }
 
-const pages: readonly SitePages[] = [chesscomPages];
+const pages: readonly SitePages[] = [chesscomPages, lichessPages];
 export const siteTabPatterns = pages.flatMap(site => site.tabPatterns);
 export const siteForUrl = (url: URL) => pages.find(site => site.matches(url));
 export function pageSite(url: string | undefined | null) {

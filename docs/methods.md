@@ -208,7 +208,7 @@ MySQL is the persistent store for the full app when `CHESS_CHECK_SQL_BACKEND=mys
 | Turning point | The player's largest confirmed loss, on a board, with its tactic tags and clock |
 | Pattern match | If the turning point's tactic is one the player shows more often than their opponents, with the running count |
 | Opening | The player's earlier record in that opening family and color (this game excluded) |
-| Opponent note | The opponent's record in the opening as their color, from their last 100 games |
+| Opponent note | The opponent's record in the opening as their color, from their last 100 games on Chess.com or their last 50 games in that color on Lichess |
 
 **Fair play.** Chess.com forbids outside assistance during a game, and in live chess the clock starts at pairing, so there is no safe "before the game" moment. Recaps use only finished games, which is all the public API returns, and the opponent note and win probability appear only after the game.
 
@@ -313,6 +313,16 @@ runs. Lichess's opponent note arrived about 5 s in, on the same update as the fu
 a saved profile. That is the time to download the opponent's last 100 games, since Lichess sends
 anonymous history at about 20 games a second, so the opponent note sets the Lichess recap time
 once a profile is saved. The first recap also builds the 50-game profile.
+
+The note only reads the opponent's games in the color they had, and about half of their last 100
+games are in it. Lichess can filter history by color, so the extension and the website now ask
+for their last 50 games in that color. For 6 players from finished games in the parity fixture,
+3 runs each and one request at a time, the median download went from 4.16 s for 100 games to
+2.16 s for 50. The old request held a median of 50 games in the note's color (49 to 50), so the
+note reads about as many games as before. Chess.com's archive cannot be filtered by color, and its
+pregame ratings need the games in between, so it still reads 100 games. I measured the download
+with the API alone. Lichess showed a security check to headless Chrome, so I did not rerun the
+recap timings above. Run `python scripts/time_lichess_opponent_history.py /tmp/opponent.json`.
 
 I timed each search from sending the position to receiving `bestmove` and used the last UCI
 `info` line with a `time` field for Stockfish's own time. The 12 new recaps totaled 2.84 s

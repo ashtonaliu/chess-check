@@ -37,6 +37,8 @@ export interface Site extends SitePages {
   /** Check the site's finish evidence again before parsing the game for this player. */
   finishedGame(id: string, user: string, evidence: unknown): Game | "pending" | null;
   history(user: string, timeClass: string | null, max: number, signal?: AbortSignal): Promise<Game[]>;
+  /** The opponent's recent games for the post-game note, which reads only their games in `color`. */
+  opponentHistory(user: string, color: Game["color"], timeClass: string | null, signal?: AbortSignal): Promise<Game[]>;
   nameOpening(game: Game, history: Game[]): Game;
 }
 

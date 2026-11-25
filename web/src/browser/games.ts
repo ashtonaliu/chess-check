@@ -262,3 +262,9 @@ export function fetchGames(user: string, maxGames: number, timeClass: string | n
                            signal?: AbortSignal, site?: Site): Promise<Game[]> {
   return site ? site.history(user, timeClass, maxGames, signal) : history(user, timeClass, maxGames, signal);
 }
+
+/** Load the opponent's games that the post-game note reads: the ones where they played `color`. */
+export function fetchOpponentGames(user: string, color: Game["color"], timeClass: string | null,
+                                   site: Site, signal?: AbortSignal): Promise<Game[]> {
+  return site.opponentHistory(user, color, timeClass, signal);
+}

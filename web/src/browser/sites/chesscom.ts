@@ -8,6 +8,8 @@ const callbackEvidence = (value: unknown): Partial<ChesscomEvidence> => (value ?
 export const chesscom: Site = {
   ...chesscomPages,
   history,
+  // The archive cannot be filtered by color, and the pregame ratings need the games in between.
+  opponentHistory: (user, _color, timeClass, signal) => history(user, timeClass, 100, signal),
   nameOpening: nameCallbackOpening,
   isFinishedGame: (id, evidence) => isFinishedCallback(id, callbackEvidence(evidence).callback),
   finishedGame(id, user, evidence) {

@@ -49,6 +49,8 @@ test("lichess.history uses chrome.runtime.sendMessage in extension and direct fe
     assert.equal(extGames.length, 1);
     assert.equal(fetchCalls, 0);
     assert.deepEqual(sent, [{ target: "lichess-history", user: "alice", timeClass: "blitz", max: 50 }]);
+    await lichess.opponentHistory("bob", "white", "rapid");
+    assert.deepEqual(sent.at(-1), { target: "lichess-history", user: "bob", timeClass: "rapid", max: 50, color: "white" });
 
     // 2. Web page path (no chrome.runtime.id)
     delete (globalThis as Record<string, unknown>).chrome;
@@ -73,6 +75,12 @@ test("lichess.history uses chrome.runtime.sendMessage in extension and direct fe
     assert.equal(url.searchParams.get("clocks"), "true");
     assert.equal(url.searchParams.get("opening"), "true");
     assert.equal(headers.Accept, "application/x-ndjson");
+    assert.equal(url.searchParams.has("color"), false);
+
+    await lichess.opponentHistory("alice", "white", "daily");
+    assert.equal(seen.length, 2);
+    assert.equal(seen[1].url.searchParams.get("color"), "white");
+    assert.equal(seen[1].url.searchParams.get("max"), "50");
   } finally {
     if (origChrome === undefined) delete (globalThis as Record<string, unknown>).chrome;
     else (globalThis as Record<string, unknown>).chrome = origChrome;

@@ -1,6 +1,6 @@
 # Plan: Lichess support
 
-Status: Parts 1 to 4 are done. Part 5 is in progress. Part 6 is this PR.
+Status: done. All six parts are merged, and 0.9.0 is ready for the store.
 
 Chess Check supports Chess.com in the extension and demo. Part 4 adds the same finished-game
 recap, patterns and review queue for Lichess in the extension. Part 5 covers the demo.

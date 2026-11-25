@@ -338,9 +338,19 @@ at once. The turning point and opponent note were in by 8.2 s, when the panel es
 Cloudflare took about 6 s before the game page loaded, outside the recap timing.
 [Finished game](https://lichess.org/game/BYvvanic)
 
-Reopening that game reused the existing recap and showed it in under 1 s. Timing a new game
-with a saved profile is pending. With a local finished-game fixture and six history records,
-the complete recap took 2.16 s cold and 1.34 s on reopening.
+Reopening that game reused the existing recap and showed it in under 1 s. With the 50-game profile
+saved, a new game by the same player (oiuCrb3L) had its full recap by 7.6 s after I chose the
+player. On a third game (jXSW5txW), with the player remembered, the recap started on page load
+and was complete by 7.0 s, including Lichess's own page load. Each browser step I took added
+about a second, so these are upper bounds as well. With a local finished-game fixture and six
+history records, the complete recap took 2.16 s cold and 1.34 s on reopening.
+
+**Demo.** The website fetches Lichess history directly, with the same request parameters as the
+extension, one request at a time, and fails at once for a minute after a 429. On my 18-core Mac in
+Chrome 156, 150 blitz games with nothing cached showed the score and opening table after 7.11 and
+7.26 s in two runs, and the full analysis after 15.97 and 16.27 s. Lichess sends anonymous history
+at about 20 games a second, so the first number is mostly the download. On Chess.com the same
+table appears in 2.4 s. [Demo PR #129](https://github.com/ashtonaliu/chess-check/pull/129)
 
 ## Odds experiment
 

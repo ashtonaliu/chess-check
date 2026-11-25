@@ -1,35 +1,37 @@
 # Chess Check
 
-Type in a Chess.com username and find out what that player is actually bad at.
+Chess Check works on Chess.com and Lichess. Type in a username and find out what that player is actually bad at.
 
 **[Try the live demo](https://ashtonaliu.github.io/chess-check/)**. It runs entirely in your browser, so there is nothing to install and no account needed.
 
-**[Get the Chrome extension](https://chromewebstore.google.com/detail/chess-check-post-game-rec/eikbpmlbeigjdfmpocihioahdjkfgcgk)** for a recap on Chess.com after each game you finish.
+**[Get the Chrome extension](https://chromewebstore.google.com/detail/chess-check-post-game-rec/eikbpmlbeigjdfmpocihioahdjkfgcgk)** for a recap after each game you finish on Chess.com or Lichess.
 
 ![Chess Check showing key findings, tactic comparisons and annotated example positions](docs/img/screenshot.png)
 
 ## What it does
 
-1. Downloads your recent games from Chess.com.
+1. Downloads your recent games from the site you play on.
 2. Runs the Stockfish chess engine on every move to find your mistakes, then double-checks each mistake with a deeper search.
 3. Names the tactic behind each blunder (a fork you walked into, a discovered attack you missed, a free piece you left) and which piece you moved.
-   Each finding opens every position behind it, worst first. You can step through what happened after your move or the line Stockfish preferred, and open the exact move on Chess.com.
+   Each finding opens every position behind it, worst first. You can step through what happened after your move or the line Stockfish preferred, and open the exact move on the game's site.
 4. Checks each opening against what your rating predicted, so a bad result against stronger players does not count against you.
 5. Estimates whether you blunder more than similar players would in the same positions, and whether time pressure is the cause.
 6. Has an AI coach write a short report, then checks every number and move in it against the real data before showing it.
-7. Shows a short recap after each game you finish, in a Chrome extension on Chess.com or on the website, and asks you to find the move you missed.
+7. Shows a short recap after each game you finish, in the Chrome extension or on the website, and asks you to find the move you missed.
 
 Everything is compared with your opponents in the same games. A typical result, from my own games: *"You miss discovered attacks: 18 times in positions where you blundered, against 4 for your opponents."*
 
 ## Try it
 
 1. Open the [demo](https://ashtonaliu.github.io/chess-check/). It starts with an analysis of my own 300 blitz games.
-2. Enter any Chess.com username and press Analyze. The score and opening table appear within a few seconds, and the full analysis of 150 games took about 48 seconds in my tests.
+2. Choose Chess.com or Lichess, enter any username and press Analyze. The score and opening table appear within a few seconds, and the full analysis of 150 games took about 48 seconds on Chess.com in my tests. On Lichess the table took about 7 seconds, since Lichess sends about 20 games a second, and the full analysis took about 16 seconds.
 3. For the AI coaching report, paste your own [Anthropic API key](https://console.anthropic.com/settings/keys). The key only goes from your browser to Anthropic, and a report costs under one cent.
 
-**The Chrome extension** puts a small cube on Chess.com that you can drag anywhere, so you can study between games without leaving the site. It knows who you are from your signed-in account and needs no setup. When a game ends, the cube turns green and the recap fills in as each part is ready: the result and the upset meter at once, the turning point a few seconds later, then your patterns and your opponent's openings. With a saved history, the whole recap took under 2 seconds in my tests, and about 5 to 8 seconds on a first install, when it also analyzes your recent games.
+**The Chrome extension** puts a small cube on Chess.com and Lichess that you can drag anywhere, so you can study between games without leaving the site. It knows who you are from your signed-in account and needs no setup. When a game ends, the cube turns green and the recap fills in as each part is ready: the result and the upset meter at once, the turning point a few seconds later, then your patterns and your opponent's openings. On Chess.com the whole recap took under 2 seconds with a saved history in my tests, and about 5 to 8 seconds on a first install, when it also analyzes your recent games.
 
-The turning point is a question. The recap says which move cost you the most and asks you to find the better one. "Find it on the board" opens the game at that move on Chess.com's own board, where you can try moves, and "Reveal the move" shows the answer. Missed moves go into a review queue that brings each one back after 1, 3, 7 and 21 days until you find it, from the same cube, between games. Chess.com's fair-play rules forbid outside help during a game, so the extension computes and shows nothing about a game until it is over. Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/chess-check-post-game-rec/eikbpmlbeigjdfmpocihioahdjkfgcgk). To run your own build instead:
+The turning point is a question. The recap says which move cost you the most and asks you to find the better one. "Find it on the board" opens the game at that move on the site's own board, where you can try moves, and "Reveal the move" shows the answer. Missed moves go into a review queue that brings each one back after 1, 3, 7 and 21 days until you find it, from the same cube, between games. Both sites forbid engine help when you play another person, so the extension computes and shows nothing about a game until it is over. [Chess.com fair play](https://www.chess.com/legal/fair-play) · [Lichess fair play](https://lichess.org/page/fair-play)
+
+Install it from the [Chrome Web Store](https://chromewebstore.google.com/detail/chess-check-post-game-rec/eikbpmlbeigjdfmpocihioahdjkfgcgk). To run your own build instead:
 
 1. Install the Rust target with `rustup target add wasm32-unknown-unknown` and the matching CLI with
    `cargo install --locked --version 0.2.130 wasm-bindgen-cli`.
@@ -140,6 +142,27 @@ backend in Chrome. Stockfish still takes most of the build time. [WebAssembly me
 |---|---:|---:|---:|
 | 50 | 4.36 s | 3.78 s | 13.3% |
 | 150 | 12.96 s | 11.50 s | 11.3% |
+
+**Lichess.** I timed the unpacked extension in Chrome on three finished games by one player. I
+checked the panel by hand, so each time is an upper bound.
+
+| Case | Timed from | Turning point and opponent note | Full recap |
+|---|---|---:|---:|
+| New install, no profile | Choosing the player | By 8.2 s | By 15.2 s |
+| Saved 50-game profile, new game | Choosing the player | | By 7.6 s |
+| Saved profile and player, new game | Opening the page | | By 7.0 s |
+| Reopening a finished recap | Opening the page | | Under 1 s |
+
+The result, pregame ratings, opening and expected score appeared at once in every case. In the
+first case the panel estimated about 1 s left at 8.2 s, so the full recap most likely finished
+near 10 s. The 7.0 s includes Lichess's own page load. I timed these by hand, so they are
+looser than the Chess.com times above. The first game also showed a
+Cloudflare check for about 6 s before the page loaded, outside these times.
+
+In the demo, 150 Lichess blitz games with nothing cached showed the score and opening table after
+7.11 and 7.26 s in two runs, and the full analysis after 15.97 and 16.27 s. The first number is
+mostly the download, since Lichess sends anonymous history at about 20 games a second.
+[Lichess recap methods](docs/methods.md#lichess)
 
 ## How it works
 

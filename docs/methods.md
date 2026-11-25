@@ -296,6 +296,62 @@ The fair-play guard (`web/src/extension/guard.ts`, tested in `web/test/guard.tes
 
 Browser notifications are optional (the "Notify me" button asks for permission), and the tab title shows a count of unread recaps.
 
+## Lichess
+
+A Lichess game keeps the same address when it ends, and its export can answer while the game is
+still being played. Every game page starts paused. Play pages and pages the extension does not
+recognize also pause analysis across tabs.
+
+**Fair play.** The service worker first checks `/game/export/{id}` with `moves=false&clocks=false`
+and reads only the status. Once it sees a finished status, it fetches the export with moves and
+clocks and checks the status and game ID again before passing along the details. The offscreen page
+checks both again before parsing. The private 12-character player ID stays in the page address.
+The extension uses only the public 8-character ID in requests, messages and storage.
+
+**Requests.** One queue in the service worker handles both game checks and history. It runs one
+request at a time and starts status checks on the same tab at least 3 seconds apart. A 429 pauses
+the queue for a full minute. The worker saves the end of that wait in Chrome's session storage and
+restores it after a restart.
+
+**Parity.** I used 20 finished games from the October 2026 archive. TypeScript and Python read the
+same fixture and compare the parsed games with the Phase A PGN ingest. Both tests check pregame
+ratings and scores from each player's side. They also check the moves, opening, speed and time
+control, and compare each recorded clock with the PGN to within 1 second.
+[Shared fixture](../web/test/fixtures/lichess_parity.json) · [TypeScript #125](https://github.com/ashtonaliu/chess-check/pull/125) · [Python #127](https://github.com/ashtonaliu/chess-check/pull/127)
+
+**What I changed from the plan.**
+
+- I first wrote down root-level game addresses. The extension uses `/game/{id}` and recognizes
+  the old addresses in the guard.
+- An aborted game would have polled forever under the old pending rule. Both `aborted` and
+  `noStart` now stop polling with no recap.
+- With `perfType` omitted, variants and games from custom starting positions could use up
+  `max` before the parser dropped them. Every history request now sends `perfType`. With no
+  time class selected it asks for UltraBullet, bullet, blitz, rapid, classical and correspondence.
+- Lichess reads the `#ply` fragment and then clears it. The content script saves the initial
+  fragment before the board loads so it can reopen the review card at that position.
+
+**Live recap.** I used the unpacked extension in Chrome on the finished game BYvvanic and started
+timing when I chose the player. The result, pregame ratings, opening and expected score appeared
+at once. The turning point and opponent note were in by 8.2 s, when the panel estimated about
+1 s left. I checked about every 7 seconds, so 15.2 s is an upper bound for the complete recap.
+Cloudflare took about 6 s before the game page loaded, outside the recap timing.
+[Finished game](https://lichess.org/game/BYvvanic)
+
+Reopening that game reused the existing recap and showed it in under 1 s. With the 50-game profile
+saved, a new game by the same player (oiuCrb3L) had its full recap by 7.6 s after I chose the
+player. On a third game (jXSW5txW), with the player remembered, the recap started on page load
+and was complete by 7.0 s, including Lichess's own page load. Each browser step I took added
+about a second, so these are upper bounds as well. With a local finished-game fixture and six
+history records, the complete recap took 2.16 s cold and 1.34 s on reopening.
+
+**Demo.** The website fetches Lichess history directly, with the same request parameters as the
+extension, one request at a time, and fails at once for a minute after a 429. On my 18-core Mac in
+Chrome 156, 150 blitz games with nothing cached showed the score and opening table after 7.11 and
+7.26 s in two runs, and the full analysis after 15.97 and 16.27 s. Lichess sends anonymous history
+at about 20 games a second, so the first number is mostly the download. On Chess.com the same
+table appears in 2.4 s. [Demo PR #129](https://github.com/ashtonaliu/chess-check/pull/129)
+
 ## Odds experiment
 
 `scripts/eval_odds.py` asks whether account history predicts a game's result better than ratings alone. The first run used 1,780 games from 30 players. The current one uses 14,830 games: `collect` picks 250 players with enough blitz games (a fixed pseudo-random sample of players from the first run), takes each one's last 60 games as targets, and downloads the last two months of blitz games for every target opponent (12,178 players, cached in data/odds/v2/), including clock times and how each game ended.

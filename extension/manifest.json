@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Chess Check: post-game recaps",
   "short_name": "Chess Check",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Review finished Chess.com and Lichess games, find the moves that cost you, and practice them later with a local Stockfish analysis.",
   "permissions": [
     "storage",

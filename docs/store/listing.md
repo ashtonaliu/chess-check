@@ -30,6 +30,13 @@ https://github.com/ashtonaliu/chess-check/issues
 
 https://ashtonaliu.github.io/chess-check/privacy.html
 
+## What's new in 0.9.0
+
+Chess Check now recaps finished Lichess games. On Chess.com, finished Chess960 and odds games
+show a clear message and the classic `/live` page pauses analysis. The WebAssembly replay rejects
+empty move entries. These three fixes ship for the first time in 0.9.0.
+[#112](https://github.com/ashtonaliu/chess-check/pull/112) · [#110](https://github.com/ashtonaliu/chess-check/pull/110) · [#114](https://github.com/ashtonaliu/chess-check/pull/114)
+
 ## What's new in 0.8.0
 
 Review cards now use a neural find-rate model to estimate how often players at your rating find the best move. Analysis uses a Rust chess core compiled to WebAssembly.

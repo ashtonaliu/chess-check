@@ -310,7 +310,9 @@ Run `node scripts/profile_recaps.mjs /tmp/recaps.json` for the two sites and a J
 The turning point took about 1.1 s on Lichess and 1.3 s on Chess.com. The panel polls every
 second, and the game's own engine and blunder work finished in under half a second in these
 runs. Lichess's opponent note arrived about 5 s in, on the same update as the full recap with
-a saved profile. The first recap also builds the 50-game profile.
+a saved profile. That is the time to download the opponent's last 100 games, since Lichess sends
+anonymous history at about 20 games a second, so the opponent note sets the Lichess recap time
+once a profile is saved. The first recap also builds the 50-game profile.
 
 I timed each search from sending the position to receiving `bestmove` and used the last UCI
 `info` line with a `time` field for Stockfish's own time. The 12 new recaps totaled 2.84 s

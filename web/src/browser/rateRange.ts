@@ -11,14 +11,14 @@ export type ReviewSpeed = "ultraBullet" | "bullet" | "blitz" | "rapid" | "classi
 /** Shipped neural review model limits per site and speed, from the held-out calibration rule in docs/methods.md. */
 export const REVIEW_RATE_RANGES: Record<SiteId, Partial<Record<ReviewSpeed, readonly [number, number]>>> = {
   chesscom: {
-    blitz: [1300, 1899],
+    blitz: [1200, 1899],
   },
   lichess: {
-    ultraBullet: [2000, 2199],
-    bullet: [1500, 2199],
-    blitz: [1100, 2299],
+    ultraBullet: [1000, 1799],
+    bullet: [1000, 2299],
+    blitz: [1100, 1899],
     rapid: [1300, 2199],
-    classical: [1200, 1799],
+    classical: [1100, 1699],
   },
 };
 

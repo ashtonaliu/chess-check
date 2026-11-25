@@ -7,7 +7,7 @@ import type { Recap } from "../src/browser/recap";
 import { PATTERN_PUZZLE_BAND, pickPatternPuzzles } from "../src/browser/patternPuzzles";
 import { patternMarkup } from "../src/ui/recapCard";
 
-const LICHESS_TRAINING = ["https:", "", "lichess.org", "training", ""].join("/");
+const LICHESS_TRAINING = "https://lichess.org/training/";
 const REPORTED_MOTIFS = ["mate", "fork", "skewer", "discoveredAttack", "hangingPiece", "promotion"];
 
 test("bundled puzzle index stays under 150 KB and covers every reported motif", () => {
@@ -47,7 +47,7 @@ test("picking from the index spreads across bands, avoids repeats, and returns e
 
 test("recap pattern markup renders up to three Lichess training links in new tabs", () => {
   const base = {
-    url: ["https:", "", "www.chess.com", "game", "live", "187502325560"].join("/"),
+    url: "https://www.chess.com/game/live/187502325560",
     pattern: { kind: "missed", motif: "fork", count: 7, verdict: "pattern" },
   } as Recap;
   const html = patternMarkup(base);

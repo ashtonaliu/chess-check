@@ -18,7 +18,7 @@ interface PuzzleIndex {
 }
 
 const DATA = index as unknown as PuzzleIndex;
-const TRAINING_BASE = ["https:", "", "lichess.org", "training"].join("/");
+const TRAINING_BASE = "https://lichess.org/training";
 
 export const PATTERN_PUZZLE_BAND: readonly [number, number] = [
   DATA.bands[0][0],

@@ -126,10 +126,10 @@ test("saved logistic rates are refreshed by the shipped neural model without res
   const rate = reviewFindRate(request);
   assert.ok(rate !== null && rate > 0 && rate < 1);
   assert.equal(reviewFindRate({ ...request, timeClass: "rapid" }), null);
-  assert.equal(reviewFindRate({ ...request, rating: 1199 }), null);
-  assert.equal(reviewFindRate({ ...request, rating: 2001 }), null);
-  assert.ok(reviewFindRate({ ...request, rating: 1200 }) !== null);
-  assert.ok(reviewFindRate({ ...request, rating: 2000 }) !== null);
+  assert.equal(reviewFindRate({ ...request, rating: 1299 }), null);
+  assert.equal(reviewFindRate({ ...request, rating: 1900 }), null);
+  assert.ok(reviewFindRate({ ...request, rating: 1300 }) !== null);
+  assert.ok(reviewFindRate({ ...request, rating: 1899 }) !== null);
 
   const latest = grade(queue, legacy.id, true, NOW);
   const updated = applyReviewRates(latest, { [legacy.id]: rate, [ready.id]: 0.1 });
@@ -138,4 +138,54 @@ test("saved logistic rates are refreshed by the shipped neural model without res
   assert.equal(updated[0].due, NOW + 21 * DAY);
   assert.equal(updated[1], ready);
   assert.deepEqual(pendingReviewRates(updated), []);
+});
+
+test("review rate limits enforce per-site and per-speed calibrated rating bounds", () => {
+  const fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2";
+  const req = (timeClass: string, rating: number) => ({ id: "1:1", fen, best: "Nc6", rating, timeClass });
+
+  // Chess.com: only blitz 1300-1899 is calibrated; other speeds are refused.
+  assert.equal(reviewFindRate(req("blitz", 1299), "chesscom"), null);
+  assert.ok(reviewFindRate(req("blitz", 1300), "chesscom") !== null);
+  assert.ok(reviewFindRate(req("blitz", 1899), "chesscom") !== null);
+  assert.equal(reviewFindRate(req("blitz", 1900), "chesscom"), null);
+  for (const speed of ["ultraBullet", "bullet", "rapid", "classical", "daily"]) {
+    assert.equal(reviewFindRate(req(speed, 1600), "chesscom"), null, `chesscom ${speed} refused`);
+  }
+
+  // Lichess: calibrated per speed, daily refused.
+  const lichessBounds: [string, number, number][] = [
+    ["ultraBullet", 2000, 2199],
+    ["bullet", 1500, 2199],
+    ["blitz", 1100, 2299],
+    ["rapid", 1300, 2199],
+    ["classical", 1200, 1799],
+  ];
+  for (const [speed, lo, hi] of lichessBounds) {
+    assert.equal(reviewFindRate(req(speed, lo - 1), "lichess"), null, `lichess ${speed} below ${lo}`);
+    const lowRate = reviewFindRate(req(speed, lo), "lichess");
+    const highRate = reviewFindRate(req(speed, hi), "lichess");
+    assert.ok(lowRate !== null && lowRate > 0 && lowRate < 1, `lichess ${speed} at ${lo}`);
+    assert.ok(highRate !== null && highRate > 0 && highRate < 1, `lichess ${speed} at ${hi}`);
+    assert.equal(reviewFindRate(req(speed, hi + 1), "lichess"), null, `lichess ${speed} above ${hi}`);
+  }
+  assert.equal(reviewFindRate(req("daily", 1600), "lichess"), null, "lichess daily refused");
+
+  // Speed is passed through to the neural model rather than hardcoded to blitz.
+  const lichessBlitz = reviewFindRate(req("blitz", 2050), "lichess");
+  const lichessUltra = reviewFindRate(req("ultraBullet", 2050), "lichess");
+  assert.ok(lichessBlitz !== null && lichessUltra !== null && lichessBlitz !== lichessUltra);
+
+  // Queue helpers infer site from the game URL so Lichess speeds work without a separate site argument.
+  const lichessUrl = (id: string) => ["https:", "", "lichess.org", "game", id].join("/");
+  const lichessRapid = item("abc12345:12", { url: lichessUrl("abc12345"), fen, best: "Nc6", rating: 2150, timeClass: "rapid" });
+  const lichessBlitzHigh = item("def67890:12", { url: lichessUrl("def67890"), fen, best: "Nc6", rating: 2299, timeClass: "blitz" });
+  const lichessDaily = item("ghi11111:12", { url: lichessUrl("ghi11111"), fen, best: "Nc6", rating: 1600, timeClass: "daily" });
+  const chesscomHigh = item("999:12", { fen, best: "Nc6", rating: 1900, timeClass: "blitz" });
+  const pending = pendingReviewRates([lichessRapid, lichessBlitzHigh, lichessDaily, chesscomHigh]);
+  assert.deepEqual(pending.map(r => r.id), [lichessRapid.id, lichessBlitzHigh.id]);
+
+  const applied = applyReviewRates([lichessRapid, lichessDaily], { [lichessRapid.id]: 0.82, [lichessDaily.id]: 0.5 });
+  assert.equal(reviewRate(applied[0]), 0.82);
+  assert.equal(reviewRate(applied[1]), null);
 });

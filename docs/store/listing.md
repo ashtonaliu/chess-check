@@ -50,6 +50,9 @@ Chess.com review cards now also show find-rate estimates for rapid (1800 to 2099
 rapid and bullet ratings stay hidden. The model has no Chess.com rapid or bullet training games,
 and its estimates there were off by up to 13 points on rapid and 15 on bullet.
 
+When a finished game's turning point matches one of your tactic patterns, the recap now offers
+up to three Lichess practice puzzles with that theme from a bundled CC0 index.
+
 ## What's new in 0.9.0
 
 Chess Check now recaps finished Lichess games. On Chess.com, finished Chess960 and odds games

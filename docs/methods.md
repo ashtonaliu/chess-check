@@ -862,6 +862,8 @@ Comparing both rules shows what changed, and gives the limits enforced in `web/s
 | Lichess | bullet | 1500-2199 | 1000-2299 | 18,133 | 0.7458 | 0.7466 | 0.0488 | 0.1479 |
 | Lichess | classical | 1200-1799 | 1100-1699 | 11,220 | 0.7612 | 0.7609 | 0.0352 | 0.1507 |
 | Lichess | ultraBullet | 2000-2199 | 1000-1799 | 10,312 | 0.5547 | 0.5562 | 0.0762 | 0.2089 |
+| Chess.com | rapid | 1800-1899 | 1800-2099 | 1,884 | 0.8640 | 0.8593 | 0.0334 | 0.0964 |
+| Chess.com | bullet | 1800-1899 | 1700-2099 | 2,631 | 0.7919 | 0.7868 | 0.0419 | 0.1362 |
 
 **Effect on Chess.com users.** Previously, Chess.com blitz showed estimates for ratings 1200 through 2000. Under the revised rule, the range narrows only at the top, to 1200 through 1899:
 
@@ -1029,7 +1031,64 @@ The 1200-1299 band stays in because its observed ECE (0.0530) sits below its 95t
 | Lichess | ultraBullet | 2600-2699 | 122 | 0.7147 | 0.6885 | +0.0261 | 0.0767 | n/a | 0.1755 | too few |
 | Lichess | ultraBullet | 2700-2799 | 27 | 0.7387 | 0.6296 | +0.1091 | 0.1467 | n/a | 0.2226 | too few |
 
+**Held-out check on Chess.com rapid and bullet.** Because `data/engine/v1` has only Chess.com blitz, I sampled held-out test players (`hash(player.casefold()) % 5 == 0`) from the v1 username pool, probed `/stats` for 1,200 players across 600 to 2400, and fetched public monthly archives for 455 stratified players (`scripts/fetch_chesscom_rapid.py`, at most 2 concurrent requests, zero 429 responses). That yielded 9,888 finished rated standard games with `[%clk]` comments and verified pre-game ratings (4,443 rapid and 5,445 bullet) and 343,924 moves (`ply >= 2`, 8.1 MB).
+
+I labeled all 343,924 moves on Ashton's M5 Pro Mac (18 cores) using `scripts/label_chesscom_rapid.py` with the exact v1 Stockfish 19 settings (depth 10, MultiPV 2, WDL on, 32 MB hash, 1 thread per worker, hash cleared per search, 17 workers). A 5,000-move benchmark ran at 420.31 searches per second (11.90 s) and projected 1,034.7 s for the full 42-shard run; labeling finished in 950.04 engine seconds (15.8 minutes) and produced 20,069 critical held-out positions (`gap >= 20`): 9,693 rapid (3,437 games, 198 players, median clock fraction 0.7900) and 10,376 bullet (4,204 games, 208 players, median clock fraction 0.6050). The full directory under `data/engine/chesscom-rapid-v1/` is 40.1 MB.
+
+Rerunning `scripts/calibrate_review_find_rate.py` on all 284,487 held-out positions left all six existing site and speed ranges unchanged. On the two new pairs, the shipped model passes the noise-floor rule only in narrow upper-middle windows:
+
+- **Chess.com rapid:** passes `1800-2099` (1,884 positions, 0.8640 predicted vs 0.8593 actual, Brier 0.0964). It fails broadly across `700-1799` (11 straight bands, under-predicting by 5.6 to 13.3 points) and across `2100-2399` (over-predicting by 2.4 to 7.6 points).
+- **Chess.com bullet:** passes `1700-2099` (2,631 positions, 0.7919 predicted vs 0.7868 actual, Brier 0.1362). It fails across `600-1299` (6 of 7 bands, over-predicting by 2.0 to 12.2 points), at `1600-1699` (+7.0 points), and across `2100-2399` (+5.1 to +14.6 points).
+
+Because the shipped model standardized Chess.com ratings on blitz (mean around 1647, narrow spread) and never trained on Chess.com rapid or bullet, its rating slope is too steep for rapid and bullet outside those windows. I widened `REVIEW_RATE_RANGES` to add Chess.com rapid `1800-2099` and bullet `1700-2099` and left lower ratings hidden; covering wider Chess.com rapid and bullet bands requires retraining on those speeds in a separate pass.
+
+| Site | Speed | Rating band | n | Predicted | Actual | Bias | 10-bin ECE | Noise p95 | Brier | Status |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
+| Chess.com | rapid | 500-599 | 46 | 0.6672 | 0.6957 | -0.0284 | 0.1373 | n/a | 0.1471 | too few |
+| Chess.com | rapid | 600-699 | 267 | 0.6836 | 0.6854 | -0.0018 | 0.0430 | 0.0804 | 0.1734 | pass (outside span) |
+| Chess.com | rapid | 700-799 | 672 | 0.6461 | 0.7083 | -0.0622 | 0.0622 | 0.0523 | 0.1709 | fail |
+| Chess.com | rapid | 800-899 | 437 | 0.6603 | 0.7666 | -0.1063 | 0.1063 | 0.0636 | 0.1648 | fail |
+| Chess.com | rapid | 900-999 | 448 | 0.6880 | 0.7545 | -0.0665 | 0.0852 | 0.0605 | 0.1507 | fail |
+| Chess.com | rapid | 1000-1099 | 740 | 0.6531 | 0.7432 | -0.0902 | 0.0902 | 0.0481 | 0.1616 | fail |
+| Chess.com | rapid | 1100-1199 | 395 | 0.6808 | 0.7595 | -0.0787 | 0.0834 | 0.0630 | 0.1520 | fail |
+| Chess.com | rapid | 1200-1299 | 484 | 0.6868 | 0.7748 | -0.0880 | 0.0880 | 0.0583 | 0.1615 | fail |
+| Chess.com | rapid | 1300-1399 | 743 | 0.6735 | 0.7847 | -0.1112 | 0.1112 | 0.0485 | 0.1463 | fail |
+| Chess.com | rapid | 1400-1499 | 469 | 0.7184 | 0.8017 | -0.0833 | 0.0833 | 0.0565 | 0.1376 | fail |
+| Chess.com | rapid | 1500-1599 | 475 | 0.7303 | 0.8632 | -0.1328 | 0.1328 | 0.0564 | 0.1237 | fail |
+| Chess.com | rapid | 1600-1699 | 320 | 0.7495 | 0.8594 | -0.1099 | 0.1099 | 0.0680 | 0.1063 | fail |
+| Chess.com | rapid | 1700-1799 | 399 | 0.7808 | 0.8371 | -0.0563 | 0.0653 | 0.0577 | 0.1317 | fail |
+| Chess.com | rapid | 1800-1899 | 703 | 0.8261 | 0.8250 | +0.0010 | 0.0201 | 0.0399 | 0.1164 | allowed |
+| Chess.com | rapid | 1900-1999 | 606 | 0.8668 | 0.8729 | -0.0062 | 0.0334 | 0.0380 | 0.0847 | allowed |
+| Chess.com | rapid | 2000-2099 | 575 | 0.9076 | 0.8870 | +0.0206 | 0.0206 | 0.0318 | 0.0841 | allowed |
+| Chess.com | rapid | 2100-2199 | 555 | 0.9190 | 0.8865 | +0.0326 | 0.0329 | 0.0294 | 0.0881 | fail |
+| Chess.com | rapid | 2200-2299 | 829 | 0.9444 | 0.9204 | +0.0241 | 0.0250 | 0.0202 | 0.0680 | fail |
+| Chess.com | rapid | 2300-2399 | 452 | 0.9609 | 0.8850 | +0.0760 | 0.0775 | 0.0217 | 0.1015 | fail |
+| Chess.com | rapid | 2400-2499 | 78 | 0.9615 | 0.9231 | +0.0384 | 0.0650 | n/a | 0.0724 | too few |
+| Chess.com | bullet | 500-599 | 2 | 0.6292 | 0.5000 | +0.1292 | 0.3828 | n/a | 0.1632 | too few |
+| Chess.com | bullet | 600-699 | 378 | 0.8149 | 0.6931 | +0.1218 | 0.1218 | 0.0545 | 0.1921 | fail |
+| Chess.com | bullet | 700-799 | 576 | 0.7948 | 0.7292 | +0.0656 | 0.0837 | 0.0471 | 0.1607 | fail |
+| Chess.com | bullet | 800-899 | 692 | 0.7915 | 0.6922 | +0.0993 | 0.0993 | 0.0433 | 0.1846 | fail |
+| Chess.com | bullet | 900-999 | 479 | 0.7674 | 0.6722 | +0.0951 | 0.0951 | 0.0547 | 0.1828 | fail |
+| Chess.com | bullet | 1000-1099 | 582 | 0.7730 | 0.7526 | +0.0204 | 0.0378 | 0.0487 | 0.1499 | pass (outside span) |
+| Chess.com | bullet | 1100-1199 | 458 | 0.7594 | 0.6747 | +0.0847 | 0.0847 | 0.0556 | 0.1846 | fail |
+| Chess.com | bullet | 1200-1299 | 515 | 0.7576 | 0.7204 | +0.0372 | 0.0661 | 0.0542 | 0.1674 | fail |
+| Chess.com | bullet | 1300-1399 | 674 | 0.7668 | 0.7552 | +0.0116 | 0.0307 | 0.0448 | 0.1368 | pass (outside span) |
+| Chess.com | bullet | 1400-1499 | 440 | 0.7494 | 0.7500 | -0.0006 | 0.0425 | 0.0571 | 0.1382 | pass (outside span) |
+| Chess.com | bullet | 1500-1599 | 746 | 0.7574 | 0.7708 | -0.0134 | 0.0388 | 0.0428 | 0.1383 | pass (outside span) |
+| Chess.com | bullet | 1600-1699 | 446 | 0.7562 | 0.6861 | +0.0701 | 0.0701 | 0.0577 | 0.1609 | fail |
+| Chess.com | bullet | 1700-1799 | 740 | 0.7512 | 0.7622 | -0.0109 | 0.0419 | 0.0432 | 0.1510 | allowed |
+| Chess.com | bullet | 1800-1899 | 731 | 0.7955 | 0.8071 | -0.0116 | 0.0231 | 0.0410 | 0.1199 | allowed |
+| Chess.com | bullet | 1900-1999 | 572 | 0.8010 | 0.7850 | +0.0161 | 0.0388 | 0.0454 | 0.1409 | allowed |
+| Chess.com | bullet | 2000-2099 | 588 | 0.8299 | 0.7942 | +0.0357 | 0.0397 | 0.0423 | 0.1332 | allowed |
+| Chess.com | bullet | 2100-2199 | 755 | 0.8654 | 0.8146 | +0.0508 | 0.0537 | 0.0332 | 0.1295 | fail |
+| Chess.com | bullet | 2200-2299 | 590 | 0.8996 | 0.7932 | +0.1064 | 0.1083 | 0.0330 | 0.1436 | fail |
+| Chess.com | bullet | 2300-2399 | 379 | 0.9162 | 0.7704 | +0.1457 | 0.1457 | 0.0366 | 0.1710 | fail |
+| Chess.com | bullet | 2400-2499 | 33 | 0.9487 | 0.8788 | +0.0699 | 0.0699 | n/a | 0.0902 | too few |
+
 ```sh
+python scripts/fetch_chesscom_rapid.py --v1-root data/engine/v1 --output data/engine/chesscom-rapid-v1 stats
+python scripts/fetch_chesscom_rapid.py --v1-root data/engine/v1 --output data/engine/chesscom-rapid-v1 games
+python scripts/label_chesscom_rapid.py label --v1-root data/engine/v1 --output data/engine/chesscom-rapid-v1 --max-per-band 20000
 python scripts/calibrate_review_find_rate.py --data-root data/engine --output eval_results/review-calibration
 ```
 

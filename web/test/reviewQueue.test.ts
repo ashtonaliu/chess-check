@@ -144,14 +144,26 @@ test("review rate limits enforce per-site and per-speed calibrated rating bounds
   const fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2";
   const req = (timeClass: string, rating: number) => ({ id: "1:1", fen, best: "Nc6", rating, timeClass });
 
-  // Chess.com: only blitz 1200-1899 is calibrated; other speeds are refused.
-  assert.equal(reviewFindRate(req("blitz", 1199), "chesscom"), null);
-  assert.ok(reviewFindRate(req("blitz", 1200), "chesscom") !== null);
-  assert.ok(reviewFindRate(req("blitz", 1899), "chesscom") !== null);
-  assert.equal(reviewFindRate(req("blitz", 1900), "chesscom"), null);
-  for (const speed of ["ultraBullet", "bullet", "rapid", "classical", "daily"]) {
-    assert.equal(reviewFindRate(req(speed, 1600), "chesscom"), null, `chesscom ${speed} refused`);
+  // Chess.com: calibrated per speed, other speeds refused.
+  const chesscomBounds: [string, number, number][] = [
+    ["bullet", 1700, 2099],
+    ["blitz", 1200, 1899],
+    ["rapid", 1800, 2099],
+  ];
+  for (const [speed, lo, hi] of chesscomBounds) {
+    assert.equal(reviewFindRate(req(speed, lo - 1), "chesscom"), null, `chesscom ${speed} below ${lo}`);
+    const lowRate = reviewFindRate(req(speed, lo), "chesscom");
+    const highRate = reviewFindRate(req(speed, hi), "chesscom");
+    assert.ok(lowRate !== null && lowRate > 0 && lowRate < 1, `chesscom ${speed} at ${lo}`);
+    assert.ok(highRate !== null && highRate > 0 && highRate < 1, `chesscom ${speed} at ${hi}`);
+    assert.equal(reviewFindRate(req(speed, hi + 1), "chesscom"), null, `chesscom ${speed} above ${hi}`);
   }
+  for (const speed of ["ultraBullet", "classical", "daily"]) {
+    assert.equal(reviewFindRate(req(speed, 1850), "chesscom"), null, `chesscom ${speed} refused`);
+  }
+  const chesscomBlitz = reviewFindRate(req("blitz", 1850), "chesscom");
+  const chesscomRapid = reviewFindRate(req("rapid", 1850), "chesscom");
+  assert.ok(chesscomBlitz !== null && chesscomRapid !== null && chesscomBlitz !== chesscomRapid);
 
   // Lichess: calibrated per speed, daily refused.
   const lichessBounds: [string, number, number][] = [

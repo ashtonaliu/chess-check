@@ -296,6 +296,36 @@ The fair-play guard (`web/src/extension/guard.ts`, tested in `web/test/guard.tes
 
 Browser notifications are optional (the "Notify me" button asks for permission), and the tab title shows a count of unread recaps.
 
+### Where the time goes
+
+I used the unpacked profiling build in Chrome 158.0.8127.38 on an M5 Pro Mac. I opened only the
+finished games, with three fresh Chrome profiles per site. I preselected the player so the clock
+starts just before the content script's first game check and ends each stage when the panel
+updates. Each run started with an empty profile, let the 150-game profile save, then opened a
+second game and reopened its recap. Before opening the second game I cleared its search cache
+in the temporary browser profile. Reopening kept Chrome's ordinary page and response caches.
+Run `node scripts/profile_recaps.mjs /tmp/recaps.json` for the two sites and a JSON report.
+[Timing tool](../scripts/profile_recaps.mjs) · [Recap results](../README.md#results)
+
+The turning point took about 1.1 s on Lichess and 1.3 s on Chess.com. The panel polls every
+second, and the game's own engine and blunder work finished in under half a second in these
+runs. Lichess's opponent note arrived about 5 s in, on the same update as the full recap with
+a saved profile. That is the time to download the opponent's last 100 games, since Lichess sends
+anonymous history at about 20 games a second, so the opponent note sets the Lichess recap time
+once a profile is saved. The first recap also builds the 50-game profile.
+
+I timed each search from sending the position to receiving `bestmove` and used the last UCI
+`info` line with a `time` field for Stockfish's own time. The 12 new recaps totaled 2.84 s
+across 980 searches, against 3.07 s reported by Stockfish. The six 150-game refreshes, each
+reusing the first 50 games' searches, totaled 271.83 s across 49,865 searches, against 278.21 s
+reported. These are sums across workers. The raw gaps were -8.1% and -2.3%. Stockfish uses
+integer millisecond timestamps and reports at least 1 ms, so those gaps are within the
+clock's resolution. Allowing 1 ms per search puts the overhead at up to about 26% of the
+recap search time and 16% of the profile search time. Even the whole search round trip
+amounted to about 0.24 s per recap. [Stockfish.js clock](https://github.com/nmrugg/stockfish.js/blob/0d5dd79/src/misc.h#L140-L146) · [UCI time field](https://github.com/nmrugg/stockfish.js/blob/0d5dd79/src/search.cpp#L2134-L2139)
+
+I would keep the current Stockfish build.
+
 ## Lichess
 
 A Lichess game keeps the same address when it ends, and its export can answer while the game is

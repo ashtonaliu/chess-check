@@ -27,7 +27,7 @@ Everything is compared with your opponents in the same games. A typical result, 
 2. Choose Chess.com or Lichess, enter any username and press Analyze. The score and opening table appear within a few seconds, and the full analysis of 150 games took about 48 seconds on Chess.com in my tests. On Lichess the table took about 7 seconds, since Lichess sends about 20 games a second, and the full analysis took about 16 seconds.
 3. For the AI coaching report, paste your own [Anthropic API key](https://console.anthropic.com/settings/keys). The key only goes from your browser to Anthropic, and a report costs under one cent.
 
-**The Chrome extension** puts a small cube on Chess.com and Lichess that you can drag anywhere, so you can study between games without leaving the site. It knows who you are from your signed-in account and needs no setup. When a game ends, the cube turns green and the recap fills in as each part is ready: the result and the upset meter at once, the turning point a few seconds later, then your patterns and your opponent's openings. On Chess.com the whole recap took under 2 seconds with a saved history in my tests, and about 5 to 8 seconds on a first install, when it also analyzes your recent games.
+**The Chrome extension** puts a small cube on Chess.com and Lichess that you can drag anywhere, so you can study between games without leaving the site. It knows who you are from your signed-in account and needs no setup. When a game ends, the cube turns green and the recap fills in as each part is ready: the result and the upset meter at once, the turning point a few seconds later, then your patterns and your opponent's openings.
 
 The turning point is a question. The recap says which move cost you the most and asks you to find the better one. "Find it on the board" opens the game at that move on the site's own board, where you can try moves, and "Reveal the move" shows the answer. Missed moves go into a review queue that brings each one back after 1, 3, 7 and 21 days until you find it, from the same cube, between games. Both sites forbid engine help when you play another person, so the extension computes and shows nothing about a game until it is over. [Chess.com fair play](https://www.chess.com/legal/fair-play) · [Lichess fair play](https://lichess.org/page/fair-play)
 
@@ -143,26 +143,26 @@ backend in Chrome. Stockfish still takes most of the build time. [WebAssembly me
 | 50 | 4.36 s | 3.78 s | 13.3% |
 | 150 | 12.96 s | 11.50 s | 11.3% |
 
-**Lichess.** I timed the unpacked extension in Chrome on three finished games by one player. I
-checked the panel by hand, so each time is an upper bound.
+**Extension recap timings.** I used the same instrumented unpacked build in visible Chrome on
+both sites, with three runs per case. The clock starts when the extension asks whether the game
+is finished. Times are in seconds, with the median followed by the range.
 
-| Case | Timed from | Turning point and opponent note | Full recap |
-|---|---|---:|---:|
-| New install, no profile | Choosing the player | By 8.2 s | By 15.2 s |
-| Saved 50-game profile, new game | Choosing the player | | By 7.6 s |
-| Saved profile and player, new game | Opening the page | | By 7.0 s |
-| Reopening a finished recap | Opening the page | | Under 1 s |
+| Site and case | Game confirmed | Result | Turning point | Opponent note | Full recap |
+|---|---:|---:|---:|---:|---:|
+| Chess.com, new install | 0.228 (0.228 to 0.259) | 0.282 (0.261 to 0.292) | 1.292 (1.265 to 1.320) | None shown | 7.354 (6.335 to 8.282) |
+| Chess.com, saved profile, new game | 0.304 (0.272 to 0.424) | 0.315 (0.297 to 0.432) | 1.321 (1.310 to 1.434) | 1.321 (1.310 to 2.440) | 1.321 (1.310 to 2.440) |
+| Chess.com, reopen recap | 0.349 (0.341 to 0.359) | 0.358 (0.350 to 0.368) | 0.358 (0.350 to 0.368) | 0.358 (0.350 to 0.368) | 0.358 (0.350 to 0.368) |
+| Lichess, new install | 0.023 (0.023 to 0.161) | 0.090 (0.086 to 0.244) | 1.095 (1.091 to 1.247) | 5.114 (5.106 to 5.269) | 11.149 (11.122 to 11.287) |
+| Lichess, saved profile, new game | 0.072 (0.069 to 0.085) | 0.100 (0.085 to 0.107) | 1.110 (1.087 to 1.121) | 5.173 (5.101 to 5.201) | 5.173 (5.101 to 5.201) |
+| Lichess, reopen recap | 0.002 (0.002 to 0.003) | 0.014 (0.012 to 0.014) | 0.014 (0.012 to 0.014) | 0.014 (0.012 to 0.014) | 0.014 (0.012 to 0.014) |
 
-The result, pregame ratings, opening and expected score appeared at once in every case. In the
-first case the panel estimated about 1 s left at 8.2 s, so the full recap most likely finished
-near 10 s. The 7.0 s includes Lichess's own page load. I timed these by hand, so they are
-looser than the Chess.com times above. The first game also showed a
-Cloudflare check for about 6 s before the page loaded, outside these times.
+I used two finished Chess.com bullet games and three finished Lichess blitz games. The saved
+profile held 150 games, and reopening reused the finished recap. [Timing methods](docs/methods.md#where-the-time-goes)
 
 In the demo, 150 Lichess blitz games with nothing cached showed the score and opening table after
 7.11 and 7.26 s in two runs, and the full analysis after 15.97 and 16.27 s. The first number is
 mostly the download, since Lichess sends anonymous history at about 20 games a second.
-[Lichess recap methods](docs/methods.md#lichess)
+[Lichess methods](docs/methods.md#lichess)
 
 ## How it works
 

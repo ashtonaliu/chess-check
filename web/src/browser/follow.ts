@@ -4,11 +4,13 @@
 import { analyseGames, defaultWorkers, recheckBlunders } from "./engine";
 import { fetchGames, type Game } from "./games";
 import { defaultSite, siteForId } from "./sites";
+import type { SiteId } from "./site";
 import { buildRecap, opponentNote, type Recap } from "./recap";
 import type { GameRow } from "./stats";
 import { classifyGame, type TacticSummary } from "./tactics";
 
 export interface Profile {
+  site?: SiteId;
   username: string; timeClass: string | null;
   rows: GameRow[]; openings: { family: string; color: string; verdict: string }[]; tactics: TacticSummary | null;
   games?: Game[];        // the games behind the profile (used to name openings for endpoint games)
@@ -25,7 +27,7 @@ export class Follower {
   private stopped = false;
   lastChecked: Date | null = null;
 
-  private site = siteForId(this.profile.games?.[0]?.site) ?? defaultSite;
+  private site = siteForId(this.profile.site ?? this.profile.games?.[0]?.site) ?? defaultSite;
 
   constructor(private profile: Profile, private engineUrl: string,
               private onRecap: (r: Recap, isNew: boolean) => void,

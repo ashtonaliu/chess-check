@@ -2,6 +2,8 @@ import { costUsd, describeError, makeClient, runCoach } from "./browser/coach";
 import { Follower, POLL_MS } from "./browser/follow";
 import { analyzeInBrowser, STAGES } from "./browser/pipeline";
 import type { Recap } from "./browser/recap";
+import type { SiteId } from "./browser/site";
+import { defaultSite, siteForId } from "./browser/sites";
 import { turningBoard } from "./ui/board";
 import { esc, notificationText, PLURAL, PUZZLE, recapCard } from "./ui/recapCard";
 import { exampleCard, initExampleViewers, openExamples, type DialogItem } from "./ui/lineViewer";
@@ -32,6 +34,7 @@ interface Tactics {
 }
 interface Fact { id: string; text: string; }
 interface Payload {
+  site?: SiteId;
   username: string; generated_at?: string; time_class?: string | null;
   overall: { games: number; score: number; expected: number; resid: number; avg_rating: number; se: number | null };
   openings: Opening[]; phases: Record<string, Phase> | null; blunders: Blunder[];
@@ -53,6 +56,16 @@ const pts = (x: number) => { const v = Math.round(100 * x); return v > 0 ? `+${v
 const side = (c: string) => (c === "white" ? "as White" : "as Black");
 const cap1 = (s: string) => s[0].toUpperCase() + s.slice(1);
 
+const SITE_NAME: Record<SiteId, string> = { chesscom: "Chess.com", lichess: "Lichess" };
+const SITE_TIME_CLASSES: Record<SiteId, [string, string][]> = {
+  chesscom: [["", "All time controls"], ["bullet", "Bullet"], ["blitz", "Blitz"], ["rapid", "Rapid"], ["daily", "Daily"]],
+  lichess: [["", "All time controls"], ["ultraBullet", "UltraBullet"], ["bullet", "Bullet"], ["blitz", "Blitz"], ["rapid", "Rapid"], ["classical", "Classical"], ["daily", "Daily"]],
+};
+const SITE_USER_RE: Record<SiteId, RegExp> = {
+  chesscom: /^[A-Za-z0-9_-]{3,25}$/,
+  lichess: /^[A-Za-z0-9_-]{2,20}$/,
+};
+
 interface StaticConfig { analysis: string; report: string; repo: string; browser?: boolean; }
 const STATIC = (window as unknown as { CHESS_CHECK_STATIC?: StaticConfig }).CHESS_CHECK_STATIC ?? null;
 const ENGINE_URL = new URL("engine/stockfish-19-lite-single.js", import.meta.url).href;
@@ -60,8 +73,29 @@ configureWasmChess(new URL("engine/engine_core.js", import.meta.url).href);
 const BROWSER_DEPTH = 8;
 
 let findingList: Finding[] = [];
-let lastReq: { username: string; games: number; time_class: string | null } | null = null;
+let lastReq: { username: string; games: number; time_class: string | null; site: SiteId } | null = null;
 let current: Payload | null = null;
+let exampleUser: string | null = null;
+
+const parseSiteParam = (v: string | null): SiteId => (v?.toLowerCase() === "lichess" ? "lichess" : "chesscom");
+const selectedSite = (): SiteId => (($("site") as HTMLSelectElement).value === "lichess" ? "lichess" : "chesscom");
+
+function applySite(site: SiteId) {
+  const siteEl = $("site") as HTMLSelectElement;
+  siteEl.value = site;
+  const tcEl = $("time_class") as HTMLSelectElement;
+  const prev = tcEl.value;
+  const options = SITE_TIME_CLASSES[site];
+  tcEl.innerHTML = options.map(([val, label]) => `<option value="${esc(val)}">${esc(label)}</option>`).join("");
+  tcEl.value = options.some(([val]) => val === prev) ? prev : "blitz";
+  const name = SITE_NAME[site];
+  $("lede").textContent = `Enter a ${name} username. Stockfish checks every move, the results are adjusted for your opponents' ratings, and you get the patterns that cost you games.`;
+  $("usernameLabel").textContent = `${name} username`;
+  ($("username") as HTMLInputElement).placeholder = site === "chesscom" && exampleUser
+    ? `${name} username, e.g. ${exampleUser}` : `${name} username`;
+  $("howSource").innerHTML = `<strong>Your games</strong> come straight from the ${esc(name)} public API.`;
+  $("dataCredit").textContent = `Data: ${name} public API.`;
+}
 
 function setStatus(msg: string, error = false) {
   const el = $("status");
@@ -425,17 +459,22 @@ function render(p: Payload) {
 
 async function analyze(ev: Event) {
   ev.preventDefault();
+  const site = selectedSite();
   const username = ($("username") as HTMLInputElement).value.trim();
+  if (!SITE_USER_RE[site].test(username)) {
+    setStatus(`That doesn't look like a ${SITE_NAME[site]} username.`, true);
+    return;
+  }
   const time_class = ($("time_class") as HTMLSelectElement).value || null;
   const games = Number(($("games") as HTMLSelectElement).value);
   stopFollow(true);
-  const completed = await runAnalysis(username, games, time_class);
+  const completed = await runAnalysis(username, games, time_class, site);
   if (completed && new URLSearchParams(location.search).get("follow") === "1") void startFollow();
 }
 
 let running: AbortController | null = null;
 
-async function runAnalysis(username: string, games: number, time_class: string | null): Promise<boolean> {
+async function runAnalysis(username: string, games: number, time_class: string | null, site: SiteId): Promise<boolean> {
   if (running) return false;
   const btn = $("go") as HTMLButtonElement;
   btn.disabled = true;
@@ -445,15 +484,18 @@ async function runAnalysis(username: string, games: number, time_class: string |
   coaching?.abort();
   coaching = null;
   browserRun = null;
+  browserSite = site;
   lastReq = null;
   updateCoachControls();
   let early = false;              // whether the openings are already on screen
+  const siteObj = siteForId(site) ?? defaultSite;
+  const siteName = SITE_NAME[site];
   try {
     let p: Payload;
     if (STATIC?.browser) {
-      showProgress(0, null, `Fetching ${username}'s games from Chess.com…`);
+      showProgress(0, null, `Fetching ${username}'s games from ${siteName}…`);
       $("cancelBtn").hidden = false;
-      p = await analyzeInBrowser({ username, games, timeClass: time_class, depth: BROWSER_DEPTH, engineUrl: ENGINE_URL,
+      p = await analyzeInBrowser({ site: siteObj, username, games, timeClass: time_class, depth: BROWSER_DEPTH, engineUrl: ENGINE_URL,
         signal: run.signal, onStatus: () => undefined, onProgress: (stage, frac, text) => showProgress(stage, frac, text),
         onPartial: partial => {
           // Openings need no engine: show them now and keep the progress bar in view above them.
@@ -462,7 +504,7 @@ async function runAnalysis(username: string, games: number, time_class: string |
           $("snapshot").innerHTML = `<span><strong>Analyzing ${esc(partial.username)}'s games in your browser.</strong>
             Openings first; tactics and time pressure follow when Stockfish is done.</span>`;
           $("snapshot").hidden = false;
-          render(partial as unknown as Payload);
+          render({ ...(partial as unknown as Payload), site });
           selectTab("openings");
           $("progress").classList.add("sticky");
           early = true;
@@ -470,17 +512,18 @@ async function runAnalysis(username: string, games: number, time_class: string |
         } });
       run.signal.throwIfAborted();
       browserRun = p as Awaited<ReturnType<typeof analyzeInBrowser>>;
+      browserSite = site;
       $("snapshot").innerHTML = `<span><strong>Analyzed in your browser.</strong> Stockfish ran on your computer over ${p.overall.games} games
-        (depth ${BROWSER_DEPTH}, with blunders double-checked deeper). Nothing was sent anywhere except the requests to Chess.com.
+        (depth ${BROWSER_DEPTH}, with blunders double-checked deeper). Nothing was sent anywhere except the requests to ${esc(siteName)}.
         The browser uses Stockfish's smaller network, so its numbers run slightly lower than the saved example's.</span>`;
       $("snapshot").hidden = false;
     } else {
       showProgress(1, null, "Running Stockfish on every move. This takes 15 to 60 seconds…");
-      p = await post<Payload>("/api/analyze", { username, games, time_class });
+      p = await post<Payload>("/api/analyze", { username, games, time_class, site });
     }
     run.signal.throwIfAborted();
-    lastReq = { username, games, time_class };
-    render(p);
+    lastReq = { username, games, time_class, site };
+    render({ ...p, site });
     if (!early) {
       selectTab("tactics");
       $("results").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -541,9 +584,9 @@ function followStatus(msg: string) {
 
 async function startFollow() {
   if (!current) return;
-  const user = current.username, tc = current.time_class ?? "blitz";
-  if (!browserRun || browserRun.username.toLowerCase() !== user.toLowerCase()) {
-    if (!(await runAnalysis(user, 150, tc))) return;   // the recap needs this player's history
+  const user = current.username, tc = current.time_class ?? "blitz", site = current.site ?? selectedSite();
+  if (!browserRun || browserSite !== site || browserRun.username.toLowerCase() !== user.toLowerCase()) {
+    if (!(await runAnalysis(user, 150, tc, site))) return;   // the recap needs this player's history
   }
   const run = browserRun!;
   stopFollow(true);
@@ -551,8 +594,9 @@ async function startFollow() {
   $("recaps").innerHTML = "";
   $("followTitle").textContent = `Following ${run.username}`;
   followStatus("Loading your most recent game…");
-  const f = follower = new Follower({ username: run.username, timeClass: run.time_class ?? null, rows: run.gameRows,
-    openings: run.openings, tactics: run.tactics }, ENGINE_URL, renderRecap, followStatus);
+  const f = follower = new Follower({ site: browserSite, username: run.username, timeClass: run.time_class ?? null,
+    rows: run.gameRows, openings: run.openings, tactics: run.tactics, games: run.games },
+    ENGINE_URL, renderRecap, followStatus);
   ($("followBtn") as HTMLButtonElement).textContent = "Following…";
   ($("followBtn") as HTMLButtonElement).disabled = true;
   try { await f.start(); }
@@ -589,6 +633,7 @@ let coachExample = !!STATIC;
 let coachTokenRequired = false;
 let coaching: AbortController | null = null;
 let browserRun: Awaited<ReturnType<typeof analyzeInBrowser>> | null = null;
+let browserSite: SiteId = "chesscom";
 
 function updateCoachControls() {
   const btn = $("coachBtn") as HTMLButtonElement;
@@ -623,7 +668,8 @@ async function coach() {
   try {
     if (run) {
       const res = await runCoach({ client: await makeClient(key), username: run.username, facts: run.facts,
-        games: run.gameRows, moves: run.moveRows, engineUrl: ENGINE_URL, onStatus: status, summaries: run.summaries, signal });
+        games: run.gameRows, moves: run.moveRows, engineUrl: ENGINE_URL, onStatus: status, summaries: run.summaries,
+        signal, site: browserSite });
       if (!signal.aborted) renderCoach({ ...res, username: run.username }, false,
         `Cost: about $${costUsd(res.usage).toFixed(3)} on your key (${res.usage.input_tokens.toLocaleString()} input and ` +
         `${res.usage.output_tokens.toLocaleString()} output tokens, Claude Haiku 5.5).`);
@@ -666,23 +712,29 @@ async function initStatic(cfg: StaticConfig) {
   if (!cfg.browser) for (const el of Array.from(($("form") as HTMLFormElement).elements)) (el as HTMLInputElement).disabled = true;
   try {
     const p = await (await fetch(cfg.analysis)).json() as Payload;
-    const qsUser = new URLSearchParams(location.search).get("u");
+    exampleUser = p.username;
+    const params = new URLSearchParams(location.search);
+    const qsSite = parseSiteParam(params.get("site"));
+    const qsUser = params.get("u");
+    applySite(qsSite);
     ($("username") as HTMLInputElement).value = qsUser || "";
-    ($("username") as HTMLInputElement).placeholder = `Chess.com username, e.g. ${p.username}`;
-    if (p.time_class) ($("time_class") as HTMLSelectElement).value = p.time_class;
-    render(p);
+    if (p.time_class && qsSite === "chesscom") ($("time_class") as HTMLSelectElement).value = p.time_class;
+    render({ ...p, site: "chesscom" });
     const when = p.generated_at ? new Date(p.generated_at).toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }) : "";
     $("snapshot").innerHTML = `<span><strong>Example below:</strong> a saved analysis of ${esc(p.username)}'s last ${p.overall.games}
       ${esc(p.time_class ?? "")} games${when ? ` (${esc(when)})` : ""}. ` + (cfg.browser
-      ? `Enter any Chess.com username above to analyze it right here.`
+      ? `Enter any Chess.com or Lichess username above to analyze it right here.`
       : `The full app runs locally: <a href="${esc(cfg.repo)}" target="_blank" rel="noopener">setup on GitHub</a>.`) + `</span>`;
     $("snapshot").hidden = false;
-    if (qsUser && cfg.browser && qsUser.toLowerCase() !== p.username.toLowerCase()) ($("form") as HTMLFormElement).requestSubmit();
+    if (qsUser && cfg.browser && (qsSite !== "chesscom" || qsUser.toLowerCase() !== p.username.toLowerCase())) {
+      ($("form") as HTMLFormElement).requestSubmit();
+    }
   } catch (e) {
     setStatus(`Couldn't load the example: ${(e as Error).message}`, true);
   }
 }
 
+$("site").addEventListener("change", () => applySite(selectedSite()));
 $("form").addEventListener("submit", analyze);
 initExampleViewers(ENGINE_URL);
 $("findings").addEventListener("click", ev => {
@@ -693,7 +745,12 @@ $("findings").addEventListener("click", ev => {
 $("coachBtn").addEventListener("click", coach);
 initCoach();
 if (STATIC) initStatic(STATIC);
-else { const qs = new URLSearchParams(location.search).get("u"); if (qs) ($("username") as HTMLInputElement).value = qs; }
+else {
+  const params = new URLSearchParams(location.search);
+  applySite(parseSiteParam(params.get("site")));
+  const qs = params.get("u");
+  if (qs) ($("username") as HTMLInputElement).value = qs;
+}
 
 // Debug hook (only with ?debug=1): lets the real coach tools (DuckDB-WASM, Stockfish)
 // be exercised from the console with a scripted client, without an API key.

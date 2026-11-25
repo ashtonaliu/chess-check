@@ -319,6 +319,19 @@ function setState(s: State, msg = "") {
   if (!panel.classList.contains("hidden")) renderPanel();
 }
 
+type RecapStage = "confirmed" | "result" | "turning" | "opponent" | "complete";
+let timingInstall = false;
+let devInfo: Promise<{ dev: boolean; built?: string | null }> | undefined;
+let timingStart = 0;
+let timingStages: Partial<Record<RecapStage, number>> = {};
+let timingCacheHit = false;
+
+function markRecapStage(stage: RecapStage) {
+  if (!timingInstall || timingStages[stage] !== undefined) return;
+  timingStages[stage] = performance.measure(`cc:recap stage ${stage}`, { start: timingStart }).duration;
+  host.dataset.chessCheckRecapTiming = JSON.stringify({ stages: timingStages, games: basis, cached: timingCacheHit });
+}
+
 function renderPanel() {
   reset.hidden = !accounts.length || !!signedIn;
   view = panelView(view, state, pageUrl(), due().length);
@@ -337,6 +350,12 @@ function renderPanel() {
     if (progress.textContent !== status) progress.textContent = status;
     progress.hidden = !status;
     updateRecapReviewLink();
+    if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) {
+      markRecapStage("result");
+      if (!recap.pending?.turning && !recap.turningError) markRecapStage("turning");
+      if (recap.opponentNote) markRecapStage("opponent");
+      if (!partial) markRecapStage("complete");
+    }
     return;
   }
   if (state === "choose" && players) {
@@ -485,6 +504,12 @@ async function check() {
   const pageKey = site.pageSafetyKey(new URL(url));
   const markPage = (finished: boolean) => ask({ type: "page-state", pageKey, finished }).catch(() => {});
   const changedGame = id !== lastId;
+  if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ && timingInstall && changedGame) {
+    timingStart = performance.now();
+    timingStages = {};
+    timingCacheHit = false;
+    delete host.dataset.chessCheckRecapTiming;
+  }
   if (changedGame || onPlay) togglePanel(false);
   if (id !== lastId || intent) {
     boardIntent = intent;
@@ -543,6 +568,10 @@ async function check() {
     if (step.next === "aborted") { setState("aborted"); return; }
     served = finished;
     players = finished!.players;
+    if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ && timingInstall) {
+      markRecapStage("confirmed");
+      togglePanel(true);
+    }
     if (step.next === "choose") { setState("choose"); if (step.open) togglePanel(true); return; }
     viewer = step.viewer;
     if (queueOwner !== viewer.toLowerCase()) await loadQueue(viewer, isCurrent);
@@ -582,6 +611,7 @@ async function requestRecap() {
       break;
     case "recap":
       recap = reply.recap; basis = reply.games; partial = reply.partial ?? "";
+      if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) timingCacheHit = !!reply.timingCacheHit;
       if (state !== "ready" || !panel.classList.contains("hidden")) setState("ready");
       if (!reply.partial) void collect(recap, viewer);     // complete, so the profile exists too
       if (reply.partial && reply.retry !== false) timer = setTimeout(requestRecap, 1000);
@@ -610,8 +640,9 @@ try {
 // build time, so a test can check which build is running. The background script checks that this is
 // an unpacked install before doing either; an install from the Chrome Web Store ignores both.
 try {
-  void chrome.runtime.sendMessage<{ dev: boolean; built?: string | null }>({ target: "dev", type: "info" })
-    .then(r => { if (r?.dev) host.dataset.chessCheckBuild = r.built ?? "unknown"; })
+  const info = chrome.runtime.sendMessage<{ dev: boolean; built?: string | null }>({ target: "dev", type: "info" });
+  if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) devInfo = info;
+  void info.then(r => { if (r?.dev) host.dataset.chessCheckBuild = r.built ?? "unknown"; })
     .catch(() => { /* not a developer install */ });
   window.addEventListener("message", e => {
     if (e.source === window && (e.data as { type?: string } | null)?.type === "chess-check:dev-reload") {
@@ -646,6 +677,9 @@ void (async () => {
   }
   document.documentElement.appendChild(host);
   place();
+  if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) {
+    timingInstall = !!(await devInfo?.catch(() => null))?.dev;
+  }
   lastUrl = pageUrl();
   await check();
 })();

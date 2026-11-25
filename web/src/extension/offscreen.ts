@@ -9,11 +9,11 @@
 import { DEFAULT_SITE, type SafetyKey, type Site, type SiteId } from "../browser/site";
 import { defaultSite, siteForId } from "../browser/sites";
 import type { Callback } from "../browser/callbackGame";
-import { defaultWorkers, pruneAnalysisCache, type GameAnalysis } from "../browser/engine";
+import { defaultWorkers, finishEngineTiming, pruneAnalysisCache, startEngineTiming, type GameAnalysis } from "../browser/engine";
 import { moveFeatures } from "../browser/findRate";
 import { analyzeGame, type Profile } from "../browser/follow";
 import { fetchGames, type Game } from "../browser/games";
-import { gameCacheId } from "../browser/ids";
+import { gameCacheId, gameId } from "../browser/ids";
 import { Pace, SharedPace, startingWorkers } from "../browser/pace";
 import { analyzeInBrowser } from "../browser/pipeline";
 import { buildRecap, opponentNote, type Recap } from "../browser/recap";
@@ -42,7 +42,7 @@ export type Reply =
   | { status: "pending" }                      // not finished yet (or not this player's game)
   // games: how many past games the profile used. partial: what is still being added, when the recap
   // is not complete yet (ask again in a moment, unless retry is false).
-  | { status: "recap"; recap: Recap; games: number; partial?: string; retry?: boolean }
+  | { status: "recap"; recap: Recap; games: number; partial?: string; retry?: boolean; timingCacheHit?: true }
   | { status: "seed"; items: ReviewItem[] }    // empty until a profile exists
   | { status: "rates"; rates: Record<string, number | null> }
   | { status: "pace"; workers: number | null; max: number; remembered: number | null }
@@ -108,7 +108,13 @@ function scheduleStorageCleanup(signal: AbortSignal) {
 function startJob(site: Site, key: string, game: Game, signal: AbortSignal): GameJob {
   const job: GameJob = { game, analysis: null, error: "", opponentGames: null, opponentDone: !game.opponent };
   jobs.set(key, job);
-  analyzeGame(game, ENGINE_URL, signal).then(r => { job.analysis = r; })
+  const timed = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__;
+  const engineSignal = timed ? AbortSignal.any([signal]) : signal;
+  const timing = timed ? startEngineTiming(engineSignal, { kind: "recap", gameId: gameId(game.url) }) : null;
+  analyzeGame(game, ENGINE_URL, engineSignal).then(r => {
+    job.analysis = r;
+    if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ && timing) finishEngineTiming(timing);
+  })
     .catch(e => { job.error = (e as Error).message; });
   if (game.opponent) {
     fetchGames(game.opponent, 100, game.timeClass, signal, site)
@@ -145,6 +151,8 @@ function prepareQuickGames(site: Site, slot: Slot, username: string, timeClass: 
 function build(site: Site, slot: Slot, key: string, username: string, timeClass: string, games: number) {
   slot.progress = `Analyzing ${username}'s last ${games} ${timeClass} games…`;
   const abort = slot.abort = new AbortController();
+  const timing = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__
+    ? startEngineTiming(abort.signal, { kind: "profile", requested: games }) : null;
   const max = defaultWorkers();
   if (!budget) budget = new SharedPace(new Pace({ max, start: startingWorkers(max, rememberedWorkers()) }));
   const shared = budget, share = shared.join();
@@ -159,6 +167,9 @@ function build(site: Site, slot: Slot, key: string, username: string, timeClass:
                                  tactics: run.tactics, games: run.games };
       await saveProfile(key, { profile, games, savedAt: Date.now() });
       completed = profile;
+      if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ && timing && !abort.signal.aborted) {
+        finishEngineTiming(timing, profile.games?.length);
+      }
     })
     .catch(e => { if (!abort.signal.aborted && !slot.profile) slot.error = (e as Error).message; })
     .finally(() => {
@@ -288,6 +299,9 @@ export async function handle(req: Request): Promise<Reply> {
     const done = recaps.get(key);                // reuse a recap unless the profile has grown since
     if (done && (done.games >= games || !profile)) {
       rememberRecap(recaps, key, done);
+      if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) {
+        return { status: "recap", recap: done.recap, games: done.games, timingCacheHit: true };
+      }
       return { status: "recap", recap: done.recap, games: done.games };
     }
     job = jobs.get(key) ?? startJob(site, key, probe, signal);

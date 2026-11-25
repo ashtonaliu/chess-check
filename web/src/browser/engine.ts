@@ -50,6 +50,25 @@ function clocks(pgn: string): number[] {
 /** How long one search may take before the engine counts as stuck (depth 14 takes a few seconds). */
 export const SEARCH_TIMEOUT_MS = 60_000;
 
+interface EngineTimingRun {
+  id: number; start: number; kind: "recap" | "profile"; gameId?: string; requested?: number;
+}
+let nextEngineTiming = 0;
+const timingSignals = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__
+  ? new WeakMap<AbortSignal, EngineTimingRun>() : null;
+const timingEngines = typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__
+  ? new WeakMap<PoolEngine, EngineTimingRun>() : null;
+
+export function startEngineTiming(signal: AbortSignal, scope: Pick<EngineTimingRun, "kind" | "gameId" | "requested">) {
+  const run = { ...scope, id: ++nextEngineTiming, start: performance.now() };
+  timingSignals?.set(signal, run);
+  return run;
+}
+
+export function finishEngineTiming(run: EngineTimingRun, games?: number) {
+  performance.measure("cc:engine timing complete", { start: run.start, detail: { ...run, games } });
+}
+
 export class Engine {
   private w: Worker;
   private listeners: ((line: string) => void)[] = [];
@@ -94,7 +113,17 @@ export class Engine {
   /** Score (centipawns, side-to-move POV, mates as +/-MATE-n), best move and principal variation in UCI. */
   async analyse(fen: string, depth: number): Promise<{ cp: number; best: string | null; pv: string[]; nodes: number }> {
     let cp = 0, pv: string[] | null = null, nodes = 0;
+    let sent = 0, stockfishMs: number | null = null;
     const done = this.until(l => l.startsWith("bestmove"), l => {
+      if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) {
+        if (l.startsWith("bestmove")) performance.measure("cc:uci search", {
+          start: sent, detail: { stockfishMs, run: timingEngines?.get(this)?.id ?? null },
+        });
+        else if (l.startsWith("info ") && !l.startsWith("info string ")) {
+          const time = l.match(/ time (\d+)(?= |$)/);
+          if (time) stockfishMs = Number(time[1]);
+        }
+      }
       if (!l.startsWith("info")) return;
       const count = l.match(/ nodes (\d+)/);
       if (count) nodes = Math.max(nodes, Number(count[1]));
@@ -108,6 +137,7 @@ export class Engine {
       const p = l.match(/ pv (.+)$/);
       if (p) pv = p[1].trim().split(/\s+/);
     });
+    if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) sent = performance.now();
     this.w.postMessage(`position fen ${fen}`);
     this.w.postMessage(`go depth ${depth}`);
     const bm = await done;
@@ -382,7 +412,15 @@ export async function runPool<E extends PoolEngine = Engine>(count: number,
         }
         if (quit.signal.aborted || next >= count) break;
         const t = next++;
-        if (!eng) { eng = make(); engines.add(eng); await eng.init(); }
+        if (!eng) {
+          eng = make();
+          engines.add(eng);
+          if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__ && o.signal) {
+            const run = timingSignals?.get(o.signal);
+            if (run) timingEngines?.set(eng, run);
+          }
+          await eng.init();
+        }
         if (quit.signal.aborted) break;
         await task(eng, t);
         // keep the slot, and the engine, unless another build needs it or the budget dropped

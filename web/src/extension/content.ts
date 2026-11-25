@@ -469,8 +469,11 @@ panel.addEventListener("click", e => {
   if (!game || !link) return;
   markFind(store, game, link.dataset.review ?? null);
   if (site.id === "lichess" && link.href.split("#")[0] === location.href.split("#")[0]) {
-    // Lichess initializes the replay from the fragment on page load.
+    // Lichess initializes the replay from the fragment on page load. Changing only the fragment
+    // fires a route change in this page first, and a check here would take the intent that the
+    // reloaded page needs to reopen the panel, so this page stops checking.
     e.preventDefault();
+    leaving = true;
     location.href = link.href;
     location.reload();
   }
@@ -486,12 +489,14 @@ let checkVersion = 0;
 let lookup: AbortController | null = null;
 let boardIntent: BoardIntent | null = null;
 let retryBoardLookup = false;
+let leaving = false;                      // reloading for "Find it on the board"; leave the intent alone
 
 /** The signed-in user, or the one picked earlier when signed out. */
 const whoAmI = () => signedInUser() ?? accounts[0] ?? null;
 
 /** Called when the address changes, and every few seconds while a live game is in progress. */
 async function check() {
+  if (leaving) return;
   const url = pageUrl();
   const id = gameIdFromPage(url);
   const onPlay = isPlayPage(new URL(url));

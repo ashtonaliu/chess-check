@@ -1117,6 +1117,23 @@ python scripts/label_chesscom_rapid.py label --v1-root data/engine/v1 --output d
 python scripts/calibrate_review_find_rate.py --data-root data/engine --output eval_results/review-calibration
 ```
 
+**Chess.com rapid and bullet training data.** To train the neural model on Chess.com rapid and bullet without touching any held-out test player, I extended `scripts/fetch_chesscom_rapid.py` (`--split non-test`) and `scripts/label_chesscom_rapid.py` to draw non-test usernames (`hash(player.casefold()) % 5 != 0`) from `data/engine/v1`. Validation uses the same second base-5 digit (`(hash // 5) % 5 == 0`) as `scripts/prepare_neural_find_rate.py`.
+
+I probed `/stats` for 2,000 non-test players (2,001 requests, 967.0 s, zero 429 responses, at most 2 concurrent requests) and fetched public monthly archives for 1,006 stratified players across 600 to 2399 (6,568 requests, 2,491.0 s, zero 429 responses). That yielded 71,957 finished rated standard games with `[%clk]` comments and verified pre-game ratings (31,760 rapid and 40,197 bullet) and 2,462,737 moves (`ply >= 2`).
+
+I labeled 1,645,707 stratified moves (`--max-per-band 45000`) on Ashton's M5 Pro Mac (18 cores) using Stockfish 19 with the exact v1 settings (depth 10, MultiPV 2, WDL on, 32 MB hash, 1 thread per worker, hash cleared per search, 17 workers). The 5,000-move benchmark ran at 426.81 searches per second (11.715 s) and projected 4,831.5 s across 201 atomic shards against the 28,800 s budget. Labeling finished in 4,301.6 engine seconds (71.7 minutes) and produced 95,683 critical positions (`gap >= 20`, 46,771 games, zero test players):
+
+- **Chess.com rapid:** 48,439 critical positions (38,072 train across 392 players; 10,367 validation across 118 players).
+- **Chess.com bullet:** 47,244 critical positions (38,159 train across 429 players; 9,085 validation across 108 players).
+
+The full directory under `data/engine/chesscom-rapid-train-v1/` is 207.7 MB (217,790,170 bytes), with all request batches, counts, and engine settings recorded in `data/engine/chesscom-rapid-train-v1/runs.json`.
+
+```sh
+python scripts/fetch_chesscom_rapid.py --v1-root data/engine/v1 --output data/engine/chesscom-rapid-train-v1 --split non-test stats --max-players 2000
+python scripts/fetch_chesscom_rapid.py --v1-root data/engine/v1 --output data/engine/chesscom-rapid-train-v1 --split non-test games --per-band 45
+python scripts/label_chesscom_rapid.py label --v1-root data/engine/v1 --output data/engine/chesscom-rapid-train-v1 --max-per-band 45000
+```
+
 The logistic baseline is reproduced by `scripts/eval_find_rate.py evaluate`. `web/test/findRate.test.ts`
 checks its chess.js features and probabilities against Python on 300 held-out positions. The
 features match exactly and the probabilities agree within 0.0001.

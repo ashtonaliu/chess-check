@@ -6,6 +6,7 @@
 // and every tab's content script runs on chess.com), and tabs refresh their copy when the stored
 // queue changes.
 import type { ReviewItem } from "../browser/reviewQueue";
+import { DEFAULT_SITE, type SiteId } from "../browser/site";
 
 export interface QueueDeps {
   load: (key: string) => Promise<ReviewItem[]>;
@@ -14,11 +15,26 @@ export interface QueueDeps {
   lock: ((name: string, fn: () => Promise<ReviewItem[]>) => Promise<ReviewItem[]>) | null;
 }
 
-export const queueKey = (user: string) => `queue:${user.toLowerCase()}`;
+export const QUEUE_PREFIX = "queue:";
+export const queueKey = (user: string, site: SiteId = DEFAULT_SITE) => `${QUEUE_PREFIX}${site}:${user.toLowerCase()}`;
+
+export function legacyQueueKey(key: string): string | undefined {
+  const prefix = `${QUEUE_PREFIX}${DEFAULT_SITE}:`;
+  return key.startsWith(prefix) ? QUEUE_PREFIX + key.slice(prefix.length) : undefined;
+}
+
+export async function loadStoredQueue(key: string, storage = chrome.storage.local): Promise<ReviewItem[]> {
+  const legacy = legacyQueueKey(key);
+  try {
+    const entries = await storage.get(legacy ? [key, legacy] : [key]);
+    return (entries[key] ?? (legacy ? entries[legacy] : undefined) ?? []) as ReviewItem[];
+  } catch { return []; }
+}
 
 /** Apply `change` to the latest saved queue for `user`, save it, and return the result. */
-export function updateQueue(deps: QueueDeps, user: string, change: (q: ReviewItem[]) => ReviewItem[]): Promise<ReviewItem[]> {
-  const key = queueKey(user);
+export function updateQueue(deps: QueueDeps, user: string, change: (q: ReviewItem[]) => ReviewItem[],
+                            site: SiteId = DEFAULT_SITE): Promise<ReviewItem[]> {
+  const key = queueKey(user, site);
   const run = async () => { const next = change(await deps.load(key)); await deps.save(key, next); return next; };
   return deps.lock ? deps.lock(`chess-check-${key}`, run) : run();
 }

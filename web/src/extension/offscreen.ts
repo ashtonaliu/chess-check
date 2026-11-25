@@ -6,7 +6,9 @@
 // When the engine runs: the profile is built when the cube asks to "warm" it,
 // which it does only on pages that are not a game or the play page, and for a
 // finished game. Nothing here runs while the player is in a game.
-import { gameFromCallback, isStandardCallback, nameCallbackOpening, type Callback } from "../browser/callbackGame";
+import { DEFAULT_SITE, type Site, type SiteId } from "../browser/site";
+import { defaultSite, siteForId } from "../browser/sites";
+import type { Callback } from "../browser/callbackGame";
 import { defaultWorkers, pruneAnalysisCache, type GameAnalysis } from "../browser/engine";
 import { moveFeatures } from "../browser/findRate";
 import { analyzeGame, type Profile } from "../browser/follow";
@@ -20,11 +22,11 @@ import { configureWasmChess } from "../browser/wasmChess";
 import { itemsFromBlunders, type ReviewItem, type ReviewRateRequest } from "../browser/reviewQueue";
 import { reviewFindRate } from "./reviewFindRate";
 import type { BlunderRec } from "../browser/tactics";
-import { canShowRecap } from "./guard";
+import { playerKey, profileKey, recapKey } from "./storageKeys";
 import { loadProfile, profileGameIds, pruneProfiles, saveProfile, touchProfile, type Saved } from "./profileStore";
 import { ANALYSIS_LIMIT, PROFILE_LIMIT, rememberRecap, reviewDependencies } from "./storageRetention";
 
-export type Request =
+export type Request = { site?: SiteId } & (
   | { type: "warm"; username: string }
   | { type: "page-state"; url: string; finished: boolean }
   | { type: "stop" }                           // a game is starting: stop any analysis now
@@ -32,7 +34,7 @@ export type Request =
   | { type: "stalls" }                         // the page the cube is on stuttered (pace.ts)
   | { type: "pace" }                           // the worker count now, for testing
   | { type: "rate"; items: ReviewRateRequest[] }
-  | { type: "recap"; username: string; kind: "live" | "daily"; gameId: string; callback: Callback };
+  | { type: "recap"; username: string; gameId: string; evidence?: unknown });
 export type Reply =
   | { status: "building"; progress: string }
   | { status: "ready" }
@@ -103,13 +105,13 @@ function scheduleStorageCleanup(signal: AbortSignal) {
   }).catch(() => { /* storage unavailable or play resumed; try again after a safe build */ });
 }
 
-function startJob(key: string, game: Game, signal: AbortSignal): GameJob {
+function startJob(site: Site, key: string, game: Game, signal: AbortSignal): GameJob {
   const job: GameJob = { game, analysis: null, error: "", opponentGames: null, opponentDone: !game.opponent };
   jobs.set(key, job);
   analyzeGame(game, ENGINE_URL, signal).then(r => { job.analysis = r; })
     .catch(e => { job.error = (e as Error).message; });
   if (game.opponent) {
-    fetchGames(game.opponent, 100, game.timeClass, signal)
+    fetchGames(game.opponent, 100, game.timeClass, signal, site)
       .then(gs => { job.opponentGames = gs.filter(g => g.url !== game.url); })
       .catch(() => { /* no opponent note */ })
       .finally(() => { job.opponentDone = true; });
@@ -127,9 +129,9 @@ function rememberedWorkers(): number | null {
   try { const n = Number(localStorage.getItem(WORKERS_KEY)); return n > 0 ? n : null; } catch { return null; }
 }
 
-function prepareQuickGames(slot: Slot, username: string, timeClass: string, signal: AbortSignal): Promise<Game[]> {
+function prepareQuickGames(site: Site, slot: Slot, username: string, timeClass: string, signal: AbortSignal): Promise<Game[]> {
   if (!slot.quickGames) {
-    slot.quickGames = fetchGames(username, QUICK, timeClass, signal).then(games => {
+    slot.quickGames = fetchGames(username, QUICK, timeClass, signal, site).then(games => {
       signal.throwIfAborted();
       slot.archive = { games, rows: withExpected(games) };
       return games;
@@ -140,16 +142,16 @@ function prepareQuickGames(slot: Slot, username: string, timeClass: string, sign
   return slot.quickGames;
 }
 
-function build(slot: Slot, key: string, username: string, timeClass: string, games: number) {
+function build(site: Site, slot: Slot, key: string, username: string, timeClass: string, games: number) {
   slot.progress = `Analyzing ${username}'s last ${games} ${timeClass} games…`;
   const abort = slot.abort = new AbortController();
   const max = defaultWorkers();
   if (!budget) budget = new SharedPace(new Pace({ max, start: startingWorkers(max, rememberedWorkers()) }));
   const shared = budget, share = shared.join();
   let completed: Profile | null = null;
-  slot.building = analyzeInBrowser({ username, games, timeClass, depth: 8, engineUrl: ENGINE_URL, pace: share,
+  slot.building = analyzeInBrowser({ site, username, games, timeClass, depth: 8, engineUrl: ENGINE_URL, pace: share,
     signal: abort.signal,
-    prefetchedGames: games === QUICK ? prepareQuickGames(slot, username, timeClass, abort.signal) : undefined,
+    prefetchedGames: games === QUICK ? prepareQuickGames(site, slot, username, timeClass, abort.signal) : undefined,
     onProgress: (_s, _f, text) => { slot.progress = text; } })
     .then(async run => {
       if (abort.signal.aborted) return;
@@ -185,8 +187,8 @@ function build(slot: Slot, key: string, username: string, timeClass: string, gam
 /** Start or report the profile for this player and time class; null when one is ready to use.
  *  Order of preference: the one in memory, the saved one, a quick 50-game build. Whichever is
  *  used, a full refresh then runs in the background (until the next game stops it). */
-async function ensureProfile(username: string, timeClass: string, signal: AbortSignal, startNow = true): Promise<Reply | null> {
-  const key = `${username.toLowerCase()}|${timeClass}`;
+async function ensureProfile(site: Site, username: string, timeClass: string, signal: AbortSignal, startNow = true): Promise<Reply | null> {
+  const key = profileKey(site.id, username, timeClass);
   const switched = key !== currentProfile;
   currentProfile = key;
   if (!checkedStorageAtStartup) {
@@ -205,10 +207,10 @@ async function ensureProfile(username: string, timeClass: string, signal: AbortS
     if (saved && !s.profile) { s.profile = saved.profile; s.games = saved.games; }
   }
   if (s.profile) {
-    if (startNow && !s.building && (!s.refreshed || s.games < FULL)) build(s, key, username, timeClass, FULL);
+    if (startNow && !s.building && (!s.refreshed || s.games < FULL)) build(site, s, key, username, timeClass, FULL);
     return null;
   }
-  if (!s.building && startNow) build(s, key, username, timeClass, QUICK);
+  if (!s.building && startNow) build(site, s, key, username, timeClass, QUICK);
   return { status: "building", progress: s.progress };
 }
 
@@ -235,16 +237,18 @@ export async function handle(req: Request): Promise<Reply> {
     if (req.type === "pace") {
       return { status: "pace", workers: budget ? budget.pace.active() : null, max: defaultWorkers(), remembered: rememberedWorkers() };
     }
+    const site = siteForId(req.site ?? DEFAULT_SITE);
+    if (!site) return { status: "error", message: "Chess Check does not support this site." };
     if (req.type === "rate") {
       // the cube's script does without chess.js, so the find rate is worked out here
-      return { status: "rates", rates: Object.fromEntries(req.items.map(i => [i.id, reviewFindRate(i)])) };
+      return { status: "rates", rates: Object.fromEntries(req.items.map(i => [i.id, reviewFindRate(i, site.id)])) };
     }
     if (req.type === "seed") {
       // from the finished profiles (in memory, or saved for the player's main time class)
-      const u = req.username.toLowerCase();
+      const u = playerKey(site.id, req.username);
       const profiles = [...slots.entries()].filter(([k, s]) => k.startsWith(`${u}|`) && s.profile).map(([, s]) => s.profile!);
       if (!profiles.length && mainClass.has(u)) {
-        const saved = await loadProfile(`${u}|${mainClass.get(u)}`);
+        const saved = await loadProfile(profileKey(site.id, req.username, mainClass.get(u)!));
         if (saved) profiles.push(saved.profile);
       }
       const items = itemsFromBlunders(profiles.flatMap(p => p.tactics?.blunders ?? []),
@@ -253,9 +257,9 @@ export async function handle(req: Request): Promise<Reply> {
     }
     if (req.type === "warm") {
       // between games: get the profile for the time class this player plays most ready in advance
-      const u = req.username.toLowerCase();
+      const u = playerKey(site.id, req.username);
       if (!mainClass.has(u)) {
-        const recent = await fetchGames(req.username, 40, null, signal);
+        const recent = await fetchGames(req.username, 40, null, signal, site);
         signal.throwIfAborted();
         const counts = new Map<string, number>();
         for (const g of recent) counts.set(g.timeClass, (counts.get(g.timeClass) ?? 0) + 1);
@@ -263,25 +267,21 @@ export async function handle(req: Request): Promise<Reply> {
         if (!top) return { status: "ready" };
         mainClass.set(u, top[0]);
       }
-      return (await ensureProfile(req.username, mainClass.get(u)!, signal)) ?? { status: "ready" };
+      return (await ensureProfile(site, req.username, mainClass.get(u)!, signal)) ?? { status: "ready" };
     }
-    const key = `${req.username.toLowerCase()}|${req.gameId}`;
-    // Fair-play guard: only a game Chess.com reports as finished. Its game endpoint does not even
-    // serve a live game until it is over.
-    const finished = new Set(req.callback.game.isFinished ? [String(req.callback.game.id)] : []);
-    if (!canShowRecap(req.gameId, finished)) return { status: "pending" };
+    const key = recapKey(site.id, req.username, req.gameId);
+    // Recheck finish evidence on every request, including requests for an existing recap.
+    // Older callers sent the evidence in the request itself.
+    const evidence = req.evidence ?? req;
+    if (!site.isFinishedGame(req.gameId, evidence)) return { status: "pending" };
     let job = jobs.get(key);
-    const probe = job?.game ?? gameFromCallback(req.callback, req.username, req.kind, []);
-    if (!probe) {
-      // A finished Chess960 or odds game would otherwise sit on "appears when this game ends".
-      return isStandardCallback(req.callback) ? { status: "pending" }
-        : { status: "error", message: "Chess Check only reviews standard chess games." };
-    }
-    const slotKey = `${req.username.toLowerCase()}|${probe.timeClass}`;
+    const probe = job?.game ?? site.finishedGame(req.gameId, req.username, evidence);
+    if (!probe || probe === "pending") return { status: "pending" };
+    const slotKey = profileKey(site.id, req.username, probe.timeClass);
     const previousArchive = slots.get(slotKey)?.archive;
     // Keep the finished game's search ahead of the profile build and the player's archive, which
     // the quick build reads first. The recap shows the archive's details before the patterns.
-    const p = await ensureProfile(req.username, probe.timeClass, signal, !!(job?.analysis || job?.error));
+    const p = await ensureProfile(site, req.username, probe.timeClass, signal, !!(job?.analysis || job?.error));
     signal.throwIfAborted();
     const slot = slots.get(slotKey);
     const profile = p === null ? slot!.profile! : null, games = profile ? slot!.games : 0;
@@ -290,10 +290,10 @@ export async function handle(req: Request): Promise<Reply> {
       rememberRecap(recaps, key, done);
       return { status: "recap", recap: done.recap, games: done.games };
     }
-    job = jobs.get(key) ?? startJob(key, probe, signal);
+    job = jobs.get(key) ?? startJob(site, key, probe, signal);
     const archive = slot?.archive ?? previousArchive;
     const openingGames = profile?.games ?? archive?.games;
-    const game = openingGames ? nameCallbackOpening(job.game, openingGames) : job.game;
+    const game = openingGames ? site.nameOpening(job.game, openingGames) : job.game;
     const note = game.opponent && job.opponentGames && !game.family.startsWith("ECO ")
       ? opponentNote(game.opponent, job.opponentGames, game.family, game.color === "white" ? "black" : "white") : null;
     const a = job.analysis, err = job.error;
@@ -338,12 +338,12 @@ if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
   if (typeof __CC_PROFILE__ !== "undefined" && __CC_PROFILE__) {
     // A cold 150-game build uses the same path as the refresh, with no preceding 50-game cache.
     Object.assign(window, { __ccProfile: async (username: string, games: number, callback: Callback) => {
-      const finished = gameFromCallback(callback, username, "live", []);
-      if (!finished) throw new Error("Profiling requires a finished game from the archive player");
+      const finished = defaultSite.finishedGame(String(callback.game.id), username, { kind: "live", callback });
+      if (!finished || finished === "pending") throw new Error("Profiling requires a finished game from the archive player");
       const slot: Slot = { profile: null, games: 0, building: null, progress: "", error: "", refreshed: false };
       const started = performance.now();
       performance.mark("cc:build start");
-      build(slot, `${username.toLowerCase()}|${finished.timeClass}`, username, finished.timeClass, games);
+      build(defaultSite, slot, profileKey(defaultSite.id, username, finished.timeClass), username, finished.timeClass, games);
       await slot.building;
       performance.mark("cc:build end");
       performance.measure("cc:build", { start: started });
@@ -351,7 +351,7 @@ if (typeof chrome !== "undefined" && chrome.runtime?.onMessage) {
       if (!profile || profile.games?.length !== games) throw new Error(slot.error || `Expected ${games} archived games`);
 
       // Measure one finished recap separately, after the build's IndexedDB save and outside its window.
-      const game = nameCallbackOpening(finished, profile.games);
+      const game = defaultSite.nameOpening(finished, profile.games);
       const { analysis, blunders } = await analyzeGame(game, ENGINE_URL);
       const recap = buildRecap(game, analysis, blunders, profile.rows, profile.tactics);
       const turning = recap.turning;

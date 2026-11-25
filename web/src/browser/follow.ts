@@ -3,6 +3,7 @@
 // nothing here can run during a game.
 import { analyseGames, defaultWorkers, recheckBlunders } from "./engine";
 import { fetchGames, type Game } from "./games";
+import { defaultSite, siteForId } from "./sites";
 import { buildRecap, opponentNote, type Recap } from "./recap";
 import type { GameRow } from "./stats";
 import { classifyGame, type TacticSummary } from "./tactics";
@@ -24,6 +25,8 @@ export class Follower {
   private stopped = false;
   lastChecked: Date | null = null;
 
+  private site = siteForId(this.profile.games?.[0]?.site) ?? defaultSite;
+
   constructor(private profile: Profile, private engineUrl: string,
               private onRecap: (r: Recap, isNew: boolean) => void,
               private onStatus: (msg: string) => void,
@@ -34,7 +37,7 @@ export class Follower {
   /** Recap the most recent game right away, then check for new ones every POLL_MS. Stopping at any
    *  point is final: nothing is shown and no polling starts after stop(). */
   async start() {
-    const [latest] = await this.fetch(this.profile.username, 1, this.profile.timeClass);
+    const [latest] = await this.fetch(this.profile.username, 1, this.profile.timeClass, undefined, this.site);
     if (this.stopped) return;
     if (latest) {
       this.seen.add(latest.url);   // an old game: shown once if it works, never retried
@@ -65,7 +68,7 @@ export class Follower {
     if (this.busy || this.stopped) return;
     this.busy = true;
     try {
-      const recent = await this.fetch(this.profile.username, 5, this.profile.timeClass);
+      const recent = await this.fetch(this.profile.username, 5, this.profile.timeClass, undefined, this.site);
       if (this.stopped) return;
       this.lastChecked = new Date();
       const fresh = recent.filter(g => !this.seen.has(g.url)).sort((a, b) => a.endTime - b.endTime);
@@ -89,7 +92,7 @@ export class Follower {
       }
       if (!failed) this.onStatus("watching");
     } catch (e) {
-      if (!this.stopped) this.onStatus(`Could not reach Chess.com (${(e as Error).message}). Will try again.`);
+      if (!this.stopped) this.onStatus(`Could not reach ${this.site.name} (${(e as Error).message}). Will try again.`);
     } finally {
       this.busy = false;
     }
@@ -113,7 +116,7 @@ export async function analyzeGame(g: Game, engineUrl: string, signal?: AbortSign
 export function opponentNoteFor(g: Game, timeClass: string | null): Promise<string | null> {
   const opponent = g.opponent;
   if (!opponent) return Promise.resolve(null);
-  return fetchGames(opponent, 100, g.timeClass || timeClass)
+  return fetchGames(opponent, 100, g.timeClass || timeClass, undefined, siteForId(g.site) ?? defaultSite)
     .then(games => opponentNote(opponent, games.filter(game => game.url !== g.url),
       g.family, g.color === "white" ? "black" : "white"))
     .catch(() => null);

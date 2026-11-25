@@ -3,6 +3,7 @@
 // decision about what to show lives here, so it can be tested without a browser
 // (test/panelModel.test.ts).
 import { gameId } from "../browser/ids";
+import { defaultSitePages, pageSite, siteForUrl } from "../browser/site";
 import { dueItems, nextDue, type ReviewItem } from "../browser/reviewQueue";
 import { canReview, gameIdFromPage } from "./guard";
 
@@ -11,12 +12,14 @@ import { canReview, gameIdFromPage } from "./guard";
 export type State = "idle" | "loading" | "choose" | "pending" | "building" | "ready" | "finished" | "error";
 export type View = "game" | "review";
 
-export const LIVE_POLL_MS = 5_000;     // how often to ask whether a live game has ended
-export const DAILY_POLL_MS = 60_000;
+export { LIVE_POLL_MS, DAILY_POLL_MS } from "../browser/sites/chesscomPages";
 const DAY = 86_400_000;
 
 /** How long to wait before asking again whether a game in progress has ended. */
-export const pollDelay = (pageUrl: string) => (/\/daily\//.test(new URL(pageUrl).pathname) ? DAILY_POLL_MS : LIVE_POLL_MS);
+export function pollDelay(pageUrl: string): number {
+  const url = new URL(pageUrl);
+  return (siteForUrl(url) ?? defaultSitePages).pollDelay(url);
+}
 
 /** Fair play: the queue only where canReview allows it, and on a game page only once Chess.com has
  *  confirmed the game is over (the recap, the player choice, or a game opened from the queue). */
@@ -83,7 +86,7 @@ export function reviewCard(due: ReviewItem[], current: string | null, state: Sta
     const summary = tally.found + tally.missed ? `That's all for now: ${tally.found} found, ${tally.missed} missed.` : "Nothing to review right now.";
     return { kind: "done", summary: next ? `${summary} ${next}` : summary, back };
   }
-  const here = onScreen === gameId(item.url) && new URL(pageUrl).searchParams.get("move") === String(item.ply);
+  const here = onScreen === gameId(item.url) && (pageSite(pageUrl) ?? defaultSitePages).isAtPly(new URL(pageUrl), item.ply);
   return { kind: "card", item, position: due.indexOf(item) + 1, total: due.length, here, back };
 }
 

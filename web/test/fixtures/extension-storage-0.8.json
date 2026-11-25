@@ -1,0 +1,47 @@
+{
+  "indexedDB": {
+    "example|blitz": {
+      "profile": {
+        "username": "Example",
+        "timeClass": "blitz",
+        "rows": [
+          {
+            "url": "https://www.chess.com/game/live/12345",
+            "color": "white", "ratingSource": "estimated", "myRating": 1510, "oppRating": 1530,
+            "score": 1, "timeClass": "blitz", "timeControl": "180",
+            "eco": "B00", "opening": "Kings Pawn Opening", "family": "King's Pawn Opening",
+            "endTime": 1764000000, "opponent": "Opponent", "result": "win", "oppResult": "resigned",
+            "moves": ["e4"], "pgn": "1. e4 1-0", "expected": 0.5, "residual": 0.5
+          }
+        ],
+        "openings": [],
+        "tactics": null,
+        "games": [
+          {
+            "url": "https://www.chess.com/game/live/12345",
+            "color": "white", "ratingSource": "estimated", "myRating": 1510, "oppRating": 1530,
+            "score": 1, "timeClass": "blitz", "timeControl": "180",
+            "eco": "B00", "opening": "Kings Pawn Opening", "family": "King's Pawn Opening",
+            "endTime": 1764000000, "opponent": "Opponent", "result": "win", "oppResult": "resigned",
+            "moves": ["e4"], "pgn": "1. e4 1-0"
+          }
+        ]
+      },
+      "games": 50,
+      "savedAt": 1764000100000
+    },
+    "used:example|blitz": 1764000200000
+  },
+  "chromeStorage": {
+    "accounts": ["example"],
+    "position": { "x": 0.9, "y": 0.8 },
+    "queue:example": [
+      {
+        "id": "12345:0", "url": "https://www.chess.com/game/live/12345", "ply": 0, "label": "1.e4",
+        "san": "e4", "best": "d4", "loss": 22, "tactics": [], "opponent": "Opponent",
+        "endTime": 1764000000, "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "rating": 1510, "timeClass": "blitz", "step": 2, "due": 1764604800000
+      }
+    ]
+  }
+}

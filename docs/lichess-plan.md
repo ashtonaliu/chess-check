@@ -47,29 +47,52 @@ storage.
 
 ## Facts to confirm first
 
-The first PR (Part 1) confirms these and corrects this document where they are wrong. They come
-from the Lichess API spec (github.com/lichess-org/api) as of November 2026.
+I checked the sources on November 24, 2026. I used the API only for the spec's finished 2017
+draw, `q7ZvsdUF`. [Lichess API spec][api] · [lila source][lila]
 
-1. `GET /game/export/{id}` returns JSON with `Accept: application/json`. **It also serves games in
-   progress, delayed by 3 moves.** A game exists in the API before it is finished.
-2. Game `status` is one of `created`, `started`, `aborted`, `mate`, `resign`, `stalemate`,
-   `timeout`, `draw`, `outoftime`, `cheat`, `noStart`, `unknownFinish`,
-   `insufficientMaterialClaim` and `variantEnd`. I expect `created` and `started` to mean the game is
-   not over. Confirm this on a finished game and from the Lichess source (`chess.Status` in
-   lila), never on a game in progress.
-3. `GET /api/games/user/{username}` streams NDJSON with `Accept: application/x-ndjson` and leaves
-   out games in progress by default (`ongoing=false`, `finished=true`). Use `clocks=true`,
-   `opening=true`, `perfType` and `max`. The documented limit is 20 games per second without
-   sign-in, and the API asks for one request at a time and a one-minute wait after a 429.
-4. The JSON fields are `players.white.rating`, `players.white.ratingDiff` (and the same for black),
-   `speed`, `clock.initial` and `clock.increment`, `status`, `winner`, `moves`, `clocks`
-   (centiseconds), `opening.eco` and `opening.name`, `createdAt` and `lastMoveAt` (I expect
-   milliseconds), `variant` and `initialFen`. Confirm whether `rating` is the rating before the game
-   and whether `moves` is SAN.
-5. A player's own address during a game is `lichess.org/{12-character id}`. The first 8 characters
-   are the game ID that spectators see. Addresses can end in `/white` or `/black`.
-6. How the page exposes the signed-in username. Read only that, the same way the Chess.com content
-   script reads only the username.
+1. `GET /game/export/{id}` returns JSON with `Accept: application/json` and can also return
+   ongoing games. The source withholds the last 3 plies of moves and clocks on a playable game,
+   except that it can show the first 5 plies as soon as they are available. The response still
+   has a live status. [Single-game export][export] · [JSON and delay][json] · [Delay implementation][delay]
+2. The documented status names match the `chess.Status` enum. `created` and `started` are the
+   only active statuses. lila treats `aborted` as terminal and counts games from `mate` onward
+   as finished. `noStart` is terminal and gets no recap. The finished example returned `draw`.
+   [Status schema][statuses] · [Status enum][enum] · [lila game predicates][game]
+3. `GET /api/games/user/{username}` streams NDJSON with `Accept: application/x-ndjson`.
+   The defaults are `ongoing=false` and `finished=true`. Use `clocks=true`, `opening=true`,
+   `perfType` and `max`. The docs say 20 games per second for anonymous requests. lila starts
+   at 25 and can throttle by IP, so use 20 for planning. Make one request at a time and
+   wait a full minute after a 429. [User export][history] · [Controller][controller] · [API tips][tips]
+4. `players.white.rating` and `players.black.rating` are pregame ratings. `ratingDiff` is the
+   signed change, when available. `moves` is space-separated SAN. `createdAt` and `lastMoveAt`
+   are Unix milliseconds. `clock.initial` and `clock.increment` are seconds, and `clocks` are
+   centiseconds. The export includes `speed`, `status`, `variant` and optional `winner`,
+   `initialFen` and `opening` (`eco` and `name`). The draw had no winner or initial FEN.
+   [Game schema][schema] · [JSON export][json] · [Rating calculation][rating]
+5. lila routes a player to `/game/{12-character fullId}`. The first 8 characters are the public
+   game ID and the last 4 identify the player. Spectators use `/game/{id}`, with optional
+   `/white` or `/black`. Keep the old root-level game addresses in the guard, too.
+   [Finished-game API example][full-id] · [Routes][routes] · [ID definitions][ids]
+6. The signed-in header renders the username as the text of `button#user_tag`. Read only that
+   button's text and return null if it is absent. [Header source][header]
+
+[api]: https://github.com/lichess-org/api/tree/cd0443c4a3d0237e3656e76c58f446cba1a06ee1
+[lila]: https://github.com/lichess-org/lila/tree/39fe88107d406839d94052ae8f9958423d7c3fc3
+[export]: https://github.com/lichess-org/api/blob/cd0443c4a3d0237e3656e76c58f446cba1a06ee1/doc/specs/tags/games/game-export-gameId.yaml
+[statuses]: https://github.com/lichess-org/api/blob/cd0443c4a3d0237e3656e76c58f446cba1a06ee1/doc/specs/schemas/GameStatusName.yaml
+[history]: https://github.com/lichess-org/api/blob/cd0443c4a3d0237e3656e76c58f446cba1a06ee1/doc/specs/tags/games/api-games-user-username.yaml
+[schema]: https://github.com/lichess-org/api/blob/cd0443c4a3d0237e3656e76c58f446cba1a06ee1/doc/specs/schemas/GameJson.yaml
+[full-id]: https://github.com/lichess-org/api/blob/cd0443c4a3d0237e3656e76c58f446cba1a06ee1/doc/specs/examples/stream-gameFinish.json.yaml
+[enum]: https://github.com/lichess-org/scalachess/blob/18.1.0/core/src/main/scala/Status.scala
+[json]: https://github.com/lichess-org/lila/blob/39fe88107d406839d94052ae8f9958423d7c3fc3/modules/api/src/main/GameApiV2.scala#L328-L371
+[delay]: https://github.com/lichess-org/lila/blob/39fe88107d406839d94052ae8f9958423d7c3fc3/modules/game/src/main/PgnDump.scala#L175-L192
+[game]: https://github.com/lichess-org/lila/blob/39fe88107d406839d94052ae8f9958423d7c3fc3/modules/core/src/main/game/Game.scala#L137-L171
+[controller]: https://github.com/lichess-org/lila/blob/39fe88107d406839d94052ae8f9958423d7c3fc3/app/controllers/Game.scala#L54-L102
+[rating]: https://github.com/lichess-org/lila/blob/39fe88107d406839d94052ae8f9958423d7c3fc3/modules/core/src/main/game/Player.scala#L46-L56
+[routes]: https://github.com/lichess-org/lila/blob/39fe88107d406839d94052ae8f9958423d7c3fc3/conf/routes#L396-L415
+[ids]: https://github.com/lichess-org/lila/blob/39fe88107d406839d94052ae8f9958423d7c3fc3/modules/core/src/main/id.scala#L12-L40
+[header]: https://github.com/lichess-org/lila/blob/39fe88107d406839d94052ae8f9958423d7c3fc3/modules/web/src/main/ui/layout.scala#L136-L140
+[tips]: https://lichess.org/page/api-tips
 
 ## Part 1: site adapter layer (Codex)
 
@@ -116,8 +139,9 @@ alone tells most of the story. On Lichess it never does. The rules:
    `/tv`, which always shows games in progress.
 4. **These pages are ordinary pages** where the review queue may show: `/analysis`, `/study/`,
    `/training` (puzzles) and `/@/{user}` profiles. If in doubt, a page is a play page.
-5. **Game IDs.** `gameIdFromPage` returns the first 8 characters of an 8- or 12-character ID, with
-   or without `/white` or `/black`. Paths like `/analysis/...` or `/@/name` never yield an ID.
+5. **Game IDs.** Accept `/game/{id}` and the old root-level game addresses. Return the first
+   8 characters of an 8- or 12-character ID. Recognize `/white` or `/black` on spectator URLs.
+   Analysis and profile paths never yield a game ID.
 6. **Status checks** go through the background worker one at a time, no more than once every 3
    seconds per tab, and wait a full minute after a 429.
 7. **Aborted games** (`aborted`, `noStart`) get no recap and no error. They are finished but were
@@ -134,8 +158,7 @@ Part 1.
 - `parseLichessGame(json, user): Game | null` maps one exported game to `Game`. It rejects any
   variant other than standard and any `initialFen`, and returns null for a game the user did not
   play or one still in progress.
-- Ratings are the ratings going into the game. If `rating` turns out to include the game's change,
-  subtract `ratingDiff`, as `gameFromCallback` does for Chess.com.
+- Use `rating` as the pregame rating. Keep `ratingDiff` separate.
 - `timeClass` is the Lichess `speed` as it is (`ultraBullet` to `classical`, and `correspondence`
   mapped to `daily`), since the neural model already takes these speeds. Profiles group by speed the
   same way Chess.com profiles group by time class.

@@ -5,6 +5,7 @@
 // Scheduling is a fixed ladder: found it, and the position comes back 1, 3, 7 and then 21 days
 // later; after the last step it is learned and leaves the queue. Missed it, and it starts over
 // tomorrow.
+import { gameId } from "./ids";
 import { inRateRange } from "./rateRange";
 import type { Recap } from "./recap";
 import type { BlunderRec } from "./tactics";
@@ -35,8 +36,7 @@ export interface ReviewRateRequest {
   id: string; fen: string; best: string; rating: number; timeClass: string;
 }
 
-const gameIdOf = (url: string) => url.match(/\/(\d+)(?:[/?#]|$)/)?.[1] ?? url;
-export const itemId = (url: string, ply: number) => `${gameIdOf(url)}:${ply}`;
+export const itemId = (url: string, ply: number) => `${gameId(url)}:${ply}`;
 const label = (ply: number, moveNo: number, san: string) => `${moveNo}${ply % 2 === 0 ? "." : "..."}${san}`;
 
 /** A recap's turning point, when it was a real question. The recap already asked it, so the first
@@ -66,7 +66,7 @@ export function itemsFromBlunders(blunders: BlunderRec[], games: { url: string; 
   // one per game (its worst), newest games first
   const best = new Map<string, ReviewItem>();
   for (const it of out) {
-    const k = gameIdOf(it.url), cur = best.get(k);
+    const k = gameId(it.url), cur = best.get(k);
     if (!cur || it.loss > cur.loss) best.set(k, it);
   }
   return [...best.values()].sort((a, b) => b.endTime - a.endTime).slice(0, limit);

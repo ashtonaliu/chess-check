@@ -95,6 +95,7 @@ def load_extra_chesscom(extra_path: Path, workers: int) -> tuple[pd.DataFrame, n
         return df, np.empty((0, PACKED_WIDTH), dtype=np.uint8)
     df["source"] = "chesscom"
     df["split"] = "test"
+    df["test"] = 1   # the Chess.com blitz rows carry this flag when the split is built without --prepared
     return encode_dataframe(df, workers, compute_features=True)
 
 

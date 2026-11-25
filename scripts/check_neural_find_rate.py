@@ -171,6 +171,8 @@ def main():
     parser.add_argument("--checkpoint", type=Path)
     parser.add_argument("--prepared", type=Path, help="prepared Phase B inputs")
     parser.add_argument("--data-root", type=Path, help="directory containing the original engine tables")
+    parser.add_argument("--chesscom-extra", type=Path,
+                        help="the extra Chess.com rapid and bullet table the prepared inputs were built with")
     parser.add_argument("--output", type=Path, help="trained export and reports")
     parser.add_argument("--precision", choices=("int8", "float16"), default="int8")
     parser.add_argument("--review-clock", type=float, help="also check the whole holdout at this fixed clock fraction")
@@ -191,7 +193,7 @@ def main():
     if args.checkpoint:
         model, ratings = load_checkpoint(args.checkpoint)
         prepared = pd.read_parquet(args.prepared / "rows.parquet")
-        raw = inputs(args.data_root, 1)
+        raw = inputs(args.data_root, 1, chesscom_extra=args.chesscom_extra)
         pd.testing.assert_frame_equal(raw[CONTEXT + ["split"]], prepared[CONTEXT + ["split"]], check_dtype=False)
         held_out = raw[(raw.source == "chesscom") & (raw.split == "test")].sample(args.count, random_state=1)
         cases.extend(case(r.fen, r.best_uci, r.time_class, None if pd.isna(r.clock_frac) else r.clock_frac,

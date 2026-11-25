@@ -45,10 +45,10 @@ https://ashtonaliu.github.io/chess-check/privacy.html
 
 ## What's new in 0.9.1
 
-Chess.com review cards now also show find-rate estimates for rapid (1800 to 2099) and bullet
-(1700 to 2099), where the shipped model passed held-out calibration checks. Other Chess.com
-rapid and bullet ratings stay hidden. The model has no Chess.com rapid or bullet training games,
-and its estimates there were off by up to 13 points on rapid and 15 on bullet.
+Review cards use a find-rate model retrained with Chess.com rapid and bullet games. Chess.com
+cards now show how often players at your rating find the move in rapid from 600 to 1499 and in
+bullet from 600 to 1599, where it passed held-out calibration checks. On Lichess the ranges widened
+for blitz, rapid, bullet and UltraBullet and narrowed for classical, to 1100 to 1499.
 
 ## What's new in 0.9.0
 

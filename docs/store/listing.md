@@ -50,6 +50,9 @@ cards now show how often players at your rating find the move in rapid from 600 
 bullet from 600 to 1599, where it passed held-out calibration checks. On Lichess the ranges widened
 for blitz, rapid, bullet and UltraBullet and narrowed for classical, to 1100 to 1499.
 
+When a finished game's turning point matches one of your tactic patterns, the recap now offers
+up to three Lichess practice puzzles with that theme from a bundled CC0 index.
+
 ## What's new in 0.9.0
 
 Chess Check now recaps finished Lichess games. On Chess.com, finished Chess960 and odds games

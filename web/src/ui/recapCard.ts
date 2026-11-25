@@ -2,7 +2,8 @@
 // card. Board diagrams are in board.ts, which needs chess.js; the extension leaves the board to
 // Chess.com, so its script does not load chess.js at all.
 import { defaultSitePages, pageSite } from "../browser/site";
-import type { Recap } from "../browser/recap";
+import { gameId, type Recap } from "../browser/recap";
+import { PATTERN_PUZZLE_BAND, pickPatternPuzzles } from "../browser/patternPuzzles";
 
 export const esc = (s: string) => s.replace(/[&<>"']/g, c =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string));
@@ -103,6 +104,17 @@ function renderTurningPoint(section: HTMLElement, r: Recap, opts: RecapOptions) 
   });
 }
 
+export function patternMarkup(r: Recap): string {
+  if (!r.pattern) return "";
+  const puzzles = pickPatternPuzzles(r.pattern.motif, gameId(r.url));
+  const practice = puzzles.length
+    ? `<span class="pattern-puzzles">Practice this pattern (Lichess puzzle rating ${PATTERN_PUZZLE_BAND[0]}-${PATTERN_PUZZLE_BAND[1]}): ${puzzles.map((p, i) =>
+        `<a href="${esc(p.url)}" target="_blank" rel="noopener">Puzzle ${i + 1} (${p.rating})</a>`
+      ).join(" · ")}</span>` : "";
+  return `<p class="patternbox"><strong>Matches your pattern:</strong> you ${r.pattern.kind === "missed" ? "miss" : "walk into"}
+       ${esc(PLURAL[r.pattern.motif] ?? r.pattern.motif)}. That makes ${r.pattern.count} in your analyzed games.${practice ? `<br>${practice}` : ""}</p>`;
+}
+
 function recapDetails(r: Recap, col: string): string {
   const resultPos = r.score * 100, expPos = r.expected * 100;
   const resultColor = r.score === 1 ? "var(--good)" : r.score === 0 ? "var(--weak)" : "var(--neutral)";
@@ -122,10 +134,7 @@ function recapDetails(r: Recap, col: string): string {
     ? `Your record before this game: ${Math.round(100 * h.score)}% in ${h.n} game${h.n === 1 ? "" : "s"} (${Math.round(100 * h.expected)}% expected).`
     : "First time in this opening in your recent games.") +
     (r.opening.flag ? ` <span class="chip ${r.opening.flag.includes("weakness") || r.opening.flag === "worth watching" ? "watch" : "good"}">${esc(r.opening.flag)}</span>` : "") + `</p>`;
-  const pat = r.pattern
-    ? `<p class="patternbox"><strong>Matches your pattern:</strong> you ${r.pattern.kind === "missed" ? "miss" : "walk into"}
-       ${esc(PLURAL[r.pattern.motif] ?? r.pattern.motif)}. That makes ${r.pattern.count} in your analyzed games.
-       <a href="https://lichess.org/training/${esc(PUZZLE[r.pattern.motif] ?? r.pattern.motif)}" target="_blank" rel="noopener">Practice →</a></p>` : "";
+  const pat = patternMarkup(r);
   const opp = r.opponentNote ? `<p><span class="lbl">Your opponent</span>${esc(r.opponentNote)}</p>` : "";
   return `${meter}${pat}${opening}${opp}`;
 }

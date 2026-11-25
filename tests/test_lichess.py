@@ -210,6 +210,8 @@ def test_fetch_lichess_games_params_and_429_cooldown(monkeypatch):
     resumed = lichess.fetch_lichess_games("alice", max_games=25, session=session_429)
     assert len(resumed) == 1
     assert len(calls) == 2
+    # With no time class, only the six standard speeds are requested
+    assert calls[1][1]["params"]["perfType"] == "ultraBullet,bullet,blitz,rapid,classical,correspondence"
 
 
 def test_server_lichess_validation_cache_isolation_and_rate_limit(monkeypatch):

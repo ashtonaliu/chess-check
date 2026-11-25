@@ -17,6 +17,7 @@ from .fetch import HEADERS, MAX_RETRY_WAIT, TRIES, Game, _retry_delay, opening_n
 LICHESS_HOST = "https://lichess.org"
 LICHESS_API = "https://lichess.org/api/games/user/{user}"
 RATE_LIMIT_SECONDS = 60.0
+STANDARD_PERFS = "ultraBullet,bullet,blitz,rapid,classical,correspondence"
 
 SKIPPED_STATUSES = {"created", "started", "aborted", "noStart"}
 FINISHED_STATUSES = {
@@ -305,8 +306,12 @@ def fetch_lichess_games(
         "ongoing": "false",
         "finished": "true",
     }
+    # Always filter by speed. Without a filter, variant and from-position games count toward
+    # `max` and are then dropped, so a request for 150 games could return far fewer.
     if time_class:
         params["perfType"] = "correspondence" if time_class == "daily" else time_class
+    else:
+        params["perfType"] = STANDARD_PERFS
 
     with _LICHESS_LOCK:
         if time.monotonic() < _rate_limited_until:

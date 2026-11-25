@@ -15,16 +15,18 @@ import time
 from collections import OrderedDict
 from concurrent.futures import Future
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from chesscheck.coach import CoachError
 from chesscheck.coach_cli import available as claude_code_available, run_coach_auto
 from chesscheck.env import load_env
+from chesscheck.lichess import LichessRateLimitError
 from chesscheck.pipeline import Analysis, analyze, to_payload
 
 log = logging.getLogger(__name__)
@@ -34,6 +36,9 @@ load_env()
 app = FastAPI(title="Chess Check")
 WEB = Path(__file__).parent / "web"
 USER_RE = re.compile(r"\A[A-Za-z0-9_-]{3,25}\Z")
+LICHESS_USER_RE = re.compile(r"\A[A-Za-z0-9_-]{2,20}\Z")
+CHESSCOM_TIME_CLASSES = {"bullet", "blitz", "rapid", "daily"}
+LICHESS_TIME_CLASSES = {"ultraBullet", "bullet", "blitz", "rapid", "classical", "daily"}
 CACHE_TTL = 3600
 CACHE_MAX = int(os.environ.get("CHESS_CHECK_CACHE_MAX", 32))     # finished analyses kept in memory
 MAX_JOBS = int(os.environ.get("CHESS_CHECK_MAX_JOBS", 2))        # analyses allowed to run at once
@@ -50,11 +55,21 @@ ENGINE_DEPTH = int(os.environ.get("CHESS_CHECK_ENGINE_DEPTH", 10))
 class AnalyzeReq(BaseModel):
     username: str
     games: int = Field(150, ge=20, le=400)
-    time_class: str | None = Field(None, pattern="^(bullet|blitz|rapid|daily)$")
+    time_class: str | None = None
+    site: Literal["chesscom", "lichess"] = "chesscom"
+
+    @model_validator(mode="after")
+    def _check_time_class(self) -> "AnalyzeReq":
+        if self.time_class is None:
+            return self
+        allowed = LICHESS_TIME_CLASSES if self.site == "lichess" else CHESSCOM_TIME_CLASSES
+        if self.time_class not in allowed:
+            raise ValueError(f"Unsupported time_class {self.time_class!r} for {self.site}")
+        return self
 
 
 def _key(r: AnalyzeReq) -> tuple:
-    return (r.username.lower(), min(r.games, MAX_GAMES), r.time_class)
+    return (r.username.lower(), min(r.games, MAX_GAMES), r.time_class, r.site)
 
 
 def _cached(key: tuple) -> Analysis | None:
@@ -71,7 +86,10 @@ def _cached(key: tuple) -> Analysis | None:
 def _get(r: AnalyzeReq) -> Analysis:
     """One analysis per request key: identical requests that arrive while it runs wait for the same
     result, at most MAX_JOBS analyses run at once, and the cache keeps at most CACHE_MAX results."""
-    if not USER_RE.fullmatch(r.username):
+    if r.site == "lichess":
+        if not LICHESS_USER_RE.fullmatch(r.username):
+            raise HTTPException(400, "That doesn't look like a Lichess username.")
+    elif not USER_RE.fullmatch(r.username):
         raise HTTPException(400, "That doesn't look like a Chess.com username.")
     key = _key(r)
     with _state:
@@ -87,8 +105,13 @@ def _get(r: AnalyzeReq) -> Analysis:
     try:
         with _jobs:
             try:
-                a = analyze(r.username, max_games=min(r.games, MAX_GAMES),
-                            time_class=r.time_class, depth=ENGINE_DEPTH)
+                kwargs = {"max_games": min(r.games, MAX_GAMES),
+                          "time_class": r.time_class, "depth": ENGINE_DEPTH}
+                if r.site != "chesscom":
+                    kwargs["site"] = r.site
+                a = analyze(r.username, **kwargs)
+            except LichessRateLimitError as e:
+                raise HTTPException(429, str(e), headers={"Retry-After": "60"}) from e
             except ValueError as e:
                 raise HTTPException(404, str(e)) from e
         with _state:
@@ -160,8 +183,11 @@ async def api_coach(r: AnalyzeReq, request: Request):
         raise HTTPException(429, "The coach is busy. Try again shortly.", headers={"Retry-After": "5"})
     try:
         a = await run_in_threadpool(_get, r)
+        coach_kw = {"summaries": a.summaries}
+        if getattr(a, "site", "chesscom") != "chesscom":
+            coach_kw["site"] = a.site
         res = await run_in_threadpool(lambda: run_coach_auto(a.username, a.facts, a.games, a.moves,
-                                                             summaries=a.summaries))
+                                                             **coach_kw))
     except HTTPException:
         raise
     except CoachError as e:

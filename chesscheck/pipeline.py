@@ -9,6 +9,7 @@ import pandas as pd
 from . import db, engine, model
 from .facts import build_facts
 from .fetch import fetch_games
+from .lichess import fetch_lichess_games
 from .stats import format_moves, games_frame, worst_branch
 
 
@@ -24,12 +25,17 @@ class Analysis:
     extras: dict
     summaries: list[tuple[str, str]]   # (url, plain-English summary) for search_games
     tactics: dict | None = None
+    site: str = "chesscom"
 
 
 def analyze(username: str, max_games: int = 150, time_class: str | None = None,
-            depth: int = 10, use_engine: bool = True, progress=None) -> Analysis:
-    tcs = {time_class} if time_class else None
-    games = fetch_games(username, max_games=max_games, time_classes=tcs)
+            depth: int = 10, use_engine: bool = True, progress=None,
+            site: str = "chesscom") -> Analysis:
+    if site == "lichess":
+        games = fetch_lichess_games(username, max_games=max_games, time_class=time_class)
+    else:
+        tcs = {time_class} if time_class else None
+        games = fetch_games(username, max_games=max_games, time_classes=tcs)
     if len(games) < 5:
         raise ValueError(f"Only {len(games)} standard games found for {username!r}.")
     df = games_frame(games)
@@ -51,7 +57,7 @@ def analyze(username: str, max_games: int = 150, time_class: str | None = None,
     by_url = {a["url"]: a for a in analyses or []}
     summaries = [(g.url, summarize(g, by_url.get(g.url))) for g in games]
     return Analysis(username, df, moves, analyses, extras.get("table", pd.DataFrame()),
-                    risk, facts, extras, summaries, tactic_summary)
+                    risk, facts, extras, summaries, tactic_summary, site=site)
 
 
 def _clean(x):

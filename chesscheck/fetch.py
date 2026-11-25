@@ -62,6 +62,7 @@ class Game:
     opp_result: str = ""      # ...and for the opponent ("win", "resigned", ...)
     moves_san: list[str] = field(default_factory=list)
     pgn: str = ""
+    site: str = "chesscom"
 
 
 def opening_names(eco_url: str) -> tuple[str, str]:

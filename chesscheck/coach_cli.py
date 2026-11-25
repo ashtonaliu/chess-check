@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from .coach import MODEL, SYSTEM, CoachResult
+from .coach import MODEL, CoachResult, system_prompt
 from .facts import facts_text
 from .verify import feedback, verify
 
@@ -44,7 +44,8 @@ def _parse(stdout: str) -> dict:
     raise json.JSONDecodeError("no JSON result line", stdout, 0)
 
 
-def _claude(prompt: str, state: Path, resume: str | None = None, model: str = MODEL) -> dict:
+def _claude(prompt: str, state: Path, resume: str | None = None, model: str = MODEL,
+            site: str = "chesscom") -> dict:
     cfg = {"mcpServers": {"chesscheck": {
         "command": sys.executable, "args": ["-m", "chesscheck.mcp_server", str(state)],
         # the tool server is a separate process: pass through engine and SQL-backend settings
@@ -55,7 +56,7 @@ def _claude(prompt: str, state: Path, resume: str | None = None, model: str = MO
     (state / "mcp.json").write_text(json.dumps(cfg))
     cmd = ["claude", "-p", prompt, "--output-format", "json",
            "--model", model, "--effort", "medium",
-           "--system-prompt", SYSTEM.replace("run_sql", "the run_sql tool"),
+           "--system-prompt", system_prompt(site).replace("run_sql", "the run_sql tool"),
            "--tools", "",
            "--mcp-config", str(state / "mcp.json"), "--strict-mcp-config",
            "--allowedTools", *TOOL_NAMES,
@@ -111,7 +112,7 @@ def run_coach_cli(username: str, facts: list[dict], games: pd.DataFrame,
                   moves: pd.DataFrame | None, repair: bool = True,
                   keep_state: bool = False,
                   summaries: list[tuple[str, str]] | None = None,
-                  model: str = MODEL) -> CoachResult:
+                  model: str = MODEL, site: str = "chesscom") -> CoachResult:
     state = Path(tempfile.mkdtemp(prefix="chess-check-coach-"))
     try:
         (state / "games.pkl").write_bytes(pickle.dumps(games))
@@ -123,7 +124,7 @@ def run_coach_cli(username: str, facts: list[dict], games: pd.DataFrame,
         prompt = (f"Player: {username}\n\nFacts:\n{facts_text(facts)}\n\n"
                   "Write the report. Use the tools if a weakness needs more detail. "
                   "Reply with only the report in Markdown.")
-        out = _claude(prompt, state, model=model)
+        out = _claude(prompt, state, model=model, site=site)
         spend = _cost(out)
         report = first_report = (out.get("result") or "").strip()
         first = verify(report, _facts_now(state, facts))
@@ -133,7 +134,7 @@ def run_coach_cli(username: str, facts: list[dict], games: pd.DataFrame,
                    "fact or tool result:\n" + feedback(first) +
                    "\n\nRewrite the full report fixing only these. Remove a claim rather "
                    "than guess, or look it up with a tool and cite it. Reply with only the report.")
-            out = _claude(fix, state, resume=out["session_id"], model=model)
+            out = _claude(fix, state, resume=out["session_id"], model=model, site=site)
             more = _cost(out)
             for k in ("cost_usd", "input_tokens", "output_tokens", "api_ms"):
                 spend[k] += more[k]

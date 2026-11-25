@@ -52,6 +52,12 @@ Format (Markdown, under 350 words): a one-sentence summary, then "## Biggest \
 weaknesses" with up to 3 items (evidence, then what to do), then \
 "## What's working" (1-2 items), then "## Training plan" (3-5 bullet points)."""
 
+def system_prompt(site: str = "chesscom") -> str:
+    if site == "lichess":
+        return SYSTEM.replace("Chess.com", "Lichess", 1)
+    return SYSTEM
+
+
 def tools_for(dialect: str = "DuckDB") -> list[dict]:
     """The tool list, with run_sql describing the SQL dialect the backend speaks."""
     tools = [dict(t) for t in TOOLS]
@@ -217,13 +223,13 @@ def _client():
     return anthropic.Anthropic()
 
 
-def _call(client, messages, tools=None):
+def _call(client, messages, tools=None, site: str = "chesscom"):
     extra = ({"betas": ["server-side-fallback-2026-07-01"], "fallbacks": "default"}
              if MODEL in FALLBACK_MODELS else {})
     return client.beta.messages.create(
         model=MODEL,
         max_tokens=16000,
-        system=SYSTEM,
+        system=system_prompt(site),
         tools=tools or TOOLS,
         messages=messages,
         output_config={"effort": "medium"},
@@ -239,10 +245,10 @@ class CoachError(RuntimeError):
     """A coaching failure whose message is written for the user and safe to show."""
 
 
-def _agent_turns(client, messages, box: ToolBox, usage: dict):
+def _agent_turns(client, messages, box: ToolBox, usage: dict, site: str = "chesscom"):
     """Run until the model stops calling tools; returns the final response."""
     for _ in range(MAX_TOOL_TURNS + 1):
-        resp = _call(client, messages, tools_for(box.sql.dialect))
+        resp = _call(client, messages, tools_for(box.sql.dialect), site=site)
         for k in ("input_tokens", "output_tokens"):
             usage[k] = usage.get(k, 0) + getattr(resp.usage, k, 0)
         if resp.stop_reason == "refusal":
@@ -264,7 +270,8 @@ def _agent_turns(client, messages, box: ToolBox, usage: dict):
 
 def run_coach(username: str, facts: list[dict], games: pd.DataFrame,
               moves: pd.DataFrame | None, client=None, repair: bool = True,
-              summaries: list[tuple[str, str]] | None = None) -> CoachResult:
+              summaries: list[tuple[str, str]] | None = None,
+              site: str = "chesscom") -> CoachResult:
     client = client or _client()
     facts = [dict(f) for f in facts]  # tool results get appended
     box = ToolBox(games, moves, facts, summaries)
@@ -273,7 +280,7 @@ def run_coach(username: str, facts: list[dict], games: pd.DataFrame,
         messages = [{"role": "user", "content":
                      f"Player: {username}\n\nFacts:\n{facts_text(facts)}\n\n"
                      "Write the report. Use the tools if a weakness needs more detail."}]
-        resp = _agent_turns(client, messages, box, usage)
+        resp = _agent_turns(client, messages, box, usage, site=site)
         report = first_report = _text(resp)
         first = verify(report, box.facts)
         final, repaired = first, False
@@ -283,7 +290,7 @@ def run_coach(username: str, facts: list[dict], games: pd.DataFrame,
                              "by any fact or tool result:\n" + feedback(first) +
                              "\n\nRewrite the full report fixing only these. Remove a claim "
                              "rather than guess, or look it up with a tool and cite it."})
-            resp = _agent_turns(client, messages, box, usage)
+            resp = _agent_turns(client, messages, box, usage, site=site)
             report = _text(resp)
             final, repaired = verify(report, box.facts), True
         return CoachResult(report=report, verification=final, first_verification=first,

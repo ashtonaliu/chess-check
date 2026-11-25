@@ -6,8 +6,9 @@
 // later; after the last step it is learned and leaves the queue. Missed it, and it starts over
 // tomorrow.
 import { gameId } from "./ids";
-import { inRateRange } from "./rateRange";
+import { inReviewRateRange, isReviewSpeed, type ReviewSpeed } from "./rateRange";
 import type { Recap } from "./recap";
+import { DEFAULT_SITE, pageSite } from "./site";
 import type { BlunderRec } from "./tactics";
 
 export const STEPS_DAYS = [1, 3, 7, 21];
@@ -93,11 +94,11 @@ export function addItems(queue: ReviewItem[], items: ReviewItem[]): ReviewItem[]
   return merged.filter(m => kept.has(m.id));
 }
 
-/** The find rate a position is ordered by: the model's estimate where it applies (blitz, ratings it
- *  covers), else the typical rate in its training data, so unrated positions sit in the middle. */
+/** The find rate a position is ordered by: the model's estimate where it applies (calibrated site,
+ *  speed and rating), else the typical rate in its training data, so unrated positions sit in the middle. */
 export const TYPICAL_FIND_RATE = 0.79;
-const reviewRateEligible = (q: ReviewItem): q is ReviewItem & { rating: number; timeClass: "blitz" } =>
-  q.timeClass === "blitz" && q.rating !== undefined && inRateRange(q.rating);
+const reviewRateEligible = (q: ReviewItem): q is ReviewItem & { rating: number; timeClass: ReviewSpeed } =>
+  isReviewSpeed(q.timeClass) && q.rating !== undefined && inReviewRateRange(q.rating, q.timeClass, pageSite(q.url)?.id ?? DEFAULT_SITE);
 
 export const reviewRate = (q: ReviewItem): number | null =>
   reviewRateEligible(q) ? q.neuralFindRate ?? null : null;

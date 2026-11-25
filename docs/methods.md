@@ -838,7 +838,200 @@ python scripts/fit_history_odds.py
 
 The rating says almost nothing here, because nearly every position comes from players between 1400 and 1800 (the find rate goes from 77.9% at 1200 to 80.5% at 1800). What kind of move it is says a lot. With the logistic model's gain over the rating alone bootstrapped by player, log loss falls by 0.069 (90% interval 0.068 to 0.071). The largest effects: captures are found far more often, and more so the bigger the captured piece; a move to an attacked square, a position with many legal moves or many captures available, and being in check all make the move harder; and the more material the player is ahead, the less often they find it, possibly because a won position invites less care, though the data cannot say why. The logistic model was the first extension model and has 27 coefficients. Its calibration is within 6 points in every decile (predicted 47% against 53% actual at the hardest tenth, 97% against 98% at the easiest).
 
-**Review cards and ordering.** The extension uses the neural model described under [Shipped review model](#shipped-review-model). It estimates how often blitz players near your rating find moves like this, with the clock held at 0.6561 of the starting time so the estimate describes the position. The review card shows it after the answer, for ratings from 1200 through 2000. The displayed rating is rounded to the nearest 50 and the estimate to the nearest 5%. Training positions had one clearly best move. A review card requires a loss of at least 20 points, so the position can also have other good moves. Review order uses the unrounded estimate, highest first. Positions without an estimate count as the typical 79%.
+**Review cards and ordering.** The extension uses the neural model described under [Shipped review model](#shipped-review-model). It estimates how often players on the same site, in the same speed, and near your rating find moves like this, with the clock held at 0.6561 of the starting time so the estimate describes the position. The review card shows the estimate after the answer only within the calibrated site, speed, and rating limits below. The displayed rating is rounded to the nearest 50 and the estimate to the nearest 5%. Training positions had one clearly best move. A review card requires a loss of at least 20 points, so the position can also have other good moves. Review order uses the unrounded estimate, highest first. Positions without an estimate count as the typical 79%.
+
+**Review card calibration and limits.** To set the allowed site, speed, and rating limits from held-out data, `scripts/calibrate_review_find_rate.py` evaluates the shipped float16 weights (`web/src/extension/neuralFindRateWeights.json`) at the fixed review clock fraction 0.6561 on the held-out test split from `scripts/prepare_neural_find_rate.py` (157,583 Chess.com blitz positions and 106,835 Lichess positions across five speeds; 264,418 positions total).
+
+I first tried a fixed cutoff of 10-bin equal-width ECE at most 0.03 with at least 200 positions per 100-point band. I replaced that rule after review because 10-bin ECE is biased upward in small samples. With 293 positions, a calibrated model's simulated 95th-percentile ECE is 0.0689 and its draws exceed 0.03 most of the time, while at 2,000 positions it almost never does. A flat 0.03 cutoff therefore measured sample size as much as miscalibration, dropping noisy small bands whose mean predictions were accurate while letting larger bands with real bias slip under 0.03.
+
+The revised rule keeps the `n >= 200` minimum and the longest contiguous span per site and speed, and judges each band against its own sampling noise floor (2,000 Monte Carlo draws of `y ~ Bernoulli(p)` with seed 24):
+
+- Group held-out test positions by site, speed, and 100-point rating band (`[B, B + 99]`).
+- Mark bands with fewer than 200 positions as too few to judge.
+- Simulate 2,000 sets of binary outcomes from the band's own predicted probabilities and take the 95th percentile of the simulated 10-bin ECE as the noise floor.
+- Fail a band only when its observed 10-bin ECE exceeds that noise floor and its mean bias `|mean predicted - mean actual|` exceeds 0.02.
+- Allow the longest contiguous span of passing bands per site and speed. Speeds with no held-out data (Chess.com bullet, rapid, and daily; Lichess daily) remain disabled.
+
+Comparing both rules shows what changed, and gives the limits enforced in `web/src/browser/rateRange.ts`:
+
+| Site | Speed | First rule (ECE <= 0.03) | Revised rule | Held-out n in revised range | Predicted | Actual | Worst band ECE | Brier |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| Chess.com | blitz | 1300-1899 | 1200-1899 | 154,900 | 0.7924 | 0.7926 | 0.0530 | 0.1311 |
+| Lichess | blitz | 1100-2299 | 1100-1899 | 14,563 | 0.7783 | 0.7796 | 0.0290 | 0.1366 |
+| Lichess | rapid | 1300-2199 | 1300-2199 | 15,543 | 0.7880 | 0.8043 | 0.0264 | 0.1279 |
+| Lichess | bullet | 1500-2199 | 1000-2299 | 18,133 | 0.7458 | 0.7466 | 0.0488 | 0.1479 |
+| Lichess | classical | 1200-1799 | 1100-1699 | 11,220 | 0.7612 | 0.7609 | 0.0352 | 0.1507 |
+| Lichess | ultraBullet | 2000-2199 | 1000-1799 | 10,312 | 0.5547 | 0.5562 | 0.0762 | 0.2089 |
+
+**Effect on Chess.com users.** Previously, Chess.com blitz showed estimates for ratings 1200 through 2000. Under the revised rule, the range narrows only at the top, to 1200 through 1899:
+
+| Chess.com blitz band | Previous (1200-2000) | Revised (1200-1899) | n | Predicted | Actual | Bias | 10-bin ECE | Noise p95 |
+|---|---|---|---:|---:|---:|---:|---:|---:|
+| 1200-1299 | shown | shown | 293 | 0.7669 | 0.7645 | +0.0023 | 0.0530 | 0.0689 |
+| 1300-1399 | shown | shown | 1,893 | 0.7791 | 0.7845 | -0.0053 | 0.0224 | 0.0264 |
+| 1400-1499 | shown | shown | 7,170 | 0.7777 | 0.7848 | -0.0071 | 0.0088 | 0.0135 |
+| 1500-1599 | shown | shown | 29,403 | 0.7845 | 0.7904 | -0.0059 | 0.0109 | 0.0066 |
+| 1600-1699 | shown | shown | 57,209 | 0.7887 | 0.7909 | -0.0021 | 0.0097 | 0.0048 |
+| 1700-1799 | shown | shown | 44,317 | 0.7975 | 0.7951 | +0.0024 | 0.0063 | 0.0053 |
+| 1800-1899 | shown | shown | 14,615 | 0.8163 | 0.8017 | +0.0145 | 0.0159 | 0.0089 |
+| 1900-1999 | shown | hidden | 1,966 | 0.8324 | 0.7986 | +0.0338 | 0.0339 | 0.0233 |
+| 2000-2099 | 2000 only | hidden | 219 | 0.8892 | 0.8584 | +0.0308 | 0.0461 | 0.0553 |
+
+The 1200-1299 band stays in because its observed ECE (0.0530) sits below its 95th-percentile noise floor (0.0689) and its mean prediction (76.69%) is within 0.23 points of actual (76.45%). The 1900-1999 band is dropped because it over-predicts by 3.38 points across 1,966 positions and its ECE (0.0339) exceeds its noise floor (0.0233). On Lichess, the revised rule catches real under-prediction in blitz at 1900-1999 (-2.95 points, ECE 0.0295 vs noise floor 0.0253) and in classical at 1700-1799 (-2.94 points, ECE 0.0294 vs 0.0213), while keeping bullet (1000-2299) and ultraBullet (1000-1799) bands whose earlier misses were small-sample bin noise. Holding the clock fraction at 0.6561 still drives the upper-end under-prediction in slower Lichess speeds, where median test clock fractions are 0.8017 in rapid and 0.8822 in classical against 0.6556 in Chess.com blitz and 0.6750 in Lichess blitz.
+
+| Site | Speed | Rating band | n | Predicted | Actual | Bias | 10-bin ECE | Noise p95 | Brier | Status |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
+| Chess.com | blitz | 300-399 | 5 | 0.8182 | 1.0000 | -0.1818 | 0.1818 | n/a | 0.0577 | too few |
+| Chess.com | blitz | 400-499 | 7 | 0.8786 | 0.2857 | +0.5929 | 0.5929 | n/a | 0.5419 | too few |
+| Chess.com | blitz | 500-599 | 7 | 0.7517 | 0.5714 | +0.1803 | 0.2061 | n/a | 0.2697 | too few |
+| Chess.com | blitz | 600-699 | 29 | 0.8142 | 0.8276 | -0.0134 | 0.0983 | n/a | 0.1224 | too few |
+| Chess.com | blitz | 700-799 | 76 | 0.8187 | 0.7632 | +0.0555 | 0.0583 | n/a | 0.1494 | too few |
+| Chess.com | blitz | 800-899 | 7 | 0.8415 | 1.0000 | -0.1585 | 0.1585 | n/a | 0.0456 | too few |
+| Chess.com | blitz | 900-999 | 38 | 0.7629 | 0.6053 | +0.1576 | 0.1955 | n/a | 0.1834 | too few |
+| Chess.com | blitz | 1000-1099 | 69 | 0.7729 | 0.8261 | -0.0532 | 0.0673 | n/a | 0.1297 | too few |
+| Chess.com | blitz | 1100-1199 | 40 | 0.7486 | 0.7000 | +0.0486 | 0.0929 | n/a | 0.1522 | too few |
+| Chess.com | blitz | 1200-1299 | 293 | 0.7669 | 0.7645 | +0.0023 | 0.0530 | 0.0689 | 0.1289 | allowed |
+| Chess.com | blitz | 1300-1399 | 1893 | 0.7791 | 0.7845 | -0.0053 | 0.0224 | 0.0264 | 0.1357 | allowed |
+| Chess.com | blitz | 1400-1499 | 7170 | 0.7777 | 0.7848 | -0.0071 | 0.0088 | 0.0135 | 0.1334 | allowed |
+| Chess.com | blitz | 1500-1599 | 29403 | 0.7845 | 0.7904 | -0.0059 | 0.0109 | 0.0066 | 0.1320 | allowed |
+| Chess.com | blitz | 1600-1699 | 57209 | 0.7887 | 0.7909 | -0.0021 | 0.0097 | 0.0048 | 0.1322 | allowed |
+| Chess.com | blitz | 1700-1799 | 44317 | 0.7975 | 0.7951 | +0.0024 | 0.0063 | 0.0053 | 0.1294 | allowed |
+| Chess.com | blitz | 1800-1899 | 14615 | 0.8163 | 0.8017 | +0.0145 | 0.0159 | 0.0089 | 0.1278 | allowed |
+| Chess.com | blitz | 1900-1999 | 1966 | 0.8324 | 0.7986 | +0.0338 | 0.0339 | 0.0233 | 0.1330 | fail |
+| Chess.com | blitz | 2000-2099 | 219 | 0.8892 | 0.8584 | +0.0308 | 0.0461 | 0.0553 | 0.1079 | pass (outside span) |
+| Chess.com | blitz | 2100-2199 | 125 | 0.9096 | 0.8800 | +0.0296 | 0.0508 | n/a | 0.0958 | too few |
+| Chess.com | blitz | 2200-2299 | 28 | 0.8955 | 0.7857 | +0.1098 | 0.1585 | n/a | 0.1084 | too few |
+| Chess.com | blitz | 2300-2399 | 39 | 0.9509 | 0.7949 | +0.1561 | 0.1561 | n/a | 0.1737 | too few |
+| Chess.com | blitz | 2400-2499 | 6 | 0.9809 | 1.0000 | -0.0191 | 0.0191 | n/a | 0.0009 | too few |
+| Chess.com | blitz | 2500-2599 | 16 | 0.9732 | 1.0000 | -0.0268 | 0.0268 | n/a | 0.0040 | too few |
+| Chess.com | blitz | 2800-2899 | 2 | 0.9970 | 1.0000 | -0.0030 | 0.0030 | n/a | 0.0000 | too few |
+| Chess.com | blitz | 2900-2999 | 4 | 0.9821 | 0.7500 | +0.2321 | 0.2321 | n/a | 0.2381 | too few |
+| Lichess | blitz | 400-499 | 8 | 0.6912 | 0.2500 | +0.4412 | 0.4412 | n/a | 0.3813 | too few |
+| Lichess | blitz | 500-599 | 17 | 0.7179 | 0.3529 | +0.3650 | 0.3650 | n/a | 0.2984 | too few |
+| Lichess | blitz | 600-699 | 48 | 0.7023 | 0.5833 | +0.1190 | 0.1319 | n/a | 0.2381 | too few |
+| Lichess | blitz | 700-799 | 160 | 0.7094 | 0.6250 | +0.0844 | 0.0944 | n/a | 0.2051 | too few |
+| Lichess | blitz | 800-899 | 278 | 0.7284 | 0.6547 | +0.0738 | 0.0815 | 0.0738 | 0.1862 | fail |
+| Lichess | blitz | 900-999 | 520 | 0.7393 | 0.7231 | +0.0162 | 0.0367 | 0.0537 | 0.1687 | pass (outside span) |
+| Lichess | blitz | 1000-1099 | 708 | 0.7287 | 0.6794 | +0.0493 | 0.0600 | 0.0467 | 0.1788 | fail |
+| Lichess | blitz | 1100-1199 | 1014 | 0.7524 | 0.7377 | +0.0148 | 0.0283 | 0.0378 | 0.1472 | allowed |
+| Lichess | blitz | 1200-1299 | 1340 | 0.7609 | 0.7381 | +0.0228 | 0.0290 | 0.0327 | 0.1592 | allowed |
+| Lichess | blitz | 1300-1399 | 1610 | 0.7633 | 0.7683 | -0.0051 | 0.0135 | 0.0296 | 0.1418 | allowed |
+| Lichess | blitz | 1400-1499 | 1861 | 0.7692 | 0.7695 | -0.0002 | 0.0127 | 0.0274 | 0.1390 | allowed |
+| Lichess | blitz | 1500-1599 | 2070 | 0.7813 | 0.7908 | -0.0095 | 0.0168 | 0.0253 | 0.1296 | allowed |
+| Lichess | blitz | 1600-1699 | 2173 | 0.7854 | 0.7809 | +0.0044 | 0.0144 | 0.0249 | 0.1352 | allowed |
+| Lichess | blitz | 1700-1799 | 2269 | 0.7883 | 0.7959 | -0.0076 | 0.0149 | 0.0238 | 0.1320 | allowed |
+| Lichess | blitz | 1800-1899 | 2226 | 0.7991 | 0.8122 | -0.0131 | 0.0229 | 0.0241 | 0.1252 | allowed |
+| Lichess | blitz | 1900-1999 | 1845 | 0.8101 | 0.8396 | -0.0295 | 0.0295 | 0.0253 | 0.1106 | fail |
+| Lichess | blitz | 2000-2099 | 1355 | 0.8254 | 0.8494 | -0.0241 | 0.0257 | 0.0281 | 0.1053 | pass (outside span) |
+| Lichess | blitz | 2100-2199 | 896 | 0.8350 | 0.8471 | -0.0120 | 0.0166 | 0.0343 | 0.1064 | pass (outside span) |
+| Lichess | blitz | 2200-2299 | 525 | 0.8441 | 0.8514 | -0.0074 | 0.0296 | 0.0426 | 0.0995 | pass (outside span) |
+| Lichess | blitz | 2300-2399 | 286 | 0.8519 | 0.8322 | +0.0197 | 0.0437 | 0.0586 | 0.1095 | pass (outside span) |
+| Lichess | blitz | 2400-2499 | 190 | 0.8632 | 0.8789 | -0.0158 | 0.0400 | n/a | 0.0967 | too few |
+| Lichess | blitz | 2500-2599 | 77 | 0.8700 | 0.9091 | -0.0391 | 0.0524 | n/a | 0.0749 | too few |
+| Lichess | blitz | 2600-2699 | 16 | 0.8900 | 0.8750 | +0.0150 | 0.1073 | n/a | 0.1345 | too few |
+| Lichess | blitz | 2700-2799 | 11 | 0.8840 | 0.9091 | -0.0250 | 0.0767 | n/a | 0.0539 | too few |
+| Lichess | blitz | 2800-2899 | 4 | 0.9171 | 1.0000 | -0.0829 | 0.0829 | n/a | 0.0077 | too few |
+| Lichess | blitz | 2900-2999 | 1 | 0.8338 | 1.0000 | -0.1662 | 0.1662 | n/a | 0.0276 | too few |
+| Lichess | rapid | 400-499 | 33 | 0.6704 | 0.5455 | +0.1250 | 0.1432 | n/a | 0.2149 | too few |
+| Lichess | rapid | 500-599 | 77 | 0.6621 | 0.5714 | +0.0907 | 0.0926 | n/a | 0.2315 | too few |
+| Lichess | rapid | 600-699 | 196 | 0.6403 | 0.5408 | +0.0995 | 0.0995 | n/a | 0.2144 | too few |
+| Lichess | rapid | 700-799 | 355 | 0.6464 | 0.5606 | +0.0858 | 0.0858 | 0.0718 | 0.2009 | fail |
+| Lichess | rapid | 800-899 | 669 | 0.6727 | 0.6293 | +0.0434 | 0.0434 | 0.0517 | 0.1935 | pass (outside span) |
+| Lichess | rapid | 900-999 | 931 | 0.6673 | 0.6574 | +0.0100 | 0.0323 | 0.0443 | 0.1836 | pass (outside span) |
+| Lichess | rapid | 1000-1099 | 1210 | 0.6936 | 0.6868 | +0.0068 | 0.0270 | 0.0375 | 0.1786 | pass (outside span) |
+| Lichess | rapid | 1100-1199 | 1447 | 0.7106 | 0.7249 | -0.0144 | 0.0375 | 0.0337 | 0.1634 | pass (outside span) |
+| Lichess | rapid | 1200-1299 | 1637 | 0.7256 | 0.7489 | -0.0233 | 0.0380 | 0.0309 | 0.1509 | fail |
+| Lichess | rapid | 1300-1399 | 2019 | 0.7404 | 0.7632 | -0.0229 | 0.0253 | 0.0274 | 0.1446 | allowed |
+| Lichess | rapid | 1400-1499 | 2047 | 0.7601 | 0.7855 | -0.0254 | 0.0254 | 0.0259 | 0.1400 | allowed |
+| Lichess | rapid | 1500-1599 | 2565 | 0.7702 | 0.7747 | -0.0045 | 0.0217 | 0.0235 | 0.1438 | allowed |
+| Lichess | rapid | 1600-1699 | 2375 | 0.7883 | 0.8008 | -0.0125 | 0.0177 | 0.0230 | 0.1272 | allowed |
+| Lichess | rapid | 1700-1799 | 2146 | 0.7992 | 0.8131 | -0.0139 | 0.0155 | 0.0243 | 0.1225 | allowed |
+| Lichess | rapid | 1800-1899 | 1896 | 0.8120 | 0.8265 | -0.0145 | 0.0201 | 0.0247 | 0.1193 | allowed |
+| Lichess | rapid | 1900-1999 | 1323 | 0.8310 | 0.8519 | -0.0208 | 0.0228 | 0.0290 | 0.1056 | allowed |
+| Lichess | rapid | 2000-2099 | 763 | 0.8441 | 0.8676 | -0.0236 | 0.0256 | 0.0366 | 0.0988 | allowed |
+| Lichess | rapid | 2100-2199 | 409 | 0.8587 | 0.8851 | -0.0264 | 0.0264 | 0.0481 | 0.0843 | allowed |
+| Lichess | rapid | 2200-2299 | 178 | 0.8733 | 0.9326 | -0.0593 | 0.0593 | n/a | 0.0587 | too few |
+| Lichess | rapid | 2300-2399 | 88 | 0.9014 | 0.9545 | -0.0532 | 0.0598 | n/a | 0.0581 | too few |
+| Lichess | rapid | 2400-2499 | 38 | 0.8386 | 0.9474 | -0.1087 | 0.1338 | n/a | 0.0584 | too few |
+| Lichess | rapid | 2500-2599 | 10 | 0.9425 | 0.9000 | +0.0425 | 0.0948 | n/a | 0.0700 | too few |
+| Lichess | rapid | 2600-2699 | 1 | 0.9960 | 1.0000 | -0.0040 | 0.0040 | n/a | 0.0000 | too few |
+| Lichess | bullet | 400-499 | 2 | 0.8222 | 0.5000 | +0.3222 | 0.4718 | n/a | 0.3264 | too few |
+| Lichess | bullet | 500-599 | 7 | 0.6764 | 0.5714 | +0.1050 | 0.3660 | n/a | 0.2125 | too few |
+| Lichess | bullet | 600-699 | 10 | 0.7546 | 0.8000 | -0.0454 | 0.2652 | n/a | 0.2156 | too few |
+| Lichess | bullet | 700-799 | 58 | 0.6879 | 0.6207 | +0.0672 | 0.0672 | n/a | 0.2069 | too few |
+| Lichess | bullet | 800-899 | 147 | 0.6814 | 0.6735 | +0.0080 | 0.0765 | n/a | 0.1704 | too few |
+| Lichess | bullet | 900-999 | 252 | 0.7043 | 0.6468 | +0.0575 | 0.0862 | 0.0787 | 0.1767 | fail |
+| Lichess | bullet | 1000-1099 | 511 | 0.7014 | 0.7025 | -0.0011 | 0.0209 | 0.0558 | 0.1605 | allowed |
+| Lichess | bullet | 1100-1199 | 642 | 0.7232 | 0.7103 | +0.0129 | 0.0259 | 0.0483 | 0.1562 | allowed |
+| Lichess | bullet | 1200-1299 | 795 | 0.7038 | 0.7069 | -0.0031 | 0.0488 | 0.0441 | 0.1604 | allowed |
+| Lichess | bullet | 1300-1399 | 1070 | 0.7153 | 0.7280 | -0.0127 | 0.0195 | 0.0379 | 0.1557 | allowed |
+| Lichess | bullet | 1400-1499 | 1288 | 0.7266 | 0.7376 | -0.0110 | 0.0449 | 0.0340 | 0.1548 | allowed |
+| Lichess | bullet | 1500-1599 | 1539 | 0.7229 | 0.7316 | -0.0088 | 0.0221 | 0.0312 | 0.1532 | allowed |
+| Lichess | bullet | 1600-1699 | 1731 | 0.7349 | 0.7377 | -0.0028 | 0.0123 | 0.0287 | 0.1457 | allowed |
+| Lichess | bullet | 1700-1799 | 1907 | 0.7346 | 0.7341 | +0.0004 | 0.0072 | 0.0280 | 0.1496 | allowed |
+| Lichess | bullet | 1800-1899 | 2059 | 0.7464 | 0.7416 | +0.0048 | 0.0152 | 0.0264 | 0.1505 | allowed |
+| Lichess | bullet | 1900-1999 | 1970 | 0.7625 | 0.7706 | -0.0081 | 0.0152 | 0.0263 | 0.1365 | allowed |
+| Lichess | bullet | 2000-2099 | 1821 | 0.7689 | 0.7770 | -0.0081 | 0.0216 | 0.0276 | 0.1379 | allowed |
+| Lichess | bullet | 2100-2199 | 1578 | 0.7846 | 0.7750 | +0.0095 | 0.0291 | 0.0289 | 0.1446 | allowed |
+| Lichess | bullet | 2200-2299 | 1222 | 0.7998 | 0.7750 | +0.0248 | 0.0313 | 0.0320 | 0.1429 | allowed |
+| Lichess | bullet | 2300-2399 | 831 | 0.8014 | 0.7774 | +0.0241 | 0.0407 | 0.0393 | 0.1358 | fail |
+| Lichess | bullet | 2400-2499 | 573 | 0.8119 | 0.7836 | +0.0283 | 0.0465 | 0.0450 | 0.1385 | fail |
+| Lichess | bullet | 2500-2599 | 386 | 0.8330 | 0.8342 | -0.0012 | 0.0407 | 0.0516 | 0.1266 | pass (outside span) |
+| Lichess | bullet | 2600-2699 | 227 | 0.8525 | 0.8282 | +0.0244 | 0.0346 | 0.0641 | 0.1208 | pass (outside span) |
+| Lichess | bullet | 2700-2799 | 113 | 0.8493 | 0.7345 | +0.1148 | 0.1148 | n/a | 0.1685 | too few |
+| Lichess | bullet | 2800-2899 | 64 | 0.8484 | 0.8281 | +0.0203 | 0.0203 | n/a | 0.1224 | too few |
+| Lichess | bullet | 2900-2999 | 36 | 0.8719 | 0.8611 | +0.0108 | 0.1508 | n/a | 0.1235 | too few |
+| Lichess | bullet | 3000-3099 | 14 | 0.9163 | 1.0000 | -0.0837 | 0.0837 | n/a | 0.0164 | too few |
+| Lichess | bullet | 3100-3199 | 7 | 0.9282 | 1.0000 | -0.0718 | 0.0718 | n/a | 0.0129 | too few |
+| Lichess | bullet | 3300-3399 | 1 | 0.9984 | 1.0000 | -0.0016 | 0.0016 | n/a | 0.0000 | too few |
+| Lichess | classical | 500-599 | 1 | 0.8115 | 1.0000 | -0.1885 | 0.1885 | n/a | 0.0355 | too few |
+| Lichess | classical | 600-699 | 19 | 0.6402 | 0.4737 | +0.1665 | 0.2125 | n/a | 0.2268 | too few |
+| Lichess | classical | 700-799 | 59 | 0.6497 | 0.5424 | +0.1073 | 0.1766 | n/a | 0.1947 | too few |
+| Lichess | classical | 800-899 | 157 | 0.6515 | 0.5732 | +0.0782 | 0.0942 | n/a | 0.2171 | too few |
+| Lichess | classical | 900-999 | 287 | 0.6740 | 0.6132 | +0.0608 | 0.0753 | 0.0763 | 0.1849 | pass (outside span) |
+| Lichess | classical | 1000-1099 | 583 | 0.6801 | 0.6226 | +0.0575 | 0.0702 | 0.0549 | 0.1955 | fail |
+| Lichess | classical | 1100-1199 | 775 | 0.6909 | 0.6594 | +0.0315 | 0.0352 | 0.0479 | 0.1846 | allowed |
+| Lichess | classical | 1200-1299 | 1234 | 0.7176 | 0.7083 | +0.0094 | 0.0209 | 0.0360 | 0.1743 | allowed |
+| Lichess | classical | 1300-1399 | 1586 | 0.7373 | 0.7383 | -0.0010 | 0.0294 | 0.0309 | 0.1635 | allowed |
+| Lichess | classical | 1400-1499 | 1957 | 0.7630 | 0.7629 | +0.0001 | 0.0074 | 0.0274 | 0.1447 | allowed |
+| Lichess | classical | 1500-1599 | 3050 | 0.7757 | 0.7685 | +0.0072 | 0.0235 | 0.0210 | 0.1524 | allowed |
+| Lichess | classical | 1600-1699 | 2618 | 0.7986 | 0.8189 | -0.0204 | 0.0207 | 0.0222 | 0.1245 | allowed |
+| Lichess | classical | 1700-1799 | 2728 | 0.8100 | 0.8394 | -0.0294 | 0.0294 | 0.0213 | 0.1162 | fail |
+| Lichess | classical | 1800-1899 | 1898 | 0.8241 | 0.8609 | -0.0368 | 0.0368 | 0.0240 | 0.1057 | fail |
+| Lichess | classical | 1900-1999 | 1378 | 0.8429 | 0.8839 | -0.0410 | 0.0455 | 0.0267 | 0.0900 | fail |
+| Lichess | classical | 2000-2099 | 710 | 0.8596 | 0.9183 | -0.0587 | 0.0587 | 0.0357 | 0.0767 | fail |
+| Lichess | classical | 2100-2199 | 282 | 0.8827 | 0.9326 | -0.0500 | 0.0673 | 0.0520 | 0.0576 | fail |
+| Lichess | classical | 2200-2299 | 155 | 0.8831 | 0.9613 | -0.0781 | 0.0781 | n/a | 0.0486 | too few |
+| Lichess | classical | 2300-2399 | 40 | 0.8887 | 0.9500 | -0.0613 | 0.0903 | n/a | 0.0360 | too few |
+| Lichess | classical | 2400-2499 | 36 | 0.9036 | 1.0000 | -0.0964 | 0.0964 | n/a | 0.0211 | too few |
+| Lichess | classical | 2500-2599 | 6 | 0.8912 | 1.0000 | -0.1088 | 0.1088 | n/a | 0.0239 | too few |
+| Lichess | ultraBullet | 500-599 | 1 | 0.5310 | 0.0000 | +0.5310 | 0.5310 | n/a | 0.2819 | too few |
+| Lichess | ultraBullet | 600-699 | 2 | 0.3643 | 0.5000 | -0.1357 | 0.1357 | n/a | 0.2652 | too few |
+| Lichess | ultraBullet | 700-799 | 14 | 0.4768 | 0.3571 | +0.1196 | 0.2797 | n/a | 0.2945 | too few |
+| Lichess | ultraBullet | 800-899 | 43 | 0.4848 | 0.5349 | -0.0501 | 0.0799 | n/a | 0.2119 | too few |
+| Lichess | ultraBullet | 900-999 | 96 | 0.4958 | 0.4688 | +0.0271 | 0.1228 | n/a | 0.1957 | too few |
+| Lichess | ultraBullet | 1000-1099 | 234 | 0.5088 | 0.4573 | +0.0515 | 0.0762 | 0.0913 | 0.2149 | allowed |
+| Lichess | ultraBullet | 1100-1199 | 419 | 0.5195 | 0.4654 | +0.0541 | 0.0614 | 0.0660 | 0.2149 | allowed |
+| Lichess | ultraBullet | 1200-1299 | 725 | 0.5072 | 0.5172 | -0.0101 | 0.0374 | 0.0513 | 0.2212 | allowed |
+| Lichess | ultraBullet | 1300-1399 | 816 | 0.5402 | 0.5049 | +0.0353 | 0.0413 | 0.0492 | 0.2129 | allowed |
+| Lichess | ultraBullet | 1400-1499 | 1068 | 0.5426 | 0.5150 | +0.0276 | 0.0422 | 0.0438 | 0.2143 | allowed |
+| Lichess | ultraBullet | 1500-1599 | 1731 | 0.5551 | 0.5667 | -0.0116 | 0.0551 | 0.0334 | 0.2022 | allowed |
+| Lichess | ultraBullet | 1600-1699 | 2510 | 0.5632 | 0.5785 | -0.0153 | 0.0283 | 0.0281 | 0.2060 | allowed |
+| Lichess | ultraBullet | 1700-1799 | 2809 | 0.5771 | 0.5924 | -0.0153 | 0.0415 | 0.0263 | 0.2080 | allowed |
+| Lichess | ultraBullet | 1800-1899 | 2936 | 0.5879 | 0.6172 | -0.0292 | 0.0492 | 0.0265 | 0.2020 | fail |
+| Lichess | ultraBullet | 1900-1999 | 2874 | 0.5985 | 0.6322 | -0.0337 | 0.0351 | 0.0260 | 0.2008 | fail |
+| Lichess | ultraBullet | 2000-2099 | 2266 | 0.6249 | 0.6222 | +0.0027 | 0.0196 | 0.0289 | 0.1999 | pass (outside span) |
+| Lichess | ultraBullet | 2100-2199 | 1538 | 0.6315 | 0.6099 | +0.0216 | 0.0216 | 0.0350 | 0.2037 | pass (outside span) |
+| Lichess | ultraBullet | 2200-2299 | 1089 | 0.6603 | 0.6474 | +0.0130 | 0.0329 | 0.0414 | 0.1927 | pass (outside span) |
+| Lichess | ultraBullet | 2300-2399 | 521 | 0.6695 | 0.6967 | -0.0272 | 0.0303 | 0.0598 | 0.1869 | pass (outside span) |
+| Lichess | ultraBullet | 2400-2499 | 494 | 0.6859 | 0.6822 | +0.0037 | 0.0576 | 0.0593 | 0.1788 | pass (outside span) |
+| Lichess | ultraBullet | 2500-2599 | 159 | 0.7008 | 0.6226 | +0.0781 | 0.0856 | n/a | 0.1971 | too few |
+| Lichess | ultraBullet | 2600-2699 | 122 | 0.7147 | 0.6885 | +0.0261 | 0.0767 | n/a | 0.1755 | too few |
+| Lichess | ultraBullet | 2700-2799 | 27 | 0.7387 | 0.6296 | +0.1091 | 0.1467 | n/a | 0.2226 | too few |
+
+```sh
+python scripts/calibrate_review_find_rate.py --data-root data/engine --output eval_results/review-calibration
+```
 
 The logistic baseline is reproduced by `scripts/eval_find_rate.py evaluate`. `web/test/findRate.test.ts`
 checks its chess.js features and probabilities against Python on 300 held-out positions. The
@@ -1400,8 +1593,7 @@ python scripts/benchmark_neural_find_rate.py "$runs/export"
 The extension uses the validation-selected seed-24, epoch-7 network trained on Chess.com blitz
 and Lichess. The offscreen TypeScript predictor uses the board, player context and 21 move
 features. It scores eligible cards from finished games, including older saved cards with logistic
-estimates. Recomputing a card's estimate preserves its review progress and due date. I kept the
-Chess.com blitz coverage, 1200–2000 rating range and display rounding from the previous version.
+estimates. Recomputing a card's estimate preserves its review progress and due date. Display rounding stays the same as in the previous version, while allowed sites, speeds, and rating ranges follow the held-out calibration limits under [Review cards and ordering](#how-often-players-find-the-only-good-move).
 
 I exported all 81,921 weights and biases as float16 and compared them with float32 on the full
 157,583-position Chess.com test set. The largest probability shift was 0.000424 with the recorded

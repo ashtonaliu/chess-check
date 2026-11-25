@@ -1,4 +1,37 @@
-// The ratings the find-rate model covers (findRate.ts): nearly all of its training positions are
-// from 1200 to 2000. Kept apart from findRate.ts so the Chess.com script can check it without chess.js.
+// The ratings the find-rate models cover, kept apart from findRate.ts and neuralFindRate.ts
+// so the content script can check them without loading chess.js.
+import { DEFAULT_SITE, type SiteId } from "./site";
+
+/** The old Chess.com blitz logistic model (findRate.ts): nearly all of its training positions are 1200 to 2000. */
 export const RATE_RANGE = [1200, 2000] as const;
 export const inRateRange = (rating: number) => rating >= RATE_RANGE[0] && rating <= RATE_RANGE[1];
+
+export type ReviewSpeed = "ultraBullet" | "bullet" | "blitz" | "rapid" | "classical";
+
+/** Shipped neural review model limits per site and speed, from the held-out calibration rule in docs/methods.md. */
+export const REVIEW_RATE_RANGES: Record<SiteId, Partial<Record<ReviewSpeed, readonly [number, number]>>> = {
+  chesscom: {
+    blitz: [1200, 1899],
+  },
+  lichess: {
+    ultraBullet: [1000, 1799],
+    bullet: [1000, 2299],
+    blitz: [1100, 1899],
+    rapid: [1300, 2199],
+    classical: [1100, 1699],
+  },
+};
+
+export function isReviewSpeed(speed: string | undefined): speed is ReviewSpeed {
+  return speed === "ultraBullet" || speed === "bullet" || speed === "blitz" || speed === "rapid" || speed === "classical";
+}
+
+export function reviewRateRange(timeClass: string | undefined, site: SiteId = DEFAULT_SITE): readonly [number, number] | null {
+  if (!isReviewSpeed(timeClass)) return null;
+  return REVIEW_RATE_RANGES[site][timeClass] ?? null;
+}
+
+export function inReviewRateRange(rating: number, timeClass: string | undefined, site: SiteId = DEFAULT_SITE): boolean {
+  const range = reviewRateRange(timeClass, site);
+  return range !== null && rating >= range[0] && rating <= range[1];
+}

@@ -1,0 +1,8114 @@
+{
+  "expected": [
+    {
+      "game_id": "BYvvanic",
+      "url": "https://lichess.org/game/BYvvanic",
+      "white": "espinakkker",
+      "black": "kivanc0912222",
+      "white_rating_before": 1473,
+      "black_rating_before": 1481,
+      "white_rating_after": 1467,
+      "black_rating_after": 1487,
+      "time_control": "180+2",
+      "time_class": "blitz",
+      "eco": "C02",
+      "opening": "French Defense: Advance Variation",
+      "result": "0-1",
+      "termination": "Normal",
+      "plies": 50,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "e4",
+          "uci": "e2e4",
+          "clock_after": 180
+        },
+        {
+          "ply": 1,
+          "san": "d5",
+          "uci": "d7d5",
+          "clock_after": 180
+        },
+        {
+          "ply": 2,
+          "san": "e5",
+          "uci": "e4e5",
+          "clock_after": 180
+        },
+        {
+          "ply": 3,
+          "san": "e6",
+          "uci": "e7e6",
+          "clock_after": 181
+        },
+        {
+          "ply": 4,
+          "san": "d4",
+          "uci": "d2d4",
+          "clock_after": 163
+        },
+        {
+          "ply": 5,
+          "san": "c5",
+          "uci": "c7c5",
+          "clock_after": 181
+        },
+        {
+          "ply": 6,
+          "san": "c3",
+          "uci": "c2c3",
+          "clock_after": 164
+        },
+        {
+          "ply": 7,
+          "san": "Nc6",
+          "uci": "b8c6",
+          "clock_after": 181
+        },
+        {
+          "ply": 8,
+          "san": "Qa4",
+          "uci": "d1a4",
+          "clock_after": 165
+        },
+        {
+          "ply": 9,
+          "san": "Bd7",
+          "uci": "c8d7",
+          "clock_after": 182
+        },
+        {
+          "ply": 10,
+          "san": "dxc5",
+          "uci": "d4c5",
+          "clock_after": 155
+        },
+        {
+          "ply": 11,
+          "san": "Bxc5",
+          "uci": "f8c5",
+          "clock_after": 182
+        },
+        {
+          "ply": 12,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 152
+        },
+        {
+          "ply": 13,
+          "san": "Nge7",
+          "uci": "g8e7",
+          "clock_after": 182
+        },
+        {
+          "ply": 14,
+          "san": "Qg4",
+          "uci": "a4g4",
+          "clock_after": 149
+        },
+        {
+          "ply": 15,
+          "san": "Ng6",
+          "uci": "e7g6",
+          "clock_after": 178
+        },
+        {
+          "ply": 16,
+          "san": "Bd3",
+          "uci": "f1d3",
+          "clock_after": 144
+        },
+        {
+          "ply": 17,
+          "san": "Qc7",
+          "uci": "d8c7",
+          "clock_after": 157
+        },
+        {
+          "ply": 18,
+          "san": "Bf4",
+          "uci": "c1f4",
+          "clock_after": 135
+        },
+        {
+          "ply": 19,
+          "san": "h5",
+          "uci": "h7h5",
+          "clock_after": 152
+        },
+        {
+          "ply": 20,
+          "san": "Qg5",
+          "uci": "g4g5",
+          "clock_after": 121
+        },
+        {
+          "ply": 21,
+          "san": "Be7",
+          "uci": "c5e7",
+          "clock_after": 152
+        },
+        {
+          "ply": 22,
+          "san": "Bxg6",
+          "uci": "d3g6",
+          "clock_after": 116
+        },
+        {
+          "ply": 23,
+          "san": "Bxg5",
+          "uci": "e7g5",
+          "clock_after": 151
+        },
+        {
+          "ply": 24,
+          "san": "Nxg5",
+          "uci": "f3g5",
+          "clock_after": 112
+        },
+        {
+          "ply": 25,
+          "san": "fxg6",
+          "uci": "f7g6",
+          "clock_after": 151
+        },
+        {
+          "ply": 26,
+          "san": "O-O",
+          "uci": "e1g1",
+          "clock_after": 109
+        },
+        {
+          "ply": 27,
+          "san": "O-O-O",
+          "uci": "e8c8",
+          "clock_after": 151
+        },
+        {
+          "ply": 28,
+          "san": "Nf7",
+          "uci": "g5f7",
+          "clock_after": 108
+        },
+        {
+          "ply": 29,
+          "san": "Rdf8",
+          "uci": "d8f8",
+          "clock_after": 149
+        },
+        {
+          "ply": 30,
+          "san": "Nxh8",
+          "uci": "f7h8",
+          "clock_after": 107
+        },
+        {
+          "ply": 31,
+          "san": "Rxf4",
+          "uci": "f8f4",
+          "clock_after": 149
+        },
+        {
+          "ply": 32,
+          "san": "Nxg6",
+          "uci": "h8g6",
+          "clock_after": 108
+        },
+        {
+          "ply": 33,
+          "san": "Rg4",
+          "uci": "f4g4",
+          "clock_after": 145
+        },
+        {
+          "ply": 34,
+          "san": "Nf8",
+          "uci": "g6f8",
+          "clock_after": 102
+        },
+        {
+          "ply": 35,
+          "san": "Nxe5",
+          "uci": "c6e5",
+          "clock_after": 141
+        },
+        {
+          "ply": 36,
+          "san": "Nxd7",
+          "uci": "f8d7",
+          "clock_after": 101
+        },
+        {
+          "ply": 37,
+          "san": "Qxd7",
+          "uci": "c7d7",
+          "clock_after": 142
+        },
+        {
+          "ply": 38,
+          "san": "Nd2",
+          "uci": "b1d2",
+          "clock_after": 101
+        },
+        {
+          "ply": 39,
+          "san": "Nd3",
+          "uci": "e5d3",
+          "clock_after": 141
+        },
+        {
+          "ply": 40,
+          "san": "h3",
+          "uci": "h2h3",
+          "clock_after": 101
+        },
+        {
+          "ply": 41,
+          "san": "Rg6",
+          "uci": "g4g6",
+          "clock_after": 140
+        },
+        {
+          "ply": 42,
+          "san": "b4",
+          "uci": "b2b4",
+          "clock_after": 97
+        },
+        {
+          "ply": 43,
+          "san": "e5",
+          "uci": "e6e5",
+          "clock_after": 141
+        },
+        {
+          "ply": 44,
+          "san": "Nb3",
+          "uci": "d2b3",
+          "clock_after": 96
+        },
+        {
+          "ply": 45,
+          "san": "Qxh3",
+          "uci": "d7h3",
+          "clock_after": 142
+        },
+        {
+          "ply": 46,
+          "san": "g3",
+          "uci": "g2g3",
+          "clock_after": 95
+        },
+        {
+          "ply": 47,
+          "san": "Nf4",
+          "uci": "d3f4",
+          "clock_after": 139
+        },
+        {
+          "ply": 48,
+          "san": "Nc5",
+          "uci": "b3c5",
+          "clock_after": 93
+        },
+        {
+          "ply": 49,
+          "san": "Qg2#",
+          "uci": "h3g2",
+          "clock_after": 137
+        }
+      ]
+    },
+    {
+      "game_id": "UDSsinAE",
+      "url": "https://lichess.org/game/UDSsinAE",
+      "white": "midaco",
+      "black": "tapchoicovua2026",
+      "white_rating_before": 1562,
+      "black_rating_before": 1606,
+      "white_rating_after": 1557,
+      "black_rating_after": 1611,
+      "time_control": "300+0",
+      "time_class": "blitz",
+      "eco": "A10",
+      "opening": "English Opening: Great Snake Variation",
+      "result": "0-1",
+      "termination": "Normal",
+      "plies": 44,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "c4",
+          "uci": "c2c4",
+          "clock_after": 300
+        },
+        {
+          "ply": 1,
+          "san": "g6",
+          "uci": "g7g6",
+          "clock_after": 300
+        },
+        {
+          "ply": 2,
+          "san": "Nc3",
+          "uci": "b1c3",
+          "clock_after": 299
+        },
+        {
+          "ply": 3,
+          "san": "Bg7",
+          "uci": "f8g7",
+          "clock_after": 299
+        },
+        {
+          "ply": 4,
+          "san": "d4",
+          "uci": "d2d4",
+          "clock_after": 297
+        },
+        {
+          "ply": 5,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 298
+        },
+        {
+          "ply": 6,
+          "san": "e3",
+          "uci": "e2e3",
+          "clock_after": 295
+        },
+        {
+          "ply": 7,
+          "san": "O-O",
+          "uci": "e8g8",
+          "clock_after": 297
+        },
+        {
+          "ply": 8,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 294
+        },
+        {
+          "ply": 9,
+          "san": "d6",
+          "uci": "d7d6",
+          "clock_after": 296
+        },
+        {
+          "ply": 10,
+          "san": "g3",
+          "uci": "g2g3",
+          "clock_after": 293
+        },
+        {
+          "ply": 11,
+          "san": "Re8",
+          "uci": "f8e8",
+          "clock_after": 295
+        },
+        {
+          "ply": 12,
+          "san": "Bg2",
+          "uci": "f1g2",
+          "clock_after": 292
+        },
+        {
+          "ply": 13,
+          "san": "a6",
+          "uci": "a7a6",
+          "clock_after": 294
+        },
+        {
+          "ply": 14,
+          "san": "O-O",
+          "uci": "e1g1",
+          "clock_after": 290
+        },
+        {
+          "ply": 15,
+          "san": "c6",
+          "uci": "c7c6",
+          "clock_after": 294
+        },
+        {
+          "ply": 16,
+          "san": "b3",
+          "uci": "b2b3",
+          "clock_after": 288
+        },
+        {
+          "ply": 17,
+          "san": "Bg4",
+          "uci": "c8g4",
+          "clock_after": 292
+        },
+        {
+          "ply": 18,
+          "san": "Bb2",
+          "uci": "c1b2",
+          "clock_after": 287
+        },
+        {
+          "ply": 19,
+          "san": "Nbd7",
+          "uci": "b8d7",
+          "clock_after": 286
+        },
+        {
+          "ply": 20,
+          "san": "Qd2",
+          "uci": "d1d2",
+          "clock_after": 285
+        },
+        {
+          "ply": 21,
+          "san": "e5",
+          "uci": "e7e5",
+          "clock_after": 284
+        },
+        {
+          "ply": 22,
+          "san": "dxe5",
+          "uci": "d4e5",
+          "clock_after": 283
+        },
+        {
+          "ply": 23,
+          "san": "Nxe5",
+          "uci": "d7e5",
+          "clock_after": 274
+        },
+        {
+          "ply": 24,
+          "san": "Nxe5",
+          "uci": "f3e5",
+          "clock_after": 277
+        },
+        {
+          "ply": 25,
+          "san": "dxe5",
+          "uci": "d6e5",
+          "clock_after": 271
+        },
+        {
+          "ply": 26,
+          "san": "Qxd8",
+          "uci": "d2d8",
+          "clock_after": 274
+        },
+        {
+          "ply": 27,
+          "san": "Raxd8",
+          "uci": "a8d8",
+          "clock_after": 268
+        },
+        {
+          "ply": 28,
+          "san": "f3",
+          "uci": "f2f3",
+          "clock_after": 272
+        },
+        {
+          "ply": 29,
+          "san": "Be6",
+          "uci": "g4e6",
+          "clock_after": 262
+        },
+        {
+          "ply": 30,
+          "san": "f4",
+          "uci": "f3f4",
+          "clock_after": 269
+        },
+        {
+          "ply": 31,
+          "san": "exf4",
+          "uci": "e5f4",
+          "clock_after": 259
+        },
+        {
+          "ply": 32,
+          "san": "exf4",
+          "uci": "e3f4",
+          "clock_after": 268
+        },
+        {
+          "ply": 33,
+          "san": "Bg4",
+          "uci": "e6g4",
+          "clock_after": 256
+        },
+        {
+          "ply": 34,
+          "san": "Ba3",
+          "uci": "b2a3",
+          "clock_after": 262
+        },
+        {
+          "ply": 35,
+          "san": "Rd2",
+          "uci": "d8d2",
+          "clock_after": 251
+        },
+        {
+          "ply": 36,
+          "san": "Bc5",
+          "uci": "a3c5",
+          "clock_after": 254
+        },
+        {
+          "ply": 37,
+          "san": "Nh5",
+          "uci": "f6h5",
+          "clock_after": 235
+        },
+        {
+          "ply": 38,
+          "san": "Rf2",
+          "uci": "f1f2",
+          "clock_after": 251
+        },
+        {
+          "ply": 39,
+          "san": "Rxf2",
+          "uci": "d2f2",
+          "clock_after": 210
+        },
+        {
+          "ply": 40,
+          "san": "Bxf2",
+          "uci": "c5f2",
+          "clock_after": 241
+        },
+        {
+          "ply": 41,
+          "san": "Bxc3",
+          "uci": "g7c3",
+          "clock_after": 206
+        },
+        {
+          "ply": 42,
+          "san": "Rd1",
+          "uci": "a1d1",
+          "clock_after": 239
+        },
+        {
+          "ply": 43,
+          "san": "Bxd1",
+          "uci": "g4d1",
+          "clock_after": 202
+        }
+      ]
+    },
+    {
+      "game_id": "WWKiUdru",
+      "url": "https://lichess.org/game/WWKiUdru",
+      "white": "arPI314",
+      "black": "razmarmax001",
+      "white_rating_before": 1922,
+      "black_rating_before": 1895,
+      "white_rating_after": 1935,
+      "black_rating_after": 1890,
+      "time_control": "180+2",
+      "time_class": "blitz",
+      "eco": "A35",
+      "opening": "English Opening: Symmetrical Variation, Four Knights Variation",
+      "result": "1-0",
+      "termination": "Normal",
+      "plies": 55,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 180
+        },
+        {
+          "ply": 1,
+          "san": "c5",
+          "uci": "c7c5",
+          "clock_after": 180
+        },
+        {
+          "ply": 2,
+          "san": "c4",
+          "uci": "c2c4",
+          "clock_after": 180
+        },
+        {
+          "ply": 3,
+          "san": "Nc6",
+          "uci": "b8c6",
+          "clock_after": 182
+        },
+        {
+          "ply": 4,
+          "san": "Nc3",
+          "uci": "b1c3",
+          "clock_after": 179
+        },
+        {
+          "ply": 5,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 184
+        },
+        {
+          "ply": 6,
+          "san": "g3",
+          "uci": "g2g3",
+          "clock_after": 179
+        },
+        {
+          "ply": 7,
+          "san": "e6",
+          "uci": "e7e6",
+          "clock_after": 185
+        },
+        {
+          "ply": 8,
+          "san": "Bg2",
+          "uci": "f1g2",
+          "clock_after": 175
+        },
+        {
+          "ply": 9,
+          "san": "d5",
+          "uci": "d7d5",
+          "clock_after": 187
+        },
+        {
+          "ply": 10,
+          "san": "d4",
+          "uci": "d2d4",
+          "clock_after": 177
+        },
+        {
+          "ply": 11,
+          "san": "dxc4",
+          "uci": "d5c4",
+          "clock_after": 185
+        },
+        {
+          "ply": 12,
+          "san": "Qa4",
+          "uci": "d1a4",
+          "clock_after": 178
+        },
+        {
+          "ply": 13,
+          "san": "cxd4",
+          "uci": "c5d4",
+          "clock_after": 180
+        },
+        {
+          "ply": 14,
+          "san": "Nxd4",
+          "uci": "f3d4",
+          "clock_after": 135
+        },
+        {
+          "ply": 15,
+          "san": "Bd7",
+          "uci": "c8d7",
+          "clock_after": 176
+        },
+        {
+          "ply": 16,
+          "san": "Nxc6",
+          "uci": "d4c6",
+          "clock_after": 120
+        },
+        {
+          "ply": 17,
+          "san": "bxc6",
+          "uci": "b7c6",
+          "clock_after": 176
+        },
+        {
+          "ply": 18,
+          "san": "Qxc4",
+          "uci": "a4c4",
+          "clock_after": 119
+        },
+        {
+          "ply": 19,
+          "san": "Rc8",
+          "uci": "a8c8",
+          "clock_after": 172
+        },
+        {
+          "ply": 20,
+          "san": "O-O",
+          "uci": "e1g1",
+          "clock_after": 117
+        },
+        {
+          "ply": 21,
+          "san": "Be7",
+          "uci": "f8e7",
+          "clock_after": 173
+        },
+        {
+          "ply": 22,
+          "san": "Rd1",
+          "uci": "f1d1",
+          "clock_after": 118
+        },
+        {
+          "ply": 23,
+          "san": "O-O",
+          "uci": "e8g8",
+          "clock_after": 173
+        },
+        {
+          "ply": 24,
+          "san": "Be3",
+          "uci": "c1e3",
+          "clock_after": 119
+        },
+        {
+          "ply": 25,
+          "san": "Qc7",
+          "uci": "d8c7",
+          "clock_after": 171
+        },
+        {
+          "ply": 26,
+          "san": "Rac1",
+          "uci": "a1c1",
+          "clock_after": 117
+        },
+        {
+          "ply": 27,
+          "san": "Nd5",
+          "uci": "f6d5",
+          "clock_after": 165
+        },
+        {
+          "ply": 28,
+          "san": "Nxd5",
+          "uci": "c3d5",
+          "clock_after": 116
+        },
+        {
+          "ply": 29,
+          "san": "exd5",
+          "uci": "e6d5",
+          "clock_after": 165
+        },
+        {
+          "ply": 30,
+          "san": "Bxd5",
+          "uci": "g2d5",
+          "clock_after": 110
+        },
+        {
+          "ply": 31,
+          "san": "Rfd8",
+          "uci": "f8d8",
+          "clock_after": 152
+        },
+        {
+          "ply": 32,
+          "san": "Bxf7+",
+          "uci": "d5f7",
+          "clock_after": 106
+        },
+        {
+          "ply": 33,
+          "san": "Kh8",
+          "uci": "g8h8",
+          "clock_after": 149
+        },
+        {
+          "ply": 34,
+          "san": "Be6",
+          "uci": "f7e6",
+          "clock_after": 107
+        },
+        {
+          "ply": 35,
+          "san": "Bxe6",
+          "uci": "d7e6",
+          "clock_after": 148
+        },
+        {
+          "ply": 36,
+          "san": "Qxe6",
+          "uci": "c4e6",
+          "clock_after": 109
+        },
+        {
+          "ply": 37,
+          "san": "Rxd1+",
+          "uci": "d8d1",
+          "clock_after": 143
+        },
+        {
+          "ply": 38,
+          "san": "Rxd1",
+          "uci": "c1d1",
+          "clock_after": 111
+        },
+        {
+          "ply": 39,
+          "san": "Bf8",
+          "uci": "e7f8",
+          "clock_after": 139
+        },
+        {
+          "ply": 40,
+          "san": "Rd7",
+          "uci": "d1d7",
+          "clock_after": 94
+        },
+        {
+          "ply": 41,
+          "san": "Qb8",
+          "uci": "c7b8",
+          "clock_after": 133
+        },
+        {
+          "ply": 42,
+          "san": "Bxa7",
+          "uci": "e3a7",
+          "clock_after": 87
+        },
+        {
+          "ply": 43,
+          "san": "Qxb2",
+          "uci": "b8b2",
+          "clock_after": 131
+        },
+        {
+          "ply": 44,
+          "san": "Bd4",
+          "uci": "a7d4",
+          "clock_after": 85
+        },
+        {
+          "ply": 45,
+          "san": "Qc1+",
+          "uci": "b2c1",
+          "clock_after": 122
+        },
+        {
+          "ply": 46,
+          "san": "Kg2",
+          "uci": "g1g2",
+          "clock_after": 86
+        },
+        {
+          "ply": 47,
+          "san": "Ra8",
+          "uci": "c8a8",
+          "clock_after": 110
+        },
+        {
+          "ply": 48,
+          "san": "Qf7",
+          "uci": "e6f7",
+          "clock_after": 76
+        },
+        {
+          "ply": 49,
+          "san": "Qg5",
+          "uci": "c1g5",
+          "clock_after": 97
+        },
+        {
+          "ply": 50,
+          "san": "a4",
+          "uci": "a2a4",
+          "clock_after": 75
+        },
+        {
+          "ply": 51,
+          "san": "h5",
+          "uci": "h7h5",
+          "clock_after": 87
+        },
+        {
+          "ply": 52,
+          "san": "h4",
+          "uci": "h2h4",
+          "clock_after": 65
+        },
+        {
+          "ply": 53,
+          "san": "Qg4",
+          "uci": "g5g4",
+          "clock_after": 74
+        },
+        {
+          "ply": 54,
+          "san": "f3",
+          "uci": "f2f3",
+          "clock_after": 65
+        }
+      ]
+    },
+    {
+      "game_id": "Wg0zJjWa",
+      "url": "https://lichess.org/game/Wg0zJjWa",
+      "white": "GrouchoHolmes",
+      "black": "Aryansahoo1",
+      "white_rating_before": 1578,
+      "black_rating_before": 1293,
+      "white_rating_after": 1580,
+      "black_rating_after": 1279,
+      "time_control": "120+3",
+      "time_class": "blitz",
+      "eco": "C24",
+      "opening": "Bishop's Opening: Berlin Defense",
+      "result": "1-0",
+      "termination": "Normal",
+      "plies": 59,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "e4",
+          "uci": "e2e4",
+          "clock_after": 120
+        },
+        {
+          "ply": 1,
+          "san": "e5",
+          "uci": "e7e5",
+          "clock_after": 120
+        },
+        {
+          "ply": 2,
+          "san": "Bc4",
+          "uci": "f1c4",
+          "clock_after": 122
+        },
+        {
+          "ply": 3,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 121
+        },
+        {
+          "ply": 4,
+          "san": "d3",
+          "uci": "d2d3",
+          "clock_after": 123
+        },
+        {
+          "ply": 5,
+          "san": "Nc6",
+          "uci": "b8c6",
+          "clock_after": 123
+        },
+        {
+          "ply": 6,
+          "san": "Bg5",
+          "uci": "c1g5",
+          "clock_after": 125
+        },
+        {
+          "ply": 7,
+          "san": "h6",
+          "uci": "h7h6",
+          "clock_after": 122
+        },
+        {
+          "ply": 8,
+          "san": "Bh4",
+          "uci": "g5h4",
+          "clock_after": 127
+        },
+        {
+          "ply": 9,
+          "san": "Bc5",
+          "uci": "f8c5",
+          "clock_after": 124
+        },
+        {
+          "ply": 10,
+          "san": "Nc3",
+          "uci": "b1c3",
+          "clock_after": 124
+        },
+        {
+          "ply": 11,
+          "san": "g5",
+          "uci": "g7g5",
+          "clock_after": 122
+        },
+        {
+          "ply": 12,
+          "san": "Bg3",
+          "uci": "h4g3",
+          "clock_after": 125
+        },
+        {
+          "ply": 13,
+          "san": "d6",
+          "uci": "d7d6",
+          "clock_after": 123
+        },
+        {
+          "ply": 14,
+          "san": "h4",
+          "uci": "h2h4",
+          "clock_after": 127
+        },
+        {
+          "ply": 15,
+          "san": "Ng4",
+          "uci": "f6g4",
+          "clock_after": 112
+        },
+        {
+          "ply": 16,
+          "san": "f3",
+          "uci": "f2f3",
+          "clock_after": 124
+        },
+        {
+          "ply": 17,
+          "san": "Ne3",
+          "uci": "g4e3",
+          "clock_after": 113
+        },
+        {
+          "ply": 18,
+          "san": "Qe2",
+          "uci": "d1e2",
+          "clock_after": 124
+        },
+        {
+          "ply": 19,
+          "san": "Nxc4",
+          "uci": "e3c4",
+          "clock_after": 111
+        },
+        {
+          "ply": 20,
+          "san": "dxc4",
+          "uci": "d3c4",
+          "clock_after": 125
+        },
+        {
+          "ply": 21,
+          "san": "Be6",
+          "uci": "c8e6",
+          "clock_after": 113
+        },
+        {
+          "ply": 22,
+          "san": "Nd5",
+          "uci": "c3d5",
+          "clock_after": 125
+        },
+        {
+          "ply": 23,
+          "san": "Bxd5",
+          "uci": "e6d5",
+          "clock_after": 97
+        },
+        {
+          "ply": 24,
+          "san": "cxd5",
+          "uci": "c4d5",
+          "clock_after": 122
+        },
+        {
+          "ply": 25,
+          "san": "Nd4",
+          "uci": "c6d4",
+          "clock_after": 99
+        },
+        {
+          "ply": 26,
+          "san": "Qd2",
+          "uci": "e2d2",
+          "clock_after": 120
+        },
+        {
+          "ply": 27,
+          "san": "Qe7",
+          "uci": "d8e7",
+          "clock_after": 94
+        },
+        {
+          "ply": 28,
+          "san": "O-O-O",
+          "uci": "e1c1",
+          "clock_after": 121
+        },
+        {
+          "ply": 29,
+          "san": "O-O-O",
+          "uci": "e8c8",
+          "clock_after": 95
+        },
+        {
+          "ply": 30,
+          "san": "Bf2",
+          "uci": "g3f2",
+          "clock_after": 121
+        },
+        {
+          "ply": 31,
+          "san": "Qd7",
+          "uci": "e7d7",
+          "clock_after": 90
+        },
+        {
+          "ply": 32,
+          "san": "c3",
+          "uci": "c2c3",
+          "clock_after": 117
+        },
+        {
+          "ply": 33,
+          "san": "Nb5",
+          "uci": "d4b5",
+          "clock_after": 84
+        },
+        {
+          "ply": 34,
+          "san": "Bxc5",
+          "uci": "f2c5",
+          "clock_after": 119
+        },
+        {
+          "ply": 35,
+          "san": "dxc5",
+          "uci": "d6c5",
+          "clock_after": 85
+        },
+        {
+          "ply": 36,
+          "san": "Ne2",
+          "uci": "g1e2",
+          "clock_after": 120
+        },
+        {
+          "ply": 37,
+          "san": "c6",
+          "uci": "c7c6",
+          "clock_after": 86
+        },
+        {
+          "ply": 38,
+          "san": "c4",
+          "uci": "c3c4",
+          "clock_after": 120
+        },
+        {
+          "ply": 39,
+          "san": "Nc7",
+          "uci": "b5c7",
+          "clock_after": 87
+        },
+        {
+          "ply": 40,
+          "san": "hxg5",
+          "uci": "h4g5",
+          "clock_after": 119
+        },
+        {
+          "ply": 41,
+          "san": "hxg5",
+          "uci": "h6g5",
+          "clock_after": 86
+        },
+        {
+          "ply": 42,
+          "san": "Rxh8",
+          "uci": "h1h8",
+          "clock_after": 120
+        },
+        {
+          "ply": 43,
+          "san": "Rxh8",
+          "uci": "d8h8",
+          "clock_after": 88
+        },
+        {
+          "ply": 44,
+          "san": "Qxg5",
+          "uci": "d2g5",
+          "clock_after": 122
+        },
+        {
+          "ply": 45,
+          "san": "cxd5",
+          "uci": "c6d5",
+          "clock_after": 86
+        },
+        {
+          "ply": 46,
+          "san": "cxd5",
+          "uci": "c4d5",
+          "clock_after": 121
+        },
+        {
+          "ply": 47,
+          "san": "Qb5",
+          "uci": "d7b5",
+          "clock_after": 84
+        },
+        {
+          "ply": 48,
+          "san": "Nc3",
+          "uci": "e2c3",
+          "clock_after": 121
+        },
+        {
+          "ply": 49,
+          "san": "Qe8",
+          "uci": "b5e8",
+          "clock_after": 75
+        },
+        {
+          "ply": 50,
+          "san": "d6",
+          "uci": "d5d6",
+          "clock_after": 118
+        },
+        {
+          "ply": 51,
+          "san": "Ne6",
+          "uci": "c7e6",
+          "clock_after": 77
+        },
+        {
+          "ply": 52,
+          "san": "Qxe5",
+          "uci": "g5e5",
+          "clock_after": 118
+        },
+        {
+          "ply": 53,
+          "san": "Rg8",
+          "uci": "h8g8",
+          "clock_after": 68
+        },
+        {
+          "ply": 54,
+          "san": "d7+",
+          "uci": "d6d7",
+          "clock_after": 120
+        },
+        {
+          "ply": 55,
+          "san": "Qxd7",
+          "uci": "e8d7",
+          "clock_after": 68
+        },
+        {
+          "ply": 56,
+          "san": "Rxd7",
+          "uci": "d1d7",
+          "clock_after": 122
+        },
+        {
+          "ply": 57,
+          "san": "Kxd7",
+          "uci": "c8d7",
+          "clock_after": 70
+        },
+        {
+          "ply": 58,
+          "san": "g4",
+          "uci": "g2g4",
+          "clock_after": 121
+        }
+      ]
+    },
+    {
+      "game_id": "8w9ikIra",
+      "url": "https://lichess.org/game/8w9ikIra",
+      "white": "sashka_777",
+      "black": "kra22",
+      "white_rating_before": 2042,
+      "black_rating_before": 2005,
+      "white_rating_after": 2042,
+      "black_rating_after": 2006,
+      "time_control": "180+0",
+      "time_class": "blitz",
+      "eco": "B01",
+      "opening": "Scandinavian Defense: Valencian Variation",
+      "result": "1/2-1/2",
+      "termination": "Normal",
+      "plies": 50,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "e4",
+          "uci": "e2e4",
+          "clock_after": 180
+        },
+        {
+          "ply": 1,
+          "san": "d5",
+          "uci": "d7d5",
+          "clock_after": 180
+        },
+        {
+          "ply": 2,
+          "san": "exd5",
+          "uci": "e4d5",
+          "clock_after": 179
+        },
+        {
+          "ply": 3,
+          "san": "Qxd5",
+          "uci": "d8d5",
+          "clock_after": 180
+        },
+        {
+          "ply": 4,
+          "san": "Nc3",
+          "uci": "b1c3",
+          "clock_after": 178
+        },
+        {
+          "ply": 5,
+          "san": "Qd8",
+          "uci": "d5d8",
+          "clock_after": 179
+        },
+        {
+          "ply": 6,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 178
+        },
+        {
+          "ply": 7,
+          "san": "e6",
+          "uci": "e7e6",
+          "clock_after": 179
+        },
+        {
+          "ply": 8,
+          "san": "Be2",
+          "uci": "f1e2",
+          "clock_after": 178
+        },
+        {
+          "ply": 9,
+          "san": "h6",
+          "uci": "h7h6",
+          "clock_after": 179
+        },
+        {
+          "ply": 10,
+          "san": "O-O",
+          "uci": "e1g1",
+          "clock_after": 178
+        },
+        {
+          "ply": 11,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 179
+        },
+        {
+          "ply": 12,
+          "san": "d3",
+          "uci": "d2d3",
+          "clock_after": 178
+        },
+        {
+          "ply": 13,
+          "san": "Bd6",
+          "uci": "f8d6",
+          "clock_after": 179
+        },
+        {
+          "ply": 14,
+          "san": "Be3",
+          "uci": "c1e3",
+          "clock_after": 178
+        },
+        {
+          "ply": 15,
+          "san": "O-O",
+          "uci": "e8g8",
+          "clock_after": 179
+        },
+        {
+          "ply": 16,
+          "san": "h3",
+          "uci": "h2h3",
+          "clock_after": 177
+        },
+        {
+          "ply": 17,
+          "san": "a6",
+          "uci": "a7a6",
+          "clock_after": 178
+        },
+        {
+          "ply": 18,
+          "san": "Qe1",
+          "uci": "d1e1",
+          "clock_after": 177
+        },
+        {
+          "ply": 19,
+          "san": "b5",
+          "uci": "b7b5",
+          "clock_after": 178
+        },
+        {
+          "ply": 20,
+          "san": "Rd1",
+          "uci": "a1d1",
+          "clock_after": 177
+        },
+        {
+          "ply": 21,
+          "san": "Bb7",
+          "uci": "c8b7",
+          "clock_after": 177
+        },
+        {
+          "ply": 22,
+          "san": "a3",
+          "uci": "a2a3",
+          "clock_after": 175
+        },
+        {
+          "ply": 23,
+          "san": "Qe7",
+          "uci": "d8e7",
+          "clock_after": 177
+        },
+        {
+          "ply": 24,
+          "san": "Ne4",
+          "uci": "c3e4",
+          "clock_after": 175
+        },
+        {
+          "ply": 25,
+          "san": "Nxe4",
+          "uci": "f6e4",
+          "clock_after": 175
+        },
+        {
+          "ply": 26,
+          "san": "dxe4",
+          "uci": "d3e4",
+          "clock_after": 175
+        },
+        {
+          "ply": 27,
+          "san": "Bxe4",
+          "uci": "b7e4",
+          "clock_after": 174
+        },
+        {
+          "ply": 28,
+          "san": "Bd3",
+          "uci": "e2d3",
+          "clock_after": 159
+        },
+        {
+          "ply": 29,
+          "san": "Bxf3",
+          "uci": "e4f3",
+          "clock_after": 172
+        },
+        {
+          "ply": 30,
+          "san": "gxf3",
+          "uci": "g2f3",
+          "clock_after": 157
+        },
+        {
+          "ply": 31,
+          "san": "Qh4",
+          "uci": "e7h4",
+          "clock_after": 171
+        },
+        {
+          "ply": 32,
+          "san": "Kg2",
+          "uci": "g1g2",
+          "clock_after": 155
+        },
+        {
+          "ply": 33,
+          "san": "Nd7",
+          "uci": "b8d7",
+          "clock_after": 170
+        },
+        {
+          "ply": 34,
+          "san": "Be4",
+          "uci": "d3e4",
+          "clock_after": 145
+        },
+        {
+          "ply": 35,
+          "san": "Rad8",
+          "uci": "a8d8",
+          "clock_after": 168
+        },
+        {
+          "ply": 36,
+          "san": "Rg1",
+          "uci": "f1g1",
+          "clock_after": 139
+        },
+        {
+          "ply": 37,
+          "san": "Kh8",
+          "uci": "g8h8",
+          "clock_after": 166
+        },
+        {
+          "ply": 38,
+          "san": "Kf1",
+          "uci": "g2f1",
+          "clock_after": 134
+        },
+        {
+          "ply": 39,
+          "san": "Qxh3+",
+          "uci": "h4h3",
+          "clock_after": 165
+        },
+        {
+          "ply": 40,
+          "san": "Ke2",
+          "uci": "f1e2",
+          "clock_after": 134
+        },
+        {
+          "ply": 41,
+          "san": "Ne5",
+          "uci": "d7e5",
+          "clock_after": 158
+        },
+        {
+          "ply": 42,
+          "san": "Rh1",
+          "uci": "g1h1",
+          "clock_after": 133
+        },
+        {
+          "ply": 43,
+          "san": "Qg2",
+          "uci": "h3g2",
+          "clock_after": 148
+        },
+        {
+          "ply": 44,
+          "san": "Rg1",
+          "uci": "h1g1",
+          "clock_after": 121
+        },
+        {
+          "ply": 45,
+          "san": "Qh3",
+          "uci": "g2h3",
+          "clock_after": 145
+        },
+        {
+          "ply": 46,
+          "san": "Rh1",
+          "uci": "g1h1",
+          "clock_after": 112
+        },
+        {
+          "ply": 47,
+          "san": "Qg2",
+          "uci": "h3g2",
+          "clock_after": 144
+        },
+        {
+          "ply": 48,
+          "san": "Rg1",
+          "uci": "h1g1",
+          "clock_after": 111
+        },
+        {
+          "ply": 49,
+          "san": "Qh3",
+          "uci": "g2h3",
+          "clock_after": 143
+        }
+      ]
+    },
+    {
+      "game_id": "PIxrVVwA",
+      "url": "https://lichess.org/game/PIxrVVwA",
+      "white": "Hazem7777",
+      "black": "abdelghani12",
+      "white_rating_before": 1156,
+      "black_rating_before": 1079,
+      "white_rating_after": 1154,
+      "black_rating_after": 1080,
+      "time_control": "180+0",
+      "time_class": "blitz",
+      "eco": "A06",
+      "opening": "Zukertort Opening: Old Indian Attack",
+      "result": "1/2-1/2",
+      "termination": "Normal",
+      "plies": 70,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 180
+        },
+        {
+          "ply": 1,
+          "san": "d5",
+          "uci": "d7d5",
+          "clock_after": 180
+        },
+        {
+          "ply": 2,
+          "san": "d3",
+          "uci": "d2d3",
+          "clock_after": 180
+        },
+        {
+          "ply": 3,
+          "san": "Nc6",
+          "uci": "b8c6",
+          "clock_after": 178
+        },
+        {
+          "ply": 4,
+          "san": "g3",
+          "uci": "g2g3",
+          "clock_after": 179
+        },
+        {
+          "ply": 5,
+          "san": "e5",
+          "uci": "e7e5",
+          "clock_after": 178
+        },
+        {
+          "ply": 6,
+          "san": "Bg2",
+          "uci": "f1g2",
+          "clock_after": 178
+        },
+        {
+          "ply": 7,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 176
+        },
+        {
+          "ply": 8,
+          "san": "Nbd2",
+          "uci": "b1d2",
+          "clock_after": 177
+        },
+        {
+          "ply": 9,
+          "san": "Bd6",
+          "uci": "f8d6",
+          "clock_after": 175
+        },
+        {
+          "ply": 10,
+          "san": "e4",
+          "uci": "e2e4",
+          "clock_after": 176
+        },
+        {
+          "ply": 11,
+          "san": "dxe4",
+          "uci": "d5e4",
+          "clock_after": 173
+        },
+        {
+          "ply": 12,
+          "san": "dxe4",
+          "uci": "d3e4",
+          "clock_after": 172
+        },
+        {
+          "ply": 13,
+          "san": "O-O",
+          "uci": "e8g8",
+          "clock_after": 169
+        },
+        {
+          "ply": 14,
+          "san": "O-O",
+          "uci": "e1g1",
+          "clock_after": 172
+        },
+        {
+          "ply": 15,
+          "san": "Bg4",
+          "uci": "c8g4",
+          "clock_after": 155
+        },
+        {
+          "ply": 16,
+          "san": "Nc4",
+          "uci": "d2c4",
+          "clock_after": 170
+        },
+        {
+          "ply": 17,
+          "san": "Be7",
+          "uci": "d6e7",
+          "clock_after": 143
+        },
+        {
+          "ply": 18,
+          "san": "Bg5",
+          "uci": "c1g5",
+          "clock_after": 164
+        },
+        {
+          "ply": 19,
+          "san": "Nxe4",
+          "uci": "f6e4",
+          "clock_after": 135
+        },
+        {
+          "ply": 20,
+          "san": "Bxe7",
+          "uci": "g5e7",
+          "clock_after": 157
+        },
+        {
+          "ply": 21,
+          "san": "Qxe7",
+          "uci": "d8e7",
+          "clock_after": 135
+        },
+        {
+          "ply": 22,
+          "san": "h3",
+          "uci": "h2h3",
+          "clock_after": 156
+        },
+        {
+          "ply": 23,
+          "san": "Rad8",
+          "uci": "a8d8",
+          "clock_after": 129
+        },
+        {
+          "ply": 24,
+          "san": "Qe1",
+          "uci": "d1e1",
+          "clock_after": 151
+        },
+        {
+          "ply": 25,
+          "san": "Bxf3",
+          "uci": "g4f3",
+          "clock_after": 123
+        },
+        {
+          "ply": 26,
+          "san": "Bxf3",
+          "uci": "g2f3",
+          "clock_after": 143
+        },
+        {
+          "ply": 27,
+          "san": "Ng5",
+          "uci": "e4g5",
+          "clock_after": 122
+        },
+        {
+          "ply": 28,
+          "san": "Bg2",
+          "uci": "f3g2",
+          "clock_after": 137
+        },
+        {
+          "ply": 29,
+          "san": "Qe6",
+          "uci": "e7e6",
+          "clock_after": 117
+        },
+        {
+          "ply": 30,
+          "san": "Qc1",
+          "uci": "e1c1",
+          "clock_after": 128
+        },
+        {
+          "ply": 31,
+          "san": "Nxh3+",
+          "uci": "g5h3",
+          "clock_after": 113
+        },
+        {
+          "ply": 32,
+          "san": "Bxh3",
+          "uci": "g2h3",
+          "clock_after": 123
+        },
+        {
+          "ply": 33,
+          "san": "Qxh3",
+          "uci": "e6h3",
+          "clock_after": 112
+        },
+        {
+          "ply": 34,
+          "san": "Re1",
+          "uci": "f1e1",
+          "clock_after": 112
+        },
+        {
+          "ply": 35,
+          "san": "Rd4",
+          "uci": "d8d4",
+          "clock_after": 109
+        },
+        {
+          "ply": 36,
+          "san": "b3",
+          "uci": "b2b3",
+          "clock_after": 103
+        },
+        {
+          "ply": 37,
+          "san": "b5",
+          "uci": "b7b5",
+          "clock_after": 103
+        },
+        {
+          "ply": 38,
+          "san": "Nxe5",
+          "uci": "c4e5",
+          "clock_after": 101
+        },
+        {
+          "ply": 39,
+          "san": "Nxe5",
+          "uci": "c6e5",
+          "clock_after": 99
+        },
+        {
+          "ply": 40,
+          "san": "Rxe5",
+          "uci": "e1e5",
+          "clock_after": 100
+        },
+        {
+          "ply": 41,
+          "san": "Qg4",
+          "uci": "h3g4",
+          "clock_after": 88
+        },
+        {
+          "ply": 42,
+          "san": "Rxb5",
+          "uci": "e5b5",
+          "clock_after": 96
+        },
+        {
+          "ply": 43,
+          "san": "Rfd8",
+          "uci": "f8d8",
+          "clock_after": 82
+        },
+        {
+          "ply": 44,
+          "san": "Qg5",
+          "uci": "c1g5",
+          "clock_after": 71
+        },
+        {
+          "ply": 45,
+          "san": "Rd1+",
+          "uci": "d4d1",
+          "clock_after": 71
+        },
+        {
+          "ply": 46,
+          "san": "Rxd1",
+          "uci": "a1d1",
+          "clock_after": 67
+        },
+        {
+          "ply": 47,
+          "san": "Qxd1+",
+          "uci": "g4d1",
+          "clock_after": 70
+        },
+        {
+          "ply": 48,
+          "san": "Kg2",
+          "uci": "g1g2",
+          "clock_after": 66
+        },
+        {
+          "ply": 49,
+          "san": "h6",
+          "uci": "h7h6",
+          "clock_after": 63
+        },
+        {
+          "ply": 50,
+          "san": "Qe5",
+          "uci": "g5e5",
+          "clock_after": 56
+        },
+        {
+          "ply": 51,
+          "san": "Qxc2",
+          "uci": "d1c2",
+          "clock_after": 54
+        },
+        {
+          "ply": 52,
+          "san": "Rc5",
+          "uci": "b5c5",
+          "clock_after": 51
+        },
+        {
+          "ply": 53,
+          "san": "Qxa2",
+          "uci": "c2a2",
+          "clock_after": 50
+        },
+        {
+          "ply": 54,
+          "san": "Qxc7",
+          "uci": "e5c7",
+          "clock_after": 49
+        },
+        {
+          "ply": 55,
+          "san": "Qd2",
+          "uci": "a2d2",
+          "clock_after": 44
+        },
+        {
+          "ply": 56,
+          "san": "Qxa7",
+          "uci": "c7a7",
+          "clock_after": 44
+        },
+        {
+          "ply": 57,
+          "san": "Qd1",
+          "uci": "d2d1",
+          "clock_after": 35
+        },
+        {
+          "ply": 58,
+          "san": "Rc7",
+          "uci": "c5c7",
+          "clock_after": 39
+        },
+        {
+          "ply": 59,
+          "san": "Qd5+",
+          "uci": "d1d5",
+          "clock_after": 18
+        },
+        {
+          "ply": 60,
+          "san": "Kh2",
+          "uci": "g2h2",
+          "clock_after": 34
+        },
+        {
+          "ply": 61,
+          "san": "Qh5+",
+          "uci": "d5h5",
+          "clock_after": 16
+        },
+        {
+          "ply": 62,
+          "san": "Kg2",
+          "uci": "h2g2",
+          "clock_after": 32
+        },
+        {
+          "ply": 63,
+          "san": "Qd5+",
+          "uci": "h5d5",
+          "clock_after": 14
+        },
+        {
+          "ply": 64,
+          "san": "Kh2",
+          "uci": "g2h2",
+          "clock_after": 29
+        },
+        {
+          "ply": 65,
+          "san": "Qh5+",
+          "uci": "d5h5",
+          "clock_after": 13
+        },
+        {
+          "ply": 66,
+          "san": "Kg1",
+          "uci": "h2g1",
+          "clock_after": 27
+        },
+        {
+          "ply": 67,
+          "san": "Qd1+",
+          "uci": "h5d1",
+          "clock_after": 12
+        },
+        {
+          "ply": 68,
+          "san": "Kg2",
+          "uci": "g1g2",
+          "clock_after": 27
+        },
+        {
+          "ply": 69,
+          "san": "Qd5+",
+          "uci": "d1d5",
+          "clock_after": 10
+        }
+      ]
+    },
+    {
+      "game_id": "6zNb3GRb",
+      "url": "https://lichess.org/game/6zNb3GRb",
+      "white": "mozank",
+      "black": "yasserchess1994",
+      "white_rating_before": 1735,
+      "black_rating_before": 1768,
+      "white_rating_after": 1730,
+      "black_rating_after": 1773,
+      "time_control": "120+1",
+      "time_class": "bullet",
+      "eco": "B12",
+      "opening": "Caro-Kann Defense: Advance Variation",
+      "result": "0-1",
+      "termination": "Time forfeit",
+      "plies": 66,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "e4",
+          "uci": "e2e4",
+          "clock_after": 120
+        },
+        {
+          "ply": 1,
+          "san": "c6",
+          "uci": "c7c6",
+          "clock_after": 120
+        },
+        {
+          "ply": 2,
+          "san": "d4",
+          "uci": "d2d4",
+          "clock_after": 119
+        },
+        {
+          "ply": 3,
+          "san": "d5",
+          "uci": "d7d5",
+          "clock_after": 121
+        },
+        {
+          "ply": 4,
+          "san": "e5",
+          "uci": "e4e5",
+          "clock_after": 120
+        },
+        {
+          "ply": 5,
+          "san": "Bf5",
+          "uci": "c8f5",
+          "clock_after": 120
+        },
+        {
+          "ply": 6,
+          "san": "c4",
+          "uci": "c2c4",
+          "clock_after": 119
+        },
+        {
+          "ply": 7,
+          "san": "e6",
+          "uci": "e7e6",
+          "clock_after": 121
+        },
+        {
+          "ply": 8,
+          "san": "Nc3",
+          "uci": "b1c3",
+          "clock_after": 119
+        },
+        {
+          "ply": 9,
+          "san": "Bb4",
+          "uci": "f8b4",
+          "clock_after": 119
+        },
+        {
+          "ply": 10,
+          "san": "Bd2",
+          "uci": "c1d2",
+          "clock_after": 119
+        },
+        {
+          "ply": 11,
+          "san": "Bxc3",
+          "uci": "b4c3",
+          "clock_after": 120
+        },
+        {
+          "ply": 12,
+          "san": "Bxc3",
+          "uci": "d2c3",
+          "clock_after": 118
+        },
+        {
+          "ply": 13,
+          "san": "dxc4",
+          "uci": "d5c4",
+          "clock_after": 121
+        },
+        {
+          "ply": 14,
+          "san": "Bxc4",
+          "uci": "f1c4",
+          "clock_after": 115
+        },
+        {
+          "ply": 15,
+          "san": "Ne7",
+          "uci": "g8e7",
+          "clock_after": 121
+        },
+        {
+          "ply": 16,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 115
+        },
+        {
+          "ply": 17,
+          "san": "Nd5",
+          "uci": "e7d5",
+          "clock_after": 122
+        },
+        {
+          "ply": 18,
+          "san": "O-O",
+          "uci": "e1g1",
+          "clock_after": 111
+        },
+        {
+          "ply": 19,
+          "san": "Nd7",
+          "uci": "b8d7",
+          "clock_after": 122
+        },
+        {
+          "ply": 20,
+          "san": "Bd2",
+          "uci": "c3d2",
+          "clock_after": 108
+        },
+        {
+          "ply": 21,
+          "san": "N7b6",
+          "uci": "d7b6",
+          "clock_after": 121
+        },
+        {
+          "ply": 22,
+          "san": "Bb3",
+          "uci": "c4b3",
+          "clock_after": 106
+        },
+        {
+          "ply": 23,
+          "san": "O-O",
+          "uci": "e8g8",
+          "clock_after": 120
+        },
+        {
+          "ply": 24,
+          "san": "Ba5",
+          "uci": "d2a5",
+          "clock_after": 106
+        },
+        {
+          "ply": 25,
+          "san": "h6",
+          "uci": "h7h6",
+          "clock_after": 100
+        },
+        {
+          "ply": 26,
+          "san": "Rc1",
+          "uci": "a1c1",
+          "clock_after": 97
+        },
+        {
+          "ply": 27,
+          "san": "Rc8",
+          "uci": "a8c8",
+          "clock_after": 97
+        },
+        {
+          "ply": 28,
+          "san": "Nd2",
+          "uci": "f3d2",
+          "clock_after": 75
+        },
+        {
+          "ply": 29,
+          "san": "Qd7",
+          "uci": "d8d7",
+          "clock_after": 94
+        },
+        {
+          "ply": 30,
+          "san": "Nc4",
+          "uci": "d2c4",
+          "clock_after": 63
+        },
+        {
+          "ply": 31,
+          "san": "Nxc4",
+          "uci": "b6c4",
+          "clock_after": 86
+        },
+        {
+          "ply": 32,
+          "san": "Bxc4",
+          "uci": "b3c4",
+          "clock_after": 52
+        },
+        {
+          "ply": 33,
+          "san": "Qe7",
+          "uci": "d7e7",
+          "clock_after": 61
+        },
+        {
+          "ply": 34,
+          "san": "a3",
+          "uci": "a2a3",
+          "clock_after": 37
+        },
+        {
+          "ply": 35,
+          "san": "Qg5",
+          "uci": "e7g5",
+          "clock_after": 60
+        },
+        {
+          "ply": 36,
+          "san": "Bd2",
+          "uci": "a5d2",
+          "clock_after": 34
+        },
+        {
+          "ply": 37,
+          "san": "Qh4",
+          "uci": "g5h4",
+          "clock_after": 43
+        },
+        {
+          "ply": 38,
+          "san": "Qf3",
+          "uci": "d1f3",
+          "clock_after": 28
+        },
+        {
+          "ply": 39,
+          "san": "Qxd4",
+          "uci": "h4d4",
+          "clock_after": 41
+        },
+        {
+          "ply": 40,
+          "san": "Rfd1",
+          "uci": "f1d1",
+          "clock_after": 17
+        },
+        {
+          "ply": 41,
+          "san": "Qxb2",
+          "uci": "d4b2",
+          "clock_after": 31
+        },
+        {
+          "ply": 42,
+          "san": "Qg3",
+          "uci": "f3g3",
+          "clock_after": 15
+        },
+        {
+          "ply": 43,
+          "san": "Qxe5",
+          "uci": "b2e5",
+          "clock_after": 14
+        },
+        {
+          "ply": 44,
+          "san": "Bxh6",
+          "uci": "d2h6",
+          "clock_after": 14
+        },
+        {
+          "ply": 45,
+          "san": "Qf6",
+          "uci": "e5f6",
+          "clock_after": 14
+        },
+        {
+          "ply": 46,
+          "san": "Bg5",
+          "uci": "h6g5",
+          "clock_after": 13
+        },
+        {
+          "ply": 47,
+          "san": "Qg6",
+          "uci": "f6g6",
+          "clock_after": 13
+        },
+        {
+          "ply": 48,
+          "san": "Bxd5",
+          "uci": "c4d5",
+          "clock_after": 10
+        },
+        {
+          "ply": 49,
+          "san": "cxd5",
+          "uci": "c6d5",
+          "clock_after": 9
+        },
+        {
+          "ply": 50,
+          "san": "Rxc8",
+          "uci": "c1c8",
+          "clock_after": 8
+        },
+        {
+          "ply": 51,
+          "san": "Rxc8",
+          "uci": "f8c8",
+          "clock_after": 9
+        },
+        {
+          "ply": 52,
+          "san": "Be7",
+          "uci": "g5e7",
+          "clock_after": 8
+        },
+        {
+          "ply": 53,
+          "san": "Qxg3",
+          "uci": "g6g3",
+          "clock_after": 8
+        },
+        {
+          "ply": 54,
+          "san": "hxg3",
+          "uci": "h2g3",
+          "clock_after": 9
+        },
+        {
+          "ply": 55,
+          "san": "Re8",
+          "uci": "c8e8",
+          "clock_after": 6
+        },
+        {
+          "ply": 56,
+          "san": "Bc5",
+          "uci": "e7c5",
+          "clock_after": 7
+        },
+        {
+          "ply": 57,
+          "san": "b6",
+          "uci": "b7b6",
+          "clock_after": 5
+        },
+        {
+          "ply": 58,
+          "san": "Bb4",
+          "uci": "c5b4",
+          "clock_after": 6
+        },
+        {
+          "ply": 59,
+          "san": "Rc8",
+          "uci": "e8c8",
+          "clock_after": 6
+        },
+        {
+          "ply": 60,
+          "san": "f3",
+          "uci": "f2f3",
+          "clock_after": 5
+        },
+        {
+          "ply": 61,
+          "san": "a5",
+          "uci": "a7a5",
+          "clock_after": 6
+        },
+        {
+          "ply": 62,
+          "san": "Bd2",
+          "uci": "b4d2",
+          "clock_after": 3
+        },
+        {
+          "ply": 63,
+          "san": "Rc2",
+          "uci": "c8c2",
+          "clock_after": 6
+        },
+        {
+          "ply": 64,
+          "san": "Be3",
+          "uci": "d2e3",
+          "clock_after": 2
+        },
+        {
+          "ply": 65,
+          "san": "Rb2",
+          "uci": "c2b2",
+          "clock_after": 5
+        }
+      ]
+    },
+    {
+      "game_id": "UJezndgO",
+      "url": "https://lichess.org/game/UJezndgO",
+      "white": "kdnns",
+      "black": "Sombrero_o",
+      "white_rating_before": 2174,
+      "black_rating_before": 2223,
+      "white_rating_after": 2169,
+      "black_rating_after": 2229,
+      "time_control": "60+0",
+      "time_class": "bullet",
+      "eco": "A00",
+      "opening": "Ware Opening",
+      "result": "0-1",
+      "termination": "Normal",
+      "plies": 36,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "a4",
+          "uci": "a2a4",
+          "clock_after": 60
+        },
+        {
+          "ply": 1,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 60
+        },
+        {
+          "ply": 2,
+          "san": "a5",
+          "uci": "a4a5",
+          "clock_after": 60
+        },
+        {
+          "ply": 3,
+          "san": "g6",
+          "uci": "g7g6",
+          "clock_after": 60
+        },
+        {
+          "ply": 4,
+          "san": "a6",
+          "uci": "a5a6",
+          "clock_after": 60
+        },
+        {
+          "ply": 5,
+          "san": "Bg7",
+          "uci": "f8g7",
+          "clock_after": 59
+        },
+        {
+          "ply": 6,
+          "san": "e3",
+          "uci": "e2e3",
+          "clock_after": 60
+        },
+        {
+          "ply": 7,
+          "san": "O-O",
+          "uci": "e8g8",
+          "clock_after": 58
+        },
+        {
+          "ply": 8,
+          "san": "d4",
+          "uci": "d2d4",
+          "clock_after": 59
+        },
+        {
+          "ply": 9,
+          "san": "b6",
+          "uci": "b7b6",
+          "clock_after": 57
+        },
+        {
+          "ply": 10,
+          "san": "f4",
+          "uci": "f2f4",
+          "clock_after": 59
+        },
+        {
+          "ply": 11,
+          "san": "c5",
+          "uci": "c7c5",
+          "clock_after": 56
+        },
+        {
+          "ply": 12,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 58
+        },
+        {
+          "ply": 13,
+          "san": "d5",
+          "uci": "d7d5",
+          "clock_after": 56
+        },
+        {
+          "ply": 14,
+          "san": "dxc5",
+          "uci": "d4c5",
+          "clock_after": 57
+        },
+        {
+          "ply": 15,
+          "san": "bxc5",
+          "uci": "b6c5",
+          "clock_after": 55
+        },
+        {
+          "ply": 16,
+          "san": "Bb5",
+          "uci": "f1b5",
+          "clock_after": 56
+        },
+        {
+          "ply": 17,
+          "san": "Qb6",
+          "uci": "d8b6",
+          "clock_after": 53
+        },
+        {
+          "ply": 18,
+          "san": "Nc3",
+          "uci": "b1c3",
+          "clock_after": 56
+        },
+        {
+          "ply": 19,
+          "san": "d4",
+          "uci": "d5d4",
+          "clock_after": 52
+        },
+        {
+          "ply": 20,
+          "san": "exd4",
+          "uci": "e3d4",
+          "clock_after": 54
+        },
+        {
+          "ply": 21,
+          "san": "cxd4",
+          "uci": "c5d4",
+          "clock_after": 52
+        },
+        {
+          "ply": 22,
+          "san": "Nxd4",
+          "uci": "f3d4",
+          "clock_after": 52
+        },
+        {
+          "ply": 23,
+          "san": "Ne4",
+          "uci": "f6e4",
+          "clock_after": 47
+        },
+        {
+          "ply": 24,
+          "san": "Be3",
+          "uci": "c1e3",
+          "clock_after": 51
+        },
+        {
+          "ply": 25,
+          "san": "Nxc3",
+          "uci": "e4c3",
+          "clock_after": 46
+        },
+        {
+          "ply": 26,
+          "san": "bxc3",
+          "uci": "b2c3",
+          "clock_after": 50
+        },
+        {
+          "ply": 27,
+          "san": "Bxd4",
+          "uci": "g7d4",
+          "clock_after": 45
+        },
+        {
+          "ply": 28,
+          "san": "Bxd4",
+          "uci": "e3d4",
+          "clock_after": 48
+        },
+        {
+          "ply": 29,
+          "san": "Qxb5",
+          "uci": "b6b5",
+          "clock_after": 44
+        },
+        {
+          "ply": 30,
+          "san": "Qf3",
+          "uci": "d1f3",
+          "clock_after": 47
+        },
+        {
+          "ply": 31,
+          "san": "Nc6",
+          "uci": "b8c6",
+          "clock_after": 41
+        },
+        {
+          "ply": 32,
+          "san": "Qh3",
+          "uci": "f3h3",
+          "clock_after": 45
+        },
+        {
+          "ply": 33,
+          "san": "Bxa6",
+          "uci": "c8a6",
+          "clock_after": 40
+        },
+        {
+          "ply": 34,
+          "san": "Qh6",
+          "uci": "h3h6",
+          "clock_after": 43
+        },
+        {
+          "ply": 35,
+          "san": "Qe2#",
+          "uci": "b5e2",
+          "clock_after": 38
+        }
+      ]
+    },
+    {
+      "game_id": "JaH6oTfT",
+      "url": "https://lichess.org/game/JaH6oTfT",
+      "white": "seaaal",
+      "black": "YazzyFC",
+      "white_rating_before": 1549,
+      "black_rating_before": 1500,
+      "white_rating_after": 1551,
+      "black_rating_after": 1301,
+      "time_control": "60+1",
+      "time_class": "bullet",
+      "eco": "B13",
+      "opening": "Caro-Kann Defense: Exchange Variation",
+      "result": "1-0",
+      "termination": "Time forfeit",
+      "plies": 55,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "d4",
+          "uci": "d2d4",
+          "clock_after": 60
+        },
+        {
+          "ply": 1,
+          "san": "d5",
+          "uci": "d7d5",
+          "clock_after": 60
+        },
+        {
+          "ply": 2,
+          "san": "Bf4",
+          "uci": "c1f4",
+          "clock_after": 60
+        },
+        {
+          "ply": 3,
+          "san": "c5",
+          "uci": "c7c5",
+          "clock_after": 59
+        },
+        {
+          "ply": 4,
+          "san": "e3",
+          "uci": "e2e3",
+          "clock_after": 60
+        },
+        {
+          "ply": 5,
+          "san": "cxd4",
+          "uci": "c5d4",
+          "clock_after": 59
+        },
+        {
+          "ply": 6,
+          "san": "exd4",
+          "uci": "e3d4",
+          "clock_after": 60
+        },
+        {
+          "ply": 7,
+          "san": "Bf5",
+          "uci": "c8f5",
+          "clock_after": 58
+        },
+        {
+          "ply": 8,
+          "san": "c3",
+          "uci": "c2c3",
+          "clock_after": 61
+        },
+        {
+          "ply": 9,
+          "san": "Qb6",
+          "uci": "d8b6",
+          "clock_after": 58
+        },
+        {
+          "ply": 10,
+          "san": "Bd3",
+          "uci": "f1d3",
+          "clock_after": 61
+        },
+        {
+          "ply": 11,
+          "san": "Bxd3",
+          "uci": "f5d3",
+          "clock_after": 54
+        },
+        {
+          "ply": 12,
+          "san": "Qxd3",
+          "uci": "d1d3",
+          "clock_after": 59
+        },
+        {
+          "ply": 13,
+          "san": "Qxb2",
+          "uci": "b6b2",
+          "clock_after": 55
+        },
+        {
+          "ply": 14,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 52
+        },
+        {
+          "ply": 15,
+          "san": "Qxa1",
+          "uci": "b2a1",
+          "clock_after": 51
+        },
+        {
+          "ply": 16,
+          "san": "Qc2",
+          "uci": "d3c2",
+          "clock_after": 52
+        },
+        {
+          "ply": 17,
+          "san": "e6",
+          "uci": "e7e6",
+          "clock_after": 45
+        },
+        {
+          "ply": 18,
+          "san": "O-O",
+          "uci": "e1g1",
+          "clock_after": 52
+        },
+        {
+          "ply": 19,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 28
+        },
+        {
+          "ply": 20,
+          "san": "Nbd2",
+          "uci": "b1d2",
+          "clock_after": 51
+        },
+        {
+          "ply": 21,
+          "san": "Qxf1+",
+          "uci": "a1f1",
+          "clock_after": 27
+        },
+        {
+          "ply": 22,
+          "san": "Kxf1",
+          "uci": "g1f1",
+          "clock_after": 50
+        },
+        {
+          "ply": 23,
+          "san": "Be7",
+          "uci": "f8e7",
+          "clock_after": 28
+        },
+        {
+          "ply": 24,
+          "san": "Ne5",
+          "uci": "f3e5",
+          "clock_after": 49
+        },
+        {
+          "ply": 25,
+          "san": "O-O",
+          "uci": "e8g8",
+          "clock_after": 28
+        },
+        {
+          "ply": 26,
+          "san": "Ndf3",
+          "uci": "d2f3",
+          "clock_after": 48
+        },
+        {
+          "ply": 27,
+          "san": "Nc6",
+          "uci": "b8c6",
+          "clock_after": 28
+        },
+        {
+          "ply": 28,
+          "san": "Nxc6",
+          "uci": "e5c6",
+          "clock_after": 47
+        },
+        {
+          "ply": 29,
+          "san": "bxc6",
+          "uci": "b7c6",
+          "clock_after": 29
+        },
+        {
+          "ply": 30,
+          "san": "Ne5",
+          "uci": "f3e5",
+          "clock_after": 47
+        },
+        {
+          "ply": 31,
+          "san": "Rab8",
+          "uci": "a8b8",
+          "clock_after": 26
+        },
+        {
+          "ply": 32,
+          "san": "Nxc6",
+          "uci": "e5c6",
+          "clock_after": 47
+        },
+        {
+          "ply": 33,
+          "san": "Ba3",
+          "uci": "e7a3",
+          "clock_after": 20
+        },
+        {
+          "ply": 34,
+          "san": "Bxb8",
+          "uci": "f4b8",
+          "clock_after": 45
+        },
+        {
+          "ply": 35,
+          "san": "Rxb8",
+          "uci": "f8b8",
+          "clock_after": 21
+        },
+        {
+          "ply": 36,
+          "san": "g3",
+          "uci": "g2g3",
+          "clock_after": 45
+        },
+        {
+          "ply": 37,
+          "san": "Rb2",
+          "uci": "b8b2",
+          "clock_after": 19
+        },
+        {
+          "ply": 38,
+          "san": "Qd3",
+          "uci": "c2d3",
+          "clock_after": 44
+        },
+        {
+          "ply": 39,
+          "san": "Ne4",
+          "uci": "f6e4",
+          "clock_after": 16
+        },
+        {
+          "ply": 40,
+          "san": "Qa6",
+          "uci": "d3a6",
+          "clock_after": 43
+        },
+        {
+          "ply": 41,
+          "san": "Rb1+",
+          "uci": "b2b1",
+          "clock_after": 14
+        },
+        {
+          "ply": 42,
+          "san": "Kg2",
+          "uci": "f1g2",
+          "clock_after": 42
+        },
+        {
+          "ply": 43,
+          "san": "g6",
+          "uci": "g7g6",
+          "clock_after": 14
+        },
+        {
+          "ply": 44,
+          "san": "Ne5",
+          "uci": "c6e5",
+          "clock_after": 40
+        },
+        {
+          "ply": 45,
+          "san": "Bd6",
+          "uci": "a3d6",
+          "clock_after": 8
+        },
+        {
+          "ply": 46,
+          "san": "Qc8+",
+          "uci": "a6c8",
+          "clock_after": 39
+        },
+        {
+          "ply": 47,
+          "san": "Kg7",
+          "uci": "g8g7",
+          "clock_after": 8
+        },
+        {
+          "ply": 48,
+          "san": "Nd7",
+          "uci": "e5d7",
+          "clock_after": 38
+        },
+        {
+          "ply": 49,
+          "san": "Rb2",
+          "uci": "b1b2",
+          "clock_after": 6
+        },
+        {
+          "ply": 50,
+          "san": "Ne5",
+          "uci": "d7e5",
+          "clock_after": 27
+        },
+        {
+          "ply": 51,
+          "san": "Rxf2+",
+          "uci": "b2f2",
+          "clock_after": 4
+        },
+        {
+          "ply": 52,
+          "san": "Kh3",
+          "uci": "g2h3",
+          "clock_after": 26
+        },
+        {
+          "ply": 53,
+          "san": "Ng5+",
+          "uci": "e4g5",
+          "clock_after": 4
+        },
+        {
+          "ply": 54,
+          "san": "Kg4",
+          "uci": "h3g4",
+          "clock_after": 26
+        }
+      ]
+    },
+    {
+      "game_id": "bzVmhdUK",
+      "url": "https://lichess.org/game/bzVmhdUK",
+      "white": "eeedem",
+      "black": "ttbm",
+      "white_rating_before": 1775,
+      "black_rating_before": 1828,
+      "white_rating_after": 1781,
+      "black_rating_after": 1822,
+      "time_control": "0+1",
+      "time_class": "bullet",
+      "eco": "D00",
+      "opening": "Queen's Pawn Game: Accelerated London System",
+      "result": "1-0",
+      "termination": "Normal",
+      "plies": 69,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "d4",
+          "uci": "d2d4",
+          "clock_after": 3
+        },
+        {
+          "ply": 1,
+          "san": "d5",
+          "uci": "d7d5",
+          "clock_after": 3
+        },
+        {
+          "ply": 2,
+          "san": "Bf4",
+          "uci": "c1f4",
+          "clock_after": 4
+        },
+        {
+          "ply": 3,
+          "san": "e6",
+          "uci": "e7e6",
+          "clock_after": 4
+        },
+        {
+          "ply": 4,
+          "san": "e3",
+          "uci": "e2e3",
+          "clock_after": 4
+        },
+        {
+          "ply": 5,
+          "san": "Bd6",
+          "uci": "f8d6",
+          "clock_after": 5
+        },
+        {
+          "ply": 6,
+          "san": "Bg3",
+          "uci": "f4g3",
+          "clock_after": 5
+        },
+        {
+          "ply": 7,
+          "san": "Bxg3",
+          "uci": "d6g3",
+          "clock_after": 5
+        },
+        {
+          "ply": 8,
+          "san": "hxg3",
+          "uci": "h2g3",
+          "clock_after": 6
+        },
+        {
+          "ply": 9,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 5
+        },
+        {
+          "ply": 10,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 6
+        },
+        {
+          "ply": 11,
+          "san": "c6",
+          "uci": "c7c6",
+          "clock_after": 5
+        },
+        {
+          "ply": 12,
+          "san": "c3",
+          "uci": "c2c3",
+          "clock_after": 7
+        },
+        {
+          "ply": 13,
+          "san": "b6",
+          "uci": "b7b6",
+          "clock_after": 5
+        },
+        {
+          "ply": 14,
+          "san": "Bd3",
+          "uci": "f1d3",
+          "clock_after": 8
+        },
+        {
+          "ply": 15,
+          "san": "Bb7",
+          "uci": "c8b7",
+          "clock_after": 6
+        },
+        {
+          "ply": 16,
+          "san": "Qc2",
+          "uci": "d1c2",
+          "clock_after": 8
+        },
+        {
+          "ply": 17,
+          "san": "Nbd7",
+          "uci": "b8d7",
+          "clock_after": 7
+        },
+        {
+          "ply": 18,
+          "san": "Nbd2",
+          "uci": "b1d2",
+          "clock_after": 9
+        },
+        {
+          "ply": 19,
+          "san": "c5",
+          "uci": "c6c5",
+          "clock_after": 7
+        },
+        {
+          "ply": 20,
+          "san": "O-O",
+          "uci": "e1g1",
+          "clock_after": 8
+        },
+        {
+          "ply": 21,
+          "san": "cxd4",
+          "uci": "c5d4",
+          "clock_after": 7
+        },
+        {
+          "ply": 22,
+          "san": "exd4",
+          "uci": "e3d4",
+          "clock_after": 9
+        },
+        {
+          "ply": 23,
+          "san": "b5",
+          "uci": "b6b5",
+          "clock_after": 8
+        },
+        {
+          "ply": 24,
+          "san": "Rfe1",
+          "uci": "f1e1",
+          "clock_after": 10
+        },
+        {
+          "ply": 25,
+          "san": "a6",
+          "uci": "a7a6",
+          "clock_after": 8
+        },
+        {
+          "ply": 26,
+          "san": "a4",
+          "uci": "a2a4",
+          "clock_after": 10
+        },
+        {
+          "ply": 27,
+          "san": "bxa4",
+          "uci": "b5a4",
+          "clock_after": 7
+        },
+        {
+          "ply": 28,
+          "san": "Qxa4",
+          "uci": "c2a4",
+          "clock_after": 10
+        },
+        {
+          "ply": 29,
+          "san": "Qc7",
+          "uci": "d8c7",
+          "clock_after": 7
+        },
+        {
+          "ply": 30,
+          "san": "Qc2",
+          "uci": "a4c2",
+          "clock_after": 10
+        },
+        {
+          "ply": 31,
+          "san": "O-O",
+          "uci": "e8g8",
+          "clock_after": 7
+        },
+        {
+          "ply": 32,
+          "san": "Ne5",
+          "uci": "f3e5",
+          "clock_after": 10
+        },
+        {
+          "ply": 33,
+          "san": "Nxe5",
+          "uci": "d7e5",
+          "clock_after": 7
+        },
+        {
+          "ply": 34,
+          "san": "Rxe5",
+          "uci": "e1e5",
+          "clock_after": 11
+        },
+        {
+          "ply": 35,
+          "san": "Rad8",
+          "uci": "a8d8",
+          "clock_after": 5
+        },
+        {
+          "ply": 36,
+          "san": "Rae1",
+          "uci": "a1e1",
+          "clock_after": 11
+        },
+        {
+          "ply": 37,
+          "san": "h6",
+          "uci": "h7h6",
+          "clock_after": 4
+        },
+        {
+          "ply": 38,
+          "san": "Nf3",
+          "uci": "d2f3",
+          "clock_after": 12
+        },
+        {
+          "ply": 39,
+          "san": "Ng4",
+          "uci": "f6g4",
+          "clock_after": 5
+        },
+        {
+          "ply": 40,
+          "san": "R5e2",
+          "uci": "e5e2",
+          "clock_after": 11
+        },
+        {
+          "ply": 41,
+          "san": "Nf6",
+          "uci": "g4f6",
+          "clock_after": 4
+        },
+        {
+          "ply": 42,
+          "san": "Ne5",
+          "uci": "f3e5",
+          "clock_after": 12
+        },
+        {
+          "ply": 43,
+          "san": "Ng4",
+          "uci": "f6g4",
+          "clock_after": 3
+        },
+        {
+          "ply": 44,
+          "san": "Nxg4",
+          "uci": "e5g4",
+          "clock_after": 12
+        },
+        {
+          "ply": 45,
+          "san": "Bc6",
+          "uci": "b7c6",
+          "clock_after": 3
+        },
+        {
+          "ply": 46,
+          "san": "Ne5",
+          "uci": "g4e5",
+          "clock_after": 10
+        },
+        {
+          "ply": 47,
+          "san": "Bb5",
+          "uci": "c6b5",
+          "clock_after": 3
+        },
+        {
+          "ply": 48,
+          "san": "Bxb5",
+          "uci": "d3b5",
+          "clock_after": 10
+        },
+        {
+          "ply": 49,
+          "san": "axb5",
+          "uci": "a6b5",
+          "clock_after": 3
+        },
+        {
+          "ply": 50,
+          "san": "Re3",
+          "uci": "e2e3",
+          "clock_after": 11
+        },
+        {
+          "ply": 51,
+          "san": "Ra8",
+          "uci": "d8a8",
+          "clock_after": 4
+        },
+        {
+          "ply": 52,
+          "san": "Rf3",
+          "uci": "e3f3",
+          "clock_after": 11
+        },
+        {
+          "ply": 53,
+          "san": "Ra7",
+          "uci": "a8a7",
+          "clock_after": 4
+        },
+        {
+          "ply": 54,
+          "san": "Qd2",
+          "uci": "c2d2",
+          "clock_after": 9
+        },
+        {
+          "ply": 55,
+          "san": "Rfa8",
+          "uci": "f8a8",
+          "clock_after": 3
+        },
+        {
+          "ply": 56,
+          "san": "Rf4",
+          "uci": "f3f4",
+          "clock_after": 9
+        },
+        {
+          "ply": 57,
+          "san": "Qe7",
+          "uci": "c7e7",
+          "clock_after": 3
+        },
+        {
+          "ply": 58,
+          "san": "Rg4",
+          "uci": "f4g4",
+          "clock_after": 9
+        },
+        {
+          "ply": 59,
+          "san": "Ra1",
+          "uci": "a7a1",
+          "clock_after": 3
+        },
+        {
+          "ply": 60,
+          "san": "Qxh6",
+          "uci": "d2h6",
+          "clock_after": 8
+        },
+        {
+          "ply": 61,
+          "san": "Rxe1+",
+          "uci": "a1e1",
+          "clock_after": 2
+        },
+        {
+          "ply": 62,
+          "san": "Kh2",
+          "uci": "g1h2",
+          "clock_after": 7
+        },
+        {
+          "ply": 63,
+          "san": "g6",
+          "uci": "g7g6",
+          "clock_after": 2
+        },
+        {
+          "ply": 64,
+          "san": "Nxg6",
+          "uci": "e5g6",
+          "clock_after": 6
+        },
+        {
+          "ply": 65,
+          "san": "fxg6",
+          "uci": "f7g6",
+          "clock_after": 2
+        },
+        {
+          "ply": 66,
+          "san": "Rxg6+",
+          "uci": "g4g6",
+          "clock_after": 6
+        },
+        {
+          "ply": 67,
+          "san": "Qg7",
+          "uci": "e7g7",
+          "clock_after": 2
+        },
+        {
+          "ply": 68,
+          "san": "Qxg7#",
+          "uci": "h6g7",
+          "clock_after": 5
+        }
+      ]
+    },
+    {
+      "game_id": "gz3moCWx",
+      "url": "https://lichess.org/game/gz3moCWx",
+      "white": "rnbqkrva",
+      "black": "ding2025",
+      "white_rating_before": 1896,
+      "black_rating_before": 1839,
+      "white_rating_after": 1895,
+      "black_rating_after": 1840,
+      "time_control": "30+0",
+      "time_class": "bullet",
+      "eco": "D07",
+      "opening": "Queen's Gambit Declined: Chigorin Defense",
+      "result": "1/2-1/2",
+      "termination": "Time forfeit",
+      "plies": 76,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "d4",
+          "uci": "d2d4",
+          "clock_after": 30
+        },
+        {
+          "ply": 1,
+          "san": "Nc6",
+          "uci": "b8c6",
+          "clock_after": 30
+        },
+        {
+          "ply": 2,
+          "san": "c4",
+          "uci": "c2c4",
+          "clock_after": 30
+        },
+        {
+          "ply": 3,
+          "san": "d5",
+          "uci": "d7d5",
+          "clock_after": 29
+        },
+        {
+          "ply": 4,
+          "san": "Nc3",
+          "uci": "b1c3",
+          "clock_after": 30
+        },
+        {
+          "ply": 5,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 27
+        },
+        {
+          "ply": 6,
+          "san": "Bg5",
+          "uci": "c1g5",
+          "clock_after": 29
+        },
+        {
+          "ply": 7,
+          "san": "e6",
+          "uci": "e7e6",
+          "clock_after": 26
+        },
+        {
+          "ply": 8,
+          "san": "Bxf6",
+          "uci": "g5f6",
+          "clock_after": 29
+        },
+        {
+          "ply": 9,
+          "san": "gxf6",
+          "uci": "g7f6",
+          "clock_after": 26
+        },
+        {
+          "ply": 10,
+          "san": "cxd5",
+          "uci": "c4d5",
+          "clock_after": 29
+        },
+        {
+          "ply": 11,
+          "san": "exd5",
+          "uci": "e6d5",
+          "clock_after": 25
+        },
+        {
+          "ply": 12,
+          "san": "Rc1",
+          "uci": "a1c1",
+          "clock_after": 28
+        },
+        {
+          "ply": 13,
+          "san": "Bf5",
+          "uci": "c8f5",
+          "clock_after": 24
+        },
+        {
+          "ply": 14,
+          "san": "e3",
+          "uci": "e2e3",
+          "clock_after": 28
+        },
+        {
+          "ply": 15,
+          "san": "Nb4",
+          "uci": "c6b4",
+          "clock_after": 24
+        },
+        {
+          "ply": 16,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 27
+        },
+        {
+          "ply": 17,
+          "san": "Nc2+",
+          "uci": "b4c2",
+          "clock_after": 22
+        },
+        {
+          "ply": 18,
+          "san": "Rxc2",
+          "uci": "c1c2",
+          "clock_after": 26
+        },
+        {
+          "ply": 19,
+          "san": "Bxc2",
+          "uci": "f5c2",
+          "clock_after": 22
+        },
+        {
+          "ply": 20,
+          "san": "Qxc2",
+          "uci": "d1c2",
+          "clock_after": 25
+        },
+        {
+          "ply": 21,
+          "san": "Bb4",
+          "uci": "f8b4",
+          "clock_after": 22
+        },
+        {
+          "ply": 22,
+          "san": "a3",
+          "uci": "a2a3",
+          "clock_after": 24
+        },
+        {
+          "ply": 23,
+          "san": "Bxc3+",
+          "uci": "b4c3",
+          "clock_after": 22
+        },
+        {
+          "ply": 24,
+          "san": "Qxc3",
+          "uci": "c2c3",
+          "clock_after": 24
+        },
+        {
+          "ply": 25,
+          "san": "O-O",
+          "uci": "e8g8",
+          "clock_after": 21
+        },
+        {
+          "ply": 26,
+          "san": "Bd3",
+          "uci": "f1d3",
+          "clock_after": 21
+        },
+        {
+          "ply": 27,
+          "san": "Qd6",
+          "uci": "d8d6",
+          "clock_after": 20
+        },
+        {
+          "ply": 28,
+          "san": "Bb1",
+          "uci": "d3b1",
+          "clock_after": 21
+        },
+        {
+          "ply": 29,
+          "san": "Rfe8",
+          "uci": "f8e8",
+          "clock_after": 19
+        },
+        {
+          "ply": 30,
+          "san": "Qd3",
+          "uci": "c3d3",
+          "clock_after": 20
+        },
+        {
+          "ply": 31,
+          "san": "c5",
+          "uci": "c7c5",
+          "clock_after": 17
+        },
+        {
+          "ply": 32,
+          "san": "Qxh7+",
+          "uci": "d3h7",
+          "clock_after": 19
+        },
+        {
+          "ply": 33,
+          "san": "Kf8",
+          "uci": "g8f8",
+          "clock_after": 16
+        },
+        {
+          "ply": 34,
+          "san": "Qh8+",
+          "uci": "h7h8",
+          "clock_after": 19
+        },
+        {
+          "ply": 35,
+          "san": "Ke7",
+          "uci": "f8e7",
+          "clock_after": 16
+        },
+        {
+          "ply": 36,
+          "san": "Qh4",
+          "uci": "h8h4",
+          "clock_after": 16
+        },
+        {
+          "ply": 37,
+          "san": "cxd4",
+          "uci": "c5d4",
+          "clock_after": 15
+        },
+        {
+          "ply": 38,
+          "san": "Nxd4",
+          "uci": "f3d4",
+          "clock_after": 15
+        },
+        {
+          "ply": 39,
+          "san": "Qe5",
+          "uci": "d6e5",
+          "clock_after": 14
+        },
+        {
+          "ply": 40,
+          "san": "Nf5+",
+          "uci": "d4f5",
+          "clock_after": 14
+        },
+        {
+          "ply": 41,
+          "san": "Qxf5",
+          "uci": "e5f5",
+          "clock_after": 13
+        },
+        {
+          "ply": 42,
+          "san": "Bxf5",
+          "uci": "b1f5",
+          "clock_after": 12
+        },
+        {
+          "ply": 43,
+          "san": "Kd6",
+          "uci": "e7d6",
+          "clock_after": 12
+        },
+        {
+          "ply": 44,
+          "san": "Qxf6+",
+          "uci": "h4f6",
+          "clock_after": 11
+        },
+        {
+          "ply": 45,
+          "san": "Kc5",
+          "uci": "d6c5",
+          "clock_after": 9
+        },
+        {
+          "ply": 46,
+          "san": "Qxf7",
+          "uci": "f6f7",
+          "clock_after": 9
+        },
+        {
+          "ply": 47,
+          "san": "Rec8",
+          "uci": "e8c8",
+          "clock_after": 7
+        },
+        {
+          "ply": 48,
+          "san": "Qxb7",
+          "uci": "f7b7",
+          "clock_after": 7
+        },
+        {
+          "ply": 49,
+          "san": "Kd6",
+          "uci": "c5d6",
+          "clock_after": 6
+        },
+        {
+          "ply": 50,
+          "san": "Bxc8",
+          "uci": "f5c8",
+          "clock_after": 4
+        },
+        {
+          "ply": 51,
+          "san": "Rxc8",
+          "uci": "a8c8",
+          "clock_after": 5
+        },
+        {
+          "ply": 52,
+          "san": "Qxc8",
+          "uci": "b7c8",
+          "clock_after": 4
+        },
+        {
+          "ply": 53,
+          "san": "Ke5",
+          "uci": "d6e5",
+          "clock_after": 5
+        },
+        {
+          "ply": 54,
+          "san": "Qa8",
+          "uci": "c8a8",
+          "clock_after": 3
+        },
+        {
+          "ply": 55,
+          "san": "Ke4",
+          "uci": "e5e4",
+          "clock_after": 5
+        },
+        {
+          "ply": 56,
+          "san": "Qxa7",
+          "uci": "a8a7",
+          "clock_after": 3
+        },
+        {
+          "ply": 57,
+          "san": "Kd3",
+          "uci": "e4d3",
+          "clock_after": 5
+        },
+        {
+          "ply": 58,
+          "san": "Qd4+",
+          "uci": "a7d4",
+          "clock_after": 2
+        },
+        {
+          "ply": 59,
+          "san": "Kc2",
+          "uci": "d3c2",
+          "clock_after": 5
+        },
+        {
+          "ply": 60,
+          "san": "Qxd5",
+          "uci": "d4d5",
+          "clock_after": 2
+        },
+        {
+          "ply": 61,
+          "san": "Kxb2",
+          "uci": "c2b2",
+          "clock_after": 4
+        },
+        {
+          "ply": 62,
+          "san": "O-O",
+          "uci": "e1g1",
+          "clock_after": 1
+        },
+        {
+          "ply": 63,
+          "san": "Kxa3",
+          "uci": "b2a3",
+          "clock_after": 4
+        },
+        {
+          "ply": 64,
+          "san": "Qd1",
+          "uci": "d5d1",
+          "clock_after": 1
+        },
+        {
+          "ply": 65,
+          "san": "Ka2",
+          "uci": "a3a2",
+          "clock_after": 4
+        },
+        {
+          "ply": 66,
+          "san": "Qc1",
+          "uci": "d1c1",
+          "clock_after": 1
+        },
+        {
+          "ply": 67,
+          "san": "Kb3",
+          "uci": "a2b3",
+          "clock_after": 3
+        },
+        {
+          "ply": 68,
+          "san": "Rd1",
+          "uci": "f1d1",
+          "clock_after": 1
+        },
+        {
+          "ply": 69,
+          "san": "Ka4",
+          "uci": "b3a4",
+          "clock_after": 3
+        },
+        {
+          "ply": 70,
+          "san": "Rd2",
+          "uci": "d1d2",
+          "clock_after": 1
+        },
+        {
+          "ply": 71,
+          "san": "Kb4",
+          "uci": "a4b4",
+          "clock_after": 3
+        },
+        {
+          "ply": 72,
+          "san": "Qc3+",
+          "uci": "c1c3",
+          "clock_after": 1
+        },
+        {
+          "ply": 73,
+          "san": "Ka4",
+          "uci": "b4a4",
+          "clock_after": 3
+        },
+        {
+          "ply": 74,
+          "san": "Rc2",
+          "uci": "d2c2",
+          "clock_after": 0
+        },
+        {
+          "ply": 75,
+          "san": "Kb5",
+          "uci": "a4b5",
+          "clock_after": 3
+        }
+      ]
+    },
+    {
+      "game_id": "vE91lB41",
+      "url": "https://lichess.org/game/vE91lB41",
+      "white": "Lastfa",
+      "black": "XXTheCh0senXX",
+      "white_rating_before": 1216,
+      "black_rating_before": 1193,
+      "white_rating_after": 1215,
+      "black_rating_after": 1194,
+      "time_control": "120+1",
+      "time_class": "bullet",
+      "eco": "C48",
+      "opening": "Four Knights Game: Spanish Variation, Ranken Variation",
+      "result": "1/2-1/2",
+      "termination": "Normal",
+      "plies": 25,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "e4",
+          "uci": "e2e4",
+          "clock_after": 120
+        },
+        {
+          "ply": 1,
+          "san": "e5",
+          "uci": "e7e5",
+          "clock_after": 120
+        },
+        {
+          "ply": 2,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 120
+        },
+        {
+          "ply": 3,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 119
+        },
+        {
+          "ply": 4,
+          "san": "Nc3",
+          "uci": "b1c3",
+          "clock_after": 119
+        },
+        {
+          "ply": 5,
+          "san": "Nc6",
+          "uci": "b8c6",
+          "clock_after": 119
+        },
+        {
+          "ply": 6,
+          "san": "Bb5",
+          "uci": "f1b5",
+          "clock_after": 119
+        },
+        {
+          "ply": 7,
+          "san": "a6",
+          "uci": "a7a6",
+          "clock_after": 119
+        },
+        {
+          "ply": 8,
+          "san": "Bxc6",
+          "uci": "b5c6",
+          "clock_after": 118
+        },
+        {
+          "ply": 9,
+          "san": "dxc6",
+          "uci": "d7c6",
+          "clock_after": 119
+        },
+        {
+          "ply": 10,
+          "san": "O-O",
+          "uci": "e1g1",
+          "clock_after": 118
+        },
+        {
+          "ply": 11,
+          "san": "Ng4",
+          "uci": "f6g4",
+          "clock_after": 114
+        },
+        {
+          "ply": 12,
+          "san": "h3",
+          "uci": "h2h3",
+          "clock_after": 115
+        },
+        {
+          "ply": 13,
+          "san": "Nh6",
+          "uci": "g4h6",
+          "clock_after": 104
+        },
+        {
+          "ply": 14,
+          "san": "Nxe5",
+          "uci": "f3e5",
+          "clock_after": 114
+        },
+        {
+          "ply": 15,
+          "san": "Qg5",
+          "uci": "d8g5",
+          "clock_after": 98
+        },
+        {
+          "ply": 16,
+          "san": "Nf3",
+          "uci": "e5f3",
+          "clock_after": 111
+        },
+        {
+          "ply": 17,
+          "san": "Qg6",
+          "uci": "g5g6",
+          "clock_after": 95
+        },
+        {
+          "ply": 18,
+          "san": "Nh4",
+          "uci": "f3h4",
+          "clock_after": 103
+        },
+        {
+          "ply": 19,
+          "san": "Qg5",
+          "uci": "g6g5",
+          "clock_after": 91
+        },
+        {
+          "ply": 20,
+          "san": "Nf3",
+          "uci": "h4f3",
+          "clock_after": 91
+        },
+        {
+          "ply": 21,
+          "san": "Qg6",
+          "uci": "g5g6",
+          "clock_after": 91
+        },
+        {
+          "ply": 22,
+          "san": "Ne5",
+          "uci": "f3e5",
+          "clock_after": 84
+        },
+        {
+          "ply": 23,
+          "san": "Qg5",
+          "uci": "g6g5",
+          "clock_after": 86
+        },
+        {
+          "ply": 24,
+          "san": "Nf3",
+          "uci": "e5f3",
+          "clock_after": 77
+        }
+      ]
+    },
+    {
+      "game_id": "W7osCRYM",
+      "url": "https://lichess.org/game/W7osCRYM",
+      "white": "alfonsobernal",
+      "black": "AJAY0209",
+      "white_rating_before": 1361,
+      "black_rating_before": 1464,
+      "white_rating_after": 1357,
+      "black_rating_after": 1525,
+      "time_control": "1800+0",
+      "time_class": "classical",
+      "eco": "C23",
+      "opening": "Bishop's Opening",
+      "result": "0-1",
+      "termination": "Normal",
+      "plies": 22,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "e4",
+          "uci": "e2e4",
+          "clock_after": 1800
+        },
+        {
+          "ply": 1,
+          "san": "e5",
+          "uci": "e7e5",
+          "clock_after": 1800
+        },
+        {
+          "ply": 2,
+          "san": "Bc4",
+          "uci": "f1c4",
+          "clock_after": 1791
+        },
+        {
+          "ply": 3,
+          "san": "Nc6",
+          "uci": "b8c6",
+          "clock_after": 1796
+        },
+        {
+          "ply": 4,
+          "san": "Qf3",
+          "uci": "d1f3",
+          "clock_after": 1789
+        },
+        {
+          "ply": 5,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 1790
+        },
+        {
+          "ply": 6,
+          "san": "d4",
+          "uci": "d2d4",
+          "clock_after": 1785
+        },
+        {
+          "ply": 7,
+          "san": "Nxd4",
+          "uci": "c6d4",
+          "clock_after": 1788
+        },
+        {
+          "ply": 8,
+          "san": "Qc3",
+          "uci": "f3c3",
+          "clock_after": 1770
+        },
+        {
+          "ply": 9,
+          "san": "a5",
+          "uci": "a7a5",
+          "clock_after": 1778
+        },
+        {
+          "ply": 10,
+          "san": "Be3",
+          "uci": "c1e3",
+          "clock_after": 1768
+        },
+        {
+          "ply": 11,
+          "san": "Bb4",
+          "uci": "f8b4",
+          "clock_after": 1774
+        },
+        {
+          "ply": 12,
+          "san": "Bxf7+",
+          "uci": "c4f7",
+          "clock_after": 1746
+        },
+        {
+          "ply": 13,
+          "san": "Kxf7",
+          "uci": "e8f7",
+          "clock_after": 1771
+        },
+        {
+          "ply": 14,
+          "san": "Ne2",
+          "uci": "g1e2",
+          "clock_after": 1733
+        },
+        {
+          "ply": 15,
+          "san": "Nxc2+",
+          "uci": "d4c2",
+          "clock_after": 1756
+        },
+        {
+          "ply": 16,
+          "san": "Kd1",
+          "uci": "e1d1",
+          "clock_after": 1709
+        },
+        {
+          "ply": 17,
+          "san": "Bxc3",
+          "uci": "b4c3",
+          "clock_after": 1752
+        },
+        {
+          "ply": 18,
+          "san": "bxc3",
+          "uci": "b2c3",
+          "clock_after": 1706
+        },
+        {
+          "ply": 19,
+          "san": "Nxa1",
+          "uci": "c2a1",
+          "clock_after": 1751
+        },
+        {
+          "ply": 20,
+          "san": "Ke1",
+          "uci": "d1e1",
+          "clock_after": 1700
+        },
+        {
+          "ply": 21,
+          "san": "d5",
+          "uci": "d7d5",
+          "clock_after": 1748
+        }
+      ]
+    },
+    {
+      "game_id": "ulLWu7Zp",
+      "url": "https://lichess.org/game/ulLWu7Zp",
+      "white": "mischiko",
+      "black": "romanruslan",
+      "white_rating_before": 1670,
+      "black_rating_before": 1806,
+      "white_rating_after": 1666,
+      "black_rating_after": 1822,
+      "time_control": "900+15",
+      "time_class": "classical",
+      "eco": "C44",
+      "opening": "Scotch Game: Benima Defense",
+      "result": "0-1",
+      "termination": "Time forfeit",
+      "plies": 14,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "e4",
+          "uci": "e2e4",
+          "clock_after": 900
+        },
+        {
+          "ply": 1,
+          "san": "e5",
+          "uci": "e7e5",
+          "clock_after": 900
+        },
+        {
+          "ply": 2,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 912
+        },
+        {
+          "ply": 3,
+          "san": "Nc6",
+          "uci": "b8c6",
+          "clock_after": 913
+        },
+        {
+          "ply": 4,
+          "san": "Bc4",
+          "uci": "f1c4",
+          "clock_after": 925
+        },
+        {
+          "ply": 5,
+          "san": "Be7",
+          "uci": "f8e7",
+          "clock_after": 927
+        },
+        {
+          "ply": 6,
+          "san": "d4",
+          "uci": "d2d4",
+          "clock_after": 935
+        },
+        {
+          "ply": 7,
+          "san": "exd4",
+          "uci": "e5d4",
+          "clock_after": 940
+        },
+        {
+          "ply": 8,
+          "san": "Nxd4",
+          "uci": "f3d4",
+          "clock_after": 949
+        },
+        {
+          "ply": 9,
+          "san": "d6",
+          "uci": "d7d6",
+          "clock_after": 953
+        },
+        {
+          "ply": 10,
+          "san": "Nxc6",
+          "uci": "d4c6",
+          "clock_after": 959
+        },
+        {
+          "ply": 11,
+          "san": "bxc6",
+          "uci": "b7c6",
+          "clock_after": 965
+        },
+        {
+          "ply": 12,
+          "san": "Qf3",
+          "uci": "d1f3",
+          "clock_after": 954
+        },
+        {
+          "ply": 13,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 922
+        }
+      ]
+    },
+    {
+      "game_id": "7bo6CTIp",
+      "url": "https://lichess.org/game/7bo6CTIp",
+      "white": "Gandhisaubhagya1A",
+      "black": "ananaskor",
+      "white_rating_before": 1139,
+      "black_rating_before": 1086,
+      "white_rating_after": 1143,
+      "black_rating_after": 1082,
+      "time_control": "1500+0",
+      "time_class": "classical",
+      "eco": "D00",
+      "opening": "Amazon Attack",
+      "result": "1-0",
+      "termination": "Normal",
+      "plies": 41,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "d4",
+          "uci": "d2d4",
+          "clock_after": 1500
+        },
+        {
+          "ply": 1,
+          "san": "d5",
+          "uci": "d7d5",
+          "clock_after": 1500
+        },
+        {
+          "ply": 2,
+          "san": "Qd3",
+          "uci": "d1d3",
+          "clock_after": 1487
+        },
+        {
+          "ply": 3,
+          "san": "e6",
+          "uci": "e7e6",
+          "clock_after": 1489
+        },
+        {
+          "ply": 4,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 1464
+        },
+        {
+          "ply": 5,
+          "san": "Bb4+",
+          "uci": "f8b4",
+          "clock_after": 1483
+        },
+        {
+          "ply": 6,
+          "san": "c3",
+          "uci": "c2c3",
+          "clock_after": 1462
+        },
+        {
+          "ply": 7,
+          "san": "Ba5",
+          "uci": "b4a5",
+          "clock_after": 1477
+        },
+        {
+          "ply": 8,
+          "san": "b4",
+          "uci": "b2b4",
+          "clock_after": 1460
+        },
+        {
+          "ply": 9,
+          "san": "Bb6",
+          "uci": "a5b6",
+          "clock_after": 1467
+        },
+        {
+          "ply": 10,
+          "san": "a4",
+          "uci": "a2a4",
+          "clock_after": 1458
+        },
+        {
+          "ply": 11,
+          "san": "a5",
+          "uci": "a7a5",
+          "clock_after": 1457
+        },
+        {
+          "ply": 12,
+          "san": "c4",
+          "uci": "c3c4",
+          "clock_after": 1450
+        },
+        {
+          "ply": 13,
+          "san": "axb4",
+          "uci": "a5b4",
+          "clock_after": 1451
+        },
+        {
+          "ply": 14,
+          "san": "c5",
+          "uci": "c4c5",
+          "clock_after": 1439
+        },
+        {
+          "ply": 15,
+          "san": "Ba5",
+          "uci": "b6a5",
+          "clock_after": 1434
+        },
+        {
+          "ply": 16,
+          "san": "e4",
+          "uci": "e2e4",
+          "clock_after": 1371
+        },
+        {
+          "ply": 17,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 1411
+        },
+        {
+          "ply": 18,
+          "san": "e5",
+          "uci": "e4e5",
+          "clock_after": 1359
+        },
+        {
+          "ply": 19,
+          "san": "Ne4",
+          "uci": "f6e4",
+          "clock_after": 1404
+        },
+        {
+          "ply": 20,
+          "san": "Bd2",
+          "uci": "c1d2",
+          "clock_after": 1314
+        },
+        {
+          "ply": 21,
+          "san": "Na6",
+          "uci": "b8a6",
+          "clock_after": 1340
+        },
+        {
+          "ply": 22,
+          "san": "Qb5+",
+          "uci": "d3b5",
+          "clock_after": 1285
+        },
+        {
+          "ply": 23,
+          "san": "c6",
+          "uci": "c7c6",
+          "clock_after": 1285
+        },
+        {
+          "ply": 24,
+          "san": "Qd3",
+          "uci": "b5d3",
+          "clock_after": 1245
+        },
+        {
+          "ply": 25,
+          "san": "Nc3",
+          "uci": "e4c3",
+          "clock_after": 1252
+        },
+        {
+          "ply": 26,
+          "san": "Bxc3",
+          "uci": "d2c3",
+          "clock_after": 1242
+        },
+        {
+          "ply": 27,
+          "san": "bxc3",
+          "uci": "b4c3",
+          "clock_after": 1249
+        },
+        {
+          "ply": 28,
+          "san": "Nxc3",
+          "uci": "b1c3",
+          "clock_after": 1237
+        },
+        {
+          "ply": 29,
+          "san": "Bxc3+",
+          "uci": "a5c3",
+          "clock_after": 1216
+        },
+        {
+          "ply": 30,
+          "san": "Qxc3",
+          "uci": "d3c3",
+          "clock_after": 1234
+        },
+        {
+          "ply": 31,
+          "san": "O-O",
+          "uci": "e8g8",
+          "clock_after": 1192
+        },
+        {
+          "ply": 32,
+          "san": "Bd3",
+          "uci": "f1d3",
+          "clock_after": 1221
+        },
+        {
+          "ply": 33,
+          "san": "h6",
+          "uci": "h7h6",
+          "clock_after": 1151
+        },
+        {
+          "ply": 34,
+          "san": "O-O",
+          "uci": "e1g1",
+          "clock_after": 1212
+        },
+        {
+          "ply": 35,
+          "san": "b6",
+          "uci": "b7b6",
+          "clock_after": 1087
+        },
+        {
+          "ply": 36,
+          "san": "Bb1",
+          "uci": "d3b1",
+          "clock_after": 1201
+        },
+        {
+          "ply": 37,
+          "san": "bxc5",
+          "uci": "b6c5",
+          "clock_after": 1073
+        },
+        {
+          "ply": 38,
+          "san": "Qd3",
+          "uci": "c3d3",
+          "clock_after": 1197
+        },
+        {
+          "ply": 39,
+          "san": "Qa5",
+          "uci": "d8a5",
+          "clock_after": 1058
+        },
+        {
+          "ply": 40,
+          "san": "Qh7#",
+          "uci": "d3h7",
+          "clock_after": 1188
+        }
+      ]
+    },
+    {
+      "game_id": "bBy6nms3",
+      "url": "https://lichess.org/game/bBy6nms3",
+      "white": "babou94",
+      "black": "FruttoloFruttolo",
+      "white_rating_before": 1380,
+      "black_rating_before": 1446,
+      "white_rating_after": 1386,
+      "black_rating_after": 1400,
+      "time_control": "1800+0",
+      "time_class": "classical",
+      "eco": "B01",
+      "opening": "Scandinavian Defense: Main Line",
+      "result": "1-0",
+      "termination": "Normal",
+      "plies": 51,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "e4",
+          "uci": "e2e4",
+          "clock_after": 1800
+        },
+        {
+          "ply": 1,
+          "san": "d5",
+          "uci": "d7d5",
+          "clock_after": 1800
+        },
+        {
+          "ply": 2,
+          "san": "exd5",
+          "uci": "e4d5",
+          "clock_after": 1797
+        },
+        {
+          "ply": 3,
+          "san": "Qxd5",
+          "uci": "d8d5",
+          "clock_after": 1795
+        },
+        {
+          "ply": 4,
+          "san": "Nc3",
+          "uci": "b1c3",
+          "clock_after": 1794
+        },
+        {
+          "ply": 5,
+          "san": "Qa5",
+          "uci": "d5a5",
+          "clock_after": 1791
+        },
+        {
+          "ply": 6,
+          "san": "Bb5+",
+          "uci": "f1b5",
+          "clock_after": 1776
+        },
+        {
+          "ply": 7,
+          "san": "c6",
+          "uci": "c7c6",
+          "clock_after": 1787
+        },
+        {
+          "ply": 8,
+          "san": "Be2",
+          "uci": "b5e2",
+          "clock_after": 1771
+        },
+        {
+          "ply": 9,
+          "san": "Bf5",
+          "uci": "c8f5",
+          "clock_after": 1778
+        },
+        {
+          "ply": 10,
+          "san": "Bd3",
+          "uci": "e2d3",
+          "clock_after": 1752
+        },
+        {
+          "ply": 11,
+          "san": "e6",
+          "uci": "e7e6",
+          "clock_after": 1759
+        },
+        {
+          "ply": 12,
+          "san": "Nge2",
+          "uci": "g1e2",
+          "clock_after": 1747
+        },
+        {
+          "ply": 13,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 1746
+        },
+        {
+          "ply": 14,
+          "san": "Nd4",
+          "uci": "e2d4",
+          "clock_after": 1740
+        },
+        {
+          "ply": 15,
+          "san": "Bd6",
+          "uci": "f8d6",
+          "clock_after": 1718
+        },
+        {
+          "ply": 16,
+          "san": "Nxf5",
+          "uci": "d4f5",
+          "clock_after": 1727
+        },
+        {
+          "ply": 17,
+          "san": "exf5",
+          "uci": "e6f5",
+          "clock_after": 1712
+        },
+        {
+          "ply": 18,
+          "san": "Qe2+",
+          "uci": "d1e2",
+          "clock_after": 1710
+        },
+        {
+          "ply": 19,
+          "san": "Be5",
+          "uci": "d6e5",
+          "clock_after": 1704
+        },
+        {
+          "ply": 20,
+          "san": "O-O",
+          "uci": "e1g1",
+          "clock_after": 1692
+        },
+        {
+          "ply": 21,
+          "san": "O-O",
+          "uci": "e8g8",
+          "clock_after": 1685
+        },
+        {
+          "ply": 22,
+          "san": "Bxf5",
+          "uci": "d3f5",
+          "clock_after": 1677
+        },
+        {
+          "ply": 23,
+          "san": "Bxh2+",
+          "uci": "e5h2",
+          "clock_after": 1666
+        },
+        {
+          "ply": 24,
+          "san": "Kxh2",
+          "uci": "g1h2",
+          "clock_after": 1675
+        },
+        {
+          "ply": 25,
+          "san": "Qxf5",
+          "uci": "a5f5",
+          "clock_after": 1662
+        },
+        {
+          "ply": 26,
+          "san": "Kg1",
+          "uci": "h2g1",
+          "clock_after": 1669
+        },
+        {
+          "ply": 27,
+          "san": "Re8",
+          "uci": "f8e8",
+          "clock_after": 1638
+        },
+        {
+          "ply": 28,
+          "san": "Qd3",
+          "uci": "e2d3",
+          "clock_after": 1661
+        },
+        {
+          "ply": 29,
+          "san": "Qh5",
+          "uci": "f5h5",
+          "clock_after": 1598
+        },
+        {
+          "ply": 30,
+          "san": "Re1",
+          "uci": "f1e1",
+          "clock_after": 1647
+        },
+        {
+          "ply": 31,
+          "san": "Nbd7",
+          "uci": "b8d7",
+          "clock_after": 1579
+        },
+        {
+          "ply": 32,
+          "san": "Ne2",
+          "uci": "c3e2",
+          "clock_after": 1630
+        },
+        {
+          "ply": 33,
+          "san": "Ng4",
+          "uci": "f6g4",
+          "clock_after": 1566
+        },
+        {
+          "ply": 34,
+          "san": "Qh3",
+          "uci": "d3h3",
+          "clock_after": 1616
+        },
+        {
+          "ply": 35,
+          "san": "Qf5",
+          "uci": "h5f5",
+          "clock_after": 1531
+        },
+        {
+          "ply": 36,
+          "san": "d3",
+          "uci": "d2d3",
+          "clock_after": 1587
+        },
+        {
+          "ply": 37,
+          "san": "Nde5",
+          "uci": "d7e5",
+          "clock_after": 1515
+        },
+        {
+          "ply": 38,
+          "san": "Qg3",
+          "uci": "h3g3",
+          "clock_after": 1562
+        },
+        {
+          "ply": 39,
+          "san": "Re6",
+          "uci": "e8e6",
+          "clock_after": 1460
+        },
+        {
+          "ply": 40,
+          "san": "Nd4",
+          "uci": "e2d4",
+          "clock_after": 1551
+        },
+        {
+          "ply": 41,
+          "san": "Nf3+",
+          "uci": "e5f3",
+          "clock_after": 1417
+        },
+        {
+          "ply": 42,
+          "san": "Nxf3",
+          "uci": "d4f3",
+          "clock_after": 1510
+        },
+        {
+          "ply": 43,
+          "san": "Rxe1+",
+          "uci": "e6e1",
+          "clock_after": 1386
+        },
+        {
+          "ply": 44,
+          "san": "Nxe1",
+          "uci": "f3e1",
+          "clock_after": 1503
+        },
+        {
+          "ply": 45,
+          "san": "Re8",
+          "uci": "a8e8",
+          "clock_after": 1374
+        },
+        {
+          "ply": 46,
+          "san": "Bd2",
+          "uci": "c1d2",
+          "clock_after": 1485
+        },
+        {
+          "ply": 47,
+          "san": "Re2",
+          "uci": "e8e2",
+          "clock_after": 1367
+        },
+        {
+          "ply": 48,
+          "san": "Qf4",
+          "uci": "g3f4",
+          "clock_after": 1471
+        },
+        {
+          "ply": 49,
+          "san": "Qh5",
+          "uci": "f5h5",
+          "clock_after": 1333
+        },
+        {
+          "ply": 50,
+          "san": "Qb8+",
+          "uci": "f4b8",
+          "clock_after": 1464
+        }
+      ]
+    },
+    {
+      "game_id": "60mUCMQ9",
+      "url": "https://lichess.org/game/60mUCMQ9",
+      "white": "BoBByuger",
+      "black": "mati1143",
+      "white_rating_before": 925,
+      "black_rating_before": 875,
+      "white_rating_after": 924,
+      "black_rating_after": 878,
+      "time_control": "2100+3",
+      "time_class": "classical",
+      "eco": "A01",
+      "opening": "Nimzo-Larsen Attack: Modern Variation",
+      "result": "1/2-1/2",
+      "termination": "Time forfeit",
+      "plies": 15,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "b3",
+          "uci": "b2b3",
+          "clock_after": 2100
+        },
+        {
+          "ply": 1,
+          "san": "e5",
+          "uci": "e7e5",
+          "clock_after": 2100
+        },
+        {
+          "ply": 2,
+          "san": "Bb2",
+          "uci": "c1b2",
+          "clock_after": 2097
+        },
+        {
+          "ply": 3,
+          "san": "d6",
+          "uci": "d7d6",
+          "clock_after": 2100
+        },
+        {
+          "ply": 4,
+          "san": "e3",
+          "uci": "e2e3",
+          "clock_after": 2059
+        },
+        {
+          "ply": 5,
+          "san": "Qh4",
+          "uci": "d8h4",
+          "clock_after": 2096
+        },
+        {
+          "ply": 6,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 1984
+        },
+        {
+          "ply": 7,
+          "san": "Qg4",
+          "uci": "h4g4",
+          "clock_after": 2084
+        },
+        {
+          "ply": 8,
+          "san": "d3",
+          "uci": "d2d3",
+          "clock_after": 1933
+        },
+        {
+          "ply": 9,
+          "san": "Qf5",
+          "uci": "g4f5",
+          "clock_after": 2037
+        },
+        {
+          "ply": 10,
+          "san": "Qd2",
+          "uci": "d1d2",
+          "clock_after": 1907
+        },
+        {
+          "ply": 11,
+          "san": "d5",
+          "uci": "d6d5",
+          "clock_after": 2023
+        },
+        {
+          "ply": 12,
+          "san": "Bxe5",
+          "uci": "b2e5",
+          "clock_after": 1872
+        },
+        {
+          "ply": 13,
+          "san": "d4",
+          "uci": "d5d4",
+          "clock_after": 2022
+        },
+        {
+          "ply": 14,
+          "san": "Bxc7",
+          "uci": "e5c7",
+          "clock_after": 1666
+        }
+      ]
+    },
+    {
+      "game_id": "HZkrW8JA",
+      "url": "https://lichess.org/game/HZkrW8JA",
+      "white": "ANDREwmu",
+      "black": "Ambika123",
+      "white_rating_before": 1588,
+      "black_rating_before": 1669,
+      "white_rating_after": 1590,
+      "black_rating_after": 1668,
+      "time_control": "900+30",
+      "time_class": "classical",
+      "eco": "A11",
+      "opening": "English Opening: Caro-Kann Defensive System",
+      "result": "1/2-1/2",
+      "termination": "Normal",
+      "plies": 77,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "c4",
+          "uci": "c2c4",
+          "clock_after": 900
+        },
+        {
+          "ply": 1,
+          "san": "c6",
+          "uci": "c7c6",
+          "clock_after": 900
+        },
+        {
+          "ply": 2,
+          "san": "Nc3",
+          "uci": "b1c3",
+          "clock_after": 929
+        },
+        {
+          "ply": 3,
+          "san": "d5",
+          "uci": "d7d5",
+          "clock_after": 920
+        },
+        {
+          "ply": 4,
+          "san": "cxd5",
+          "uci": "c4d5",
+          "clock_after": 947
+        },
+        {
+          "ply": 5,
+          "san": "cxd5",
+          "uci": "c6d5",
+          "clock_after": 941
+        },
+        {
+          "ply": 6,
+          "san": "d4",
+          "uci": "d2d4",
+          "clock_after": 976
+        },
+        {
+          "ply": 7,
+          "san": "a6",
+          "uci": "a7a6",
+          "clock_after": 961
+        },
+        {
+          "ply": 8,
+          "san": "e3",
+          "uci": "e2e3",
+          "clock_after": 1005
+        },
+        {
+          "ply": 9,
+          "san": "Nc6",
+          "uci": "b8c6",
+          "clock_after": 980
+        },
+        {
+          "ply": 10,
+          "san": "a3",
+          "uci": "a2a3",
+          "clock_after": 1030
+        },
+        {
+          "ply": 11,
+          "san": "Bf5",
+          "uci": "c8f5",
+          "clock_after": 1002
+        },
+        {
+          "ply": 12,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 1056
+        },
+        {
+          "ply": 13,
+          "san": "h6",
+          "uci": "h7h6",
+          "clock_after": 1022
+        },
+        {
+          "ply": 14,
+          "san": "Bd3",
+          "uci": "f1d3",
+          "clock_after": 1084
+        },
+        {
+          "ply": 15,
+          "san": "Bxd3",
+          "uci": "f5d3",
+          "clock_after": 1038
+        },
+        {
+          "ply": 16,
+          "san": "Qxd3",
+          "uci": "d1d3",
+          "clock_after": 1114
+        },
+        {
+          "ply": 17,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 1057
+        },
+        {
+          "ply": 18,
+          "san": "Qf5",
+          "uci": "d3f5",
+          "clock_after": 1092
+        },
+        {
+          "ply": 19,
+          "san": "e6",
+          "uci": "e7e6",
+          "clock_after": 1065
+        },
+        {
+          "ply": 20,
+          "san": "Qd3",
+          "uci": "f5d3",
+          "clock_after": 1091
+        },
+        {
+          "ply": 21,
+          "san": "Bd6",
+          "uci": "f8d6",
+          "clock_after": 1051
+        },
+        {
+          "ply": 22,
+          "san": "O-O",
+          "uci": "e1g1",
+          "clock_after": 1116
+        },
+        {
+          "ply": 23,
+          "san": "O-O",
+          "uci": "e8g8",
+          "clock_after": 1073
+        },
+        {
+          "ply": 24,
+          "san": "Re1",
+          "uci": "f1e1",
+          "clock_after": 1115
+        },
+        {
+          "ply": 25,
+          "san": "Bc7",
+          "uci": "d6c7",
+          "clock_after": 1091
+        },
+        {
+          "ply": 26,
+          "san": "h3",
+          "uci": "h2h3",
+          "clock_after": 1059
+        },
+        {
+          "ply": 27,
+          "san": "Re8",
+          "uci": "f8e8",
+          "clock_after": 1114
+        },
+        {
+          "ply": 28,
+          "san": "e4",
+          "uci": "e3e4",
+          "clock_after": 1053
+        },
+        {
+          "ply": 29,
+          "san": "dxe4",
+          "uci": "d5e4",
+          "clock_after": 1132
+        },
+        {
+          "ply": 30,
+          "san": "Nxe4",
+          "uci": "c3e4",
+          "clock_after": 1077
+        },
+        {
+          "ply": 31,
+          "san": "Nxe4",
+          "uci": "f6e4",
+          "clock_after": 1072
+        },
+        {
+          "ply": 32,
+          "san": "Qxe4",
+          "uci": "d3e4",
+          "clock_after": 1049
+        },
+        {
+          "ply": 33,
+          "san": "Qd5",
+          "uci": "d8d5",
+          "clock_after": 1065
+        },
+        {
+          "ply": 34,
+          "san": "Bd2",
+          "uci": "c1d2",
+          "clock_after": 1022
+        },
+        {
+          "ply": 35,
+          "san": "Rad8",
+          "uci": "a8d8",
+          "clock_after": 1059
+        },
+        {
+          "ply": 36,
+          "san": "Bc3",
+          "uci": "d2c3",
+          "clock_after": 1028
+        },
+        {
+          "ply": 37,
+          "san": "Qxe4",
+          "uci": "d5e4",
+          "clock_after": 906
+        },
+        {
+          "ply": 38,
+          "san": "Rxe4",
+          "uci": "e1e4",
+          "clock_after": 1053
+        },
+        {
+          "ply": 39,
+          "san": "f6",
+          "uci": "f7f6",
+          "clock_after": 853
+        },
+        {
+          "ply": 40,
+          "san": "Rae1",
+          "uci": "a1e1",
+          "clock_after": 1068
+        },
+        {
+          "ply": 41,
+          "san": "e5",
+          "uci": "e6e5",
+          "clock_after": 869
+        },
+        {
+          "ply": 42,
+          "san": "dxe5",
+          "uci": "d4e5",
+          "clock_after": 1042
+        },
+        {
+          "ply": 43,
+          "san": "fxe5",
+          "uci": "f6e5",
+          "clock_after": 868
+        },
+        {
+          "ply": 44,
+          "san": "Nxe5",
+          "uci": "f3e5",
+          "clock_after": 1065
+        },
+        {
+          "ply": 45,
+          "san": "Nxe5",
+          "uci": "c6e5",
+          "clock_after": 888
+        },
+        {
+          "ply": 46,
+          "san": "Bxe5",
+          "uci": "c3e5",
+          "clock_after": 1092
+        },
+        {
+          "ply": 47,
+          "san": "Bxe5",
+          "uci": "c7e5",
+          "clock_after": 881
+        },
+        {
+          "ply": 48,
+          "san": "Rxe5",
+          "uci": "e4e5",
+          "clock_after": 1122
+        },
+        {
+          "ply": 49,
+          "san": "Rxe5",
+          "uci": "e8e5",
+          "clock_after": 896
+        },
+        {
+          "ply": 50,
+          "san": "Rxe5",
+          "uci": "e1e5",
+          "clock_after": 1152
+        },
+        {
+          "ply": 51,
+          "san": "Rd1+",
+          "uci": "d8d1",
+          "clock_after": 902
+        },
+        {
+          "ply": 52,
+          "san": "Kh2",
+          "uci": "g1h2",
+          "clock_after": 1172
+        },
+        {
+          "ply": 53,
+          "san": "Rd2",
+          "uci": "d1d2",
+          "clock_after": 919
+        },
+        {
+          "ply": 54,
+          "san": "b4",
+          "uci": "b2b4",
+          "clock_after": 1095
+        },
+        {
+          "ply": 55,
+          "san": "Rxf2",
+          "uci": "d2f2",
+          "clock_after": 933
+        },
+        {
+          "ply": 56,
+          "san": "Kg3",
+          "uci": "h2g3",
+          "clock_after": 1119
+        },
+        {
+          "ply": 57,
+          "san": "Ra2",
+          "uci": "f2a2",
+          "clock_after": 942
+        },
+        {
+          "ply": 58,
+          "san": "Ra5",
+          "uci": "e5a5",
+          "clock_after": 1147
+        },
+        {
+          "ply": 59,
+          "san": "Kf7",
+          "uci": "g8f7",
+          "clock_after": 922
+        },
+        {
+          "ply": 60,
+          "san": "Kf3",
+          "uci": "g3f3",
+          "clock_after": 1175
+        },
+        {
+          "ply": 61,
+          "san": "Kf6",
+          "uci": "f7f6",
+          "clock_after": 939
+        },
+        {
+          "ply": 62,
+          "san": "g4",
+          "uci": "g2g4",
+          "clock_after": 1197
+        },
+        {
+          "ply": 63,
+          "san": "g5",
+          "uci": "g7g5",
+          "clock_after": 924
+        },
+        {
+          "ply": 64,
+          "san": "b5",
+          "uci": "b4b5",
+          "clock_after": 1158
+        },
+        {
+          "ply": 65,
+          "san": "axb5",
+          "uci": "a6b5",
+          "clock_after": 896
+        },
+        {
+          "ply": 66,
+          "san": "Rxb5",
+          "uci": "a5b5",
+          "clock_after": 1185
+        },
+        {
+          "ply": 67,
+          "san": "Rxa3+",
+          "uci": "a2a3",
+          "clock_after": 909
+        },
+        {
+          "ply": 68,
+          "san": "Kg2",
+          "uci": "f3g2",
+          "clock_after": 1213
+        },
+        {
+          "ply": 69,
+          "san": "Ra2+",
+          "uci": "a3a2",
+          "clock_after": 881
+        },
+        {
+          "ply": 70,
+          "san": "Kf3",
+          "uci": "g2f3",
+          "clock_after": 1226
+        },
+        {
+          "ply": 71,
+          "san": "Ra3+",
+          "uci": "a2a3",
+          "clock_after": 899
+        },
+        {
+          "ply": 72,
+          "san": "Kg2",
+          "uci": "f3g2",
+          "clock_after": 1254
+        },
+        {
+          "ply": 73,
+          "san": "Ra7",
+          "uci": "a3a7",
+          "clock_after": 865
+        },
+        {
+          "ply": 74,
+          "san": "Kg3",
+          "uci": "g2g3",
+          "clock_after": 1245
+        },
+        {
+          "ply": 75,
+          "san": "Ra3+",
+          "uci": "a7a3",
+          "clock_after": 874
+        },
+        {
+          "ply": 76,
+          "san": "Kg2",
+          "uci": "g3g2",
+          "clock_after": 1266
+        }
+      ]
+    },
+    {
+      "game_id": "Itv5LEW0",
+      "url": "https://lichess.org/game/Itv5LEW0",
+      "white": "toftof29",
+      "black": "greatvastforest",
+      "white_rating_before": 1282,
+      "black_rating_before": 1331,
+      "white_rating_after": 1277,
+      "black_rating_after": 1336,
+      "time_control": "600+0",
+      "time_class": "rapid",
+      "eco": "C23",
+      "opening": "Bishop's Opening",
+      "result": "0-1",
+      "termination": "Normal",
+      "plies": 58,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "e4",
+          "uci": "e2e4",
+          "clock_after": 600
+        },
+        {
+          "ply": 1,
+          "san": "e5",
+          "uci": "e7e5",
+          "clock_after": 600
+        },
+        {
+          "ply": 2,
+          "san": "Bc4",
+          "uci": "f1c4",
+          "clock_after": 596
+        },
+        {
+          "ply": 3,
+          "san": "Ne7",
+          "uci": "g8e7",
+          "clock_after": 585
+        },
+        {
+          "ply": 4,
+          "san": "Qh5",
+          "uci": "d1h5",
+          "clock_after": 594
+        },
+        {
+          "ply": 5,
+          "san": "d5",
+          "uci": "d7d5",
+          "clock_after": 579
+        },
+        {
+          "ply": 6,
+          "san": "exd5",
+          "uci": "e4d5",
+          "clock_after": 587
+        },
+        {
+          "ply": 7,
+          "san": "Nxd5",
+          "uci": "e7d5",
+          "clock_after": 567
+        },
+        {
+          "ply": 8,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 585
+        },
+        {
+          "ply": 9,
+          "san": "Be6",
+          "uci": "c8e6",
+          "clock_after": 558
+        },
+        {
+          "ply": 10,
+          "san": "Nxe5",
+          "uci": "f3e5",
+          "clock_after": 579
+        },
+        {
+          "ply": 11,
+          "san": "Qf6",
+          "uci": "d8f6",
+          "clock_after": 551
+        },
+        {
+          "ply": 12,
+          "san": "d4",
+          "uci": "d2d4",
+          "clock_after": 549
+        },
+        {
+          "ply": 13,
+          "san": "Nd7",
+          "uci": "b8d7",
+          "clock_after": 534
+        },
+        {
+          "ply": 14,
+          "san": "Nxd7",
+          "uci": "e5d7",
+          "clock_after": 537
+        },
+        {
+          "ply": 15,
+          "san": "Bxd7",
+          "uci": "e6d7",
+          "clock_after": 531
+        },
+        {
+          "ply": 16,
+          "san": "Bxd5",
+          "uci": "c4d5",
+          "clock_after": 532
+        },
+        {
+          "ply": 17,
+          "san": "Qe7+",
+          "uci": "f6e7",
+          "clock_after": 514
+        },
+        {
+          "ply": 18,
+          "san": "Be3",
+          "uci": "c1e3",
+          "clock_after": 524
+        },
+        {
+          "ply": 19,
+          "san": "O-O-O",
+          "uci": "e8c8",
+          "clock_after": 504
+        },
+        {
+          "ply": 20,
+          "san": "O-O",
+          "uci": "e1g1",
+          "clock_after": 522
+        },
+        {
+          "ply": 21,
+          "san": "Bc6",
+          "uci": "d7c6",
+          "clock_after": 480
+        },
+        {
+          "ply": 22,
+          "san": "Bxf7",
+          "uci": "d5f7",
+          "clock_after": 512
+        },
+        {
+          "ply": 23,
+          "san": "Rd5",
+          "uci": "d8d5",
+          "clock_after": 466
+        },
+        {
+          "ply": 24,
+          "san": "Bxd5",
+          "uci": "f7d5",
+          "clock_after": 509
+        },
+        {
+          "ply": 25,
+          "san": "Bxd5",
+          "uci": "c6d5",
+          "clock_after": 464
+        },
+        {
+          "ply": 26,
+          "san": "Qxd5",
+          "uci": "h5d5",
+          "clock_after": 505
+        },
+        {
+          "ply": 27,
+          "san": "Qf6",
+          "uci": "e7f6",
+          "clock_after": 450
+        },
+        {
+          "ply": 28,
+          "san": "Nc3",
+          "uci": "b1c3",
+          "clock_after": 490
+        },
+        {
+          "ply": 29,
+          "san": "Bd6",
+          "uci": "f8d6",
+          "clock_after": 448
+        },
+        {
+          "ply": 30,
+          "san": "g4",
+          "uci": "g2g4",
+          "clock_after": 479
+        },
+        {
+          "ply": 31,
+          "san": "Qh4",
+          "uci": "f6h4",
+          "clock_after": 435
+        },
+        {
+          "ply": 32,
+          "san": "f4",
+          "uci": "f2f4",
+          "clock_after": 456
+        },
+        {
+          "ply": 33,
+          "san": "Qxg4+",
+          "uci": "h4g4",
+          "clock_after": 431
+        },
+        {
+          "ply": 34,
+          "san": "Qg2",
+          "uci": "d5g2",
+          "clock_after": 454
+        },
+        {
+          "ply": 35,
+          "san": "Qf5",
+          "uci": "g4f5",
+          "clock_after": 408
+        },
+        {
+          "ply": 36,
+          "san": "Qh3",
+          "uci": "g2h3",
+          "clock_after": 446
+        },
+        {
+          "ply": 37,
+          "san": "Qxh3",
+          "uci": "f5h3",
+          "clock_after": 402
+        },
+        {
+          "ply": 38,
+          "san": "Ne4",
+          "uci": "c3e4",
+          "clock_after": 437
+        },
+        {
+          "ply": 39,
+          "san": "Qxe3+",
+          "uci": "h3e3",
+          "clock_after": 391
+        },
+        {
+          "ply": 40,
+          "san": "Nf2",
+          "uci": "e4f2",
+          "clock_after": 436
+        },
+        {
+          "ply": 41,
+          "san": "Qxd4",
+          "uci": "e3d4",
+          "clock_after": 381
+        },
+        {
+          "ply": 42,
+          "san": "Rad1",
+          "uci": "a1d1",
+          "clock_after": 433
+        },
+        {
+          "ply": 43,
+          "san": "Qxf4",
+          "uci": "d4f4",
+          "clock_after": 355
+        },
+        {
+          "ply": 44,
+          "san": "Rxd6",
+          "uci": "d1d6",
+          "clock_after": 410
+        },
+        {
+          "ply": 45,
+          "san": "Qxd6",
+          "uci": "f4d6",
+          "clock_after": 341
+        },
+        {
+          "ply": 46,
+          "san": "Ng4",
+          "uci": "f2g4",
+          "clock_after": 409
+        },
+        {
+          "ply": 47,
+          "san": "Rf8",
+          "uci": "h8f8",
+          "clock_after": 338
+        },
+        {
+          "ply": 48,
+          "san": "Re1",
+          "uci": "f1e1",
+          "clock_after": 403
+        },
+        {
+          "ply": 49,
+          "san": "Qd4+",
+          "uci": "d6d4",
+          "clock_after": 333
+        },
+        {
+          "ply": 50,
+          "san": "Kg2",
+          "uci": "g1g2",
+          "clock_after": 391
+        },
+        {
+          "ply": 51,
+          "san": "Qd2+",
+          "uci": "d4d2",
+          "clock_after": 323
+        },
+        {
+          "ply": 52,
+          "san": "Kh3",
+          "uci": "g2h3",
+          "clock_after": 373
+        },
+        {
+          "ply": 53,
+          "san": "Qxe1",
+          "uci": "d2e1",
+          "clock_after": 320
+        },
+        {
+          "ply": 54,
+          "san": "c4",
+          "uci": "c2c4",
+          "clock_after": 366
+        },
+        {
+          "ply": 55,
+          "san": "Rf3+",
+          "uci": "f8f3",
+          "clock_after": 317
+        },
+        {
+          "ply": 56,
+          "san": "Kg2",
+          "uci": "h3g2",
+          "clock_after": 364
+        },
+        {
+          "ply": 57,
+          "san": "Qf1#",
+          "uci": "e1f1",
+          "clock_after": 314
+        }
+      ]
+    },
+    {
+      "game_id": "JGxmrnQa",
+      "url": "https://lichess.org/game/JGxmrnQa",
+      "white": "baggyfrog24",
+      "black": "fsmr13",
+      "white_rating_before": 1414,
+      "black_rating_before": 1421,
+      "white_rating_after": 1404,
+      "black_rating_after": 1436,
+      "time_control": "600+0",
+      "time_class": "rapid",
+      "eco": "B30",
+      "opening": "Sicilian Defense: Nyezhmetdinov-Rossolimo Attack",
+      "result": "0-1",
+      "termination": "Normal",
+      "plies": 45,
+      "moves": [
+        {
+          "ply": 0,
+          "san": "e4",
+          "uci": "e2e4",
+          "clock_after": 600
+        },
+        {
+          "ply": 1,
+          "san": "c5",
+          "uci": "c7c5",
+          "clock_after": 600
+        },
+        {
+          "ply": 2,
+          "san": "Nf3",
+          "uci": "g1f3",
+          "clock_after": 598
+        },
+        {
+          "ply": 3,
+          "san": "Nc6",
+          "uci": "b8c6",
+          "clock_after": 598
+        },
+        {
+          "ply": 4,
+          "san": "Bb5",
+          "uci": "f1b5",
+          "clock_after": 595
+        },
+        {
+          "ply": 5,
+          "san": "a6",
+          "uci": "a7a6",
+          "clock_after": 597
+        },
+        {
+          "ply": 6,
+          "san": "Bxc6",
+          "uci": "b5c6",
+          "clock_after": 594
+        },
+        {
+          "ply": 7,
+          "san": "bxc6",
+          "uci": "b7c6",
+          "clock_after": 597
+        },
+        {
+          "ply": 8,
+          "san": "b3",
+          "uci": "b2b3",
+          "clock_after": 591
+        },
+        {
+          "ply": 9,
+          "san": "d6",
+          "uci": "d7d6",
+          "clock_after": 595
+        },
+        {
+          "ply": 10,
+          "san": "c4",
+          "uci": "c2c4",
+          "clock_after": 589
+        },
+        {
+          "ply": 11,
+          "san": "g6",
+          "uci": "g7g6",
+          "clock_after": 587
+        },
+        {
+          "ply": 12,
+          "san": "O-O",
+          "uci": "e1g1",
+          "clock_after": 588
+        },
+        {
+          "ply": 13,
+          "san": "Bg7",
+          "uci": "f8g7",
+          "clock_after": 586
+        },
+        {
+          "ply": 14,
+          "san": "Nc3",
+          "uci": "b1c3",
+          "clock_after": 582
+        },
+        {
+          "ply": 15,
+          "san": "Bg4",
+          "uci": "c8g4",
+          "clock_after": 577
+        },
+        {
+          "ply": 16,
+          "san": "h3",
+          "uci": "h2h3",
+          "clock_after": 579
+        },
+        {
+          "ply": 17,
+          "san": "Bxf3",
+          "uci": "g4f3",
+          "clock_after": 574
+        },
+        {
+          "ply": 18,
+          "san": "Qxf3",
+          "uci": "d1f3",
+          "clock_after": 579
+        },
+        {
+          "ply": 19,
+          "san": "Nf6",
+          "uci": "g8f6",
+          "clock_after": 572
+        },
+        {
+          "ply": 20,
+          "san": "d3",
+          "uci": "d2d3",
+          "clock_after": 577
+        },
+        {
+          "ply": 21,
+          "san": "O-O",
+          "uci": "e8g8",
+          "clock_after": 570
+        },
+        {
+          "ply": 22,
+          "san": "Bb2",
+          "uci": "c1b2",
+          "clock_after": 575
+        },
+        {
+          "ply": 23,
+          "san": "Nd7",
+          "uci": "f6d7",
+          "clock_after": 565
+        },
+        {
+          "ply": 24,
+          "san": "Rfe1",
+          "uci": "f1e1",
+          "clock_after": 571
+        },
+        {
+          "ply": 25,
+          "san": "Nb6",
+          "uci": "d7b6",
+          "clock_after": 561
+        },
+        {
+          "ply": 26,
+          "san": "a4",
+          "uci": "a2a4",
+          "clock_after": 569
+        },
+        {
+          "ply": 27,
+          "san": "a5",
+          "uci": "a6a5",
+          "clock_after": 558
+        },
+        {
+          "ply": 28,
+          "san": "Re2",
+          "uci": "e1e2",
+          "clock_after": 563
+        },
+        {
+          "ply": 29,
+          "san": "e6",
+          "uci": "e7e6",
+          "clock_after": 546
+        },
+        {
+          "ply": 30,
+          "san": "Nd1",
+          "uci": "c3d1",
+          "clock_after": 525
+        },
+        {
+          "ply": 31,
+          "san": "Bxb2",
+          "uci": "g7b2",
+          "clock_after": 542
+        },
+        {
+          "ply": 32,
+          "san": "Nxb2",
+          "uci": "d1b2",
+          "clock_after": 525
+        },
+        {
+          "ply": 33,
+          "san": "d5",
+          "uci": "d6d5",
+          "clock_after": 541
+        },
+        {
+          "ply": 34,
+          "san": "exd5",
+          "uci": "e4d5",
+          "clock_after": 521
+        },
+        {
+          "ply": 35,
+          "san": "cxd5",
+          "uci": "c6d5",
+          "clock_after": 541
+        },
+        {
+          "ply": 36,
+          "san": "cxd5",
+          "uci": "c4d5",
+          "clock_after": 520
+        },
+        {
+          "ply": 37,
+          "san": "Nxd5",
+          "uci": "b6d5",
+          "clock_after": 540
+        },
+        {
+          "ply": 38,
+          "san": "Nc4",
+          "uci": "b2c4",
+          "clock_after": 515
+        },
+        {
+          "ply": 39,
+          "san": "Rb8",
+          "uci": "a8b8",
+          "clock_after": 532
+        },
+        {
+          "ply": 40,
+          "san": "Nxa5",
+          "uci": "c4a5",
+          "clock_after": 507
+        },
+        {
+          "ply": 41,
+          "san": "Qxa5",
+          "uci": "d8a5",
+          "clock_after": 522
+        },
+        {
+          "ply": 42,
+          "san": "Rc2",
+          "uci": "e2c2",
+          "clock_after": 490
+        },
+        {
+          "ply": 43,
+          "san": "Rxb3",
+          "uci": "b8b3",
+          "clock_after": 512
+        },
+        {
+          "ply": 44,
+          "san": "Qe3",
+          "uci": "f3e3",
+          "clock_after": 472
+        }
+      ]
+    }
+  ],
+  "exports": {
+    "BYvvanic": {
+      "id": "BYvvanic",
+      "rated": true,
+      "variant": "standard",
+      "speed": "blitz",
+      "perf": "blitz",
+      "createdAt": 1791122741512,
+      "lastMoveAt": 1791122988326,
+      "status": "mate",
+      "source": "pool",
+      "players": {
+        "white": {
+          "user": {
+            "name": "espinakkker",
+            "id": "espinakkker"
+          },
+          "rating": 1473,
+          "ratingDiff": -6
+        },
+        "black": {
+          "user": {
+            "name": "kivanc0912222",
+            "id": "kivanc0912222"
+          },
+          "rating": 1481,
+          "ratingDiff": 6
+        }
+      },
+      "winner": "black",
+      "opening": {
+        "eco": "C02",
+        "name": "French Defense: Advance Variation",
+        "ply": 8
+      },
+      "moves": "e4 d5 e5 e6 d4 c5 c3 Nc6 Qa4 Bd7 dxc5 Bxc5 Nf3 Nge7 Qg4 Ng6 Bd3 Qc7 Bf4 h5 Qg5 Be7 Bxg6 Bxg5 Nxg5 fxg6 O-O O-O-O Nf7 Rdf8 Nxh8 Rxf4 Nxg6 Rg4 Nf8 Nxe5 Nxd7 Qxd7 Nd2 Nd3 h3 Rg6 b4 e5 Nb3 Qxh3 g3 Nf4 Nc5 Qg2#",
+      "clocks": [
+        18003,
+        18003,
+        18043,
+        18091,
+        16331,
+        18099,
+        16435,
+        18091,
+        16499,
+        18219,
+        15491,
+        18235,
+        15171,
+        18179,
+        14915,
+        17787,
+        14435,
+        15739,
+        13547,
+        15219,
+        12059,
+        15179,
+        11571,
+        15123,
+        11163,
+        15107,
+        10883,
+        15099,
+        10811,
+        14947,
+        10691,
+        14947,
+        10755,
+        14547,
+        10155,
+        14051,
+        10059,
+        14155,
+        10131,
+        14075,
+        10107,
+        14027,
+        9739,
+        14115,
+        9619,
+        14155,
+        9451,
+        13939,
+        9343,
+        13704
+      ],
+      "clock": {
+        "initial": 180,
+        "increment": 2,
+        "totalTime": 260
+      }
+    },
+    "UDSsinAE": {
+      "id": "UDSsinAE",
+      "rated": true,
+      "variant": "standard",
+      "speed": "blitz",
+      "perf": "blitz",
+      "createdAt": 1791478676316,
+      "lastMoveAt": 1791478844797,
+      "status": "resign",
+      "source": "pool",
+      "players": {
+        "white": {
+          "user": {
+            "name": "midaco",
+            "id": "midaco"
+          },
+          "rating": 1562,
+          "ratingDiff": -5
+        },
+        "black": {
+          "user": {
+            "name": "tapchoicovua2026",
+            "id": "tapchoicovua2026"
+          },
+          "rating": 1606,
+          "ratingDiff": 5
+        }
+      },
+      "winner": "black",
+      "opening": {
+        "eco": "A10",
+        "name": "English Opening: Great Snake Variation",
+        "ply": 2
+      },
+      "moves": "c4 g6 Nc3 Bg7 d4 Nf6 e3 O-O Nf3 d6 g3 Re8 Bg2 a6 O-O c6 b3 Bg4 Bb2 Nbd7 Qd2 e5 dxe5 Nxe5 Nxe5 dxe5 Qxd8 Raxd8 f3 Be6 f4 exf4 exf4 Bg4 Ba3 Rd2 Bc5 Nh5 Rf2 Rxf2 Bxf2 Bxc3 Rd1 Bxd1",
+      "clocks": [
+        30003,
+        30003,
+        29875,
+        29883,
+        29659,
+        29755,
+        29507,
+        29699,
+        29387,
+        29571,
+        29267,
+        29491,
+        29155,
+        29435,
+        29027,
+        29363,
+        28827,
+        29235,
+        28659,
+        28619,
+        28531,
+        28419,
+        28259,
+        27427,
+        27715,
+        27139,
+        27355,
+        26771,
+        27187,
+        26179,
+        26899,
+        25923,
+        26787,
+        25555,
+        26211,
+        25075,
+        25435,
+        23467,
+        25099,
+        20995,
+        24075,
+        20595,
+        23923,
+        20209,
+        23585
+      ],
+      "clock": {
+        "initial": 300,
+        "increment": 0,
+        "totalTime": 300
+      }
+    },
+    "WWKiUdru": {
+      "id": "WWKiUdru",
+      "rated": true,
+      "variant": "standard",
+      "speed": "blitz",
+      "perf": "blitz",
+      "createdAt": 1792062997320,
+      "lastMoveAt": 1792063336106,
+      "status": "resign",
+      "source": "pool",
+      "players": {
+        "white": {
+          "user": {
+            "name": "arPI314",
+            "flair": "smileys.cowboy-hat-face",
+            "id": "arpi314"
+          },
+          "rating": 1922,
+          "ratingDiff": 13
+        },
+        "black": {
+          "user": {
+            "name": "razmarmax001",
+            "id": "razmarmax001"
+          },
+          "rating": 1895,
+          "ratingDiff": -5
+        }
+      },
+      "winner": "white",
+      "opening": {
+        "eco": "A35",
+        "name": "English Opening: Symmetrical Variation, Four Knights Variation",
+        "ply": 6
+      },
+      "moves": "Nf3 c5 c4 Nc6 Nc3 Nf6 g3 e6 Bg2 d5 d4 dxc4 Qa4 cxd4 Nxd4 Bd7 Nxc6 bxc6 Qxc4 Rc8 O-O Be7 Rd1 O-O Be3 Qc7 Rac1 Nd5 Nxd5 exd5 Bxd5 Rfd8 Bxf7+ Kh8 Be6 Bxe6 Qxe6 Rxd1+ Rxd1 Bf8 Rd7 Qb8 Bxa7 Qxb2 Bd4 Qc1+ Kg2 Ra8 Qf7 Qg5 a4 h5 h4 Qg4 f3",
+      "clocks": [
+        18003,
+        18003,
+        18035,
+        18203,
+        17859,
+        18403,
+        17851,
+        18539,
+        17531,
+        18675,
+        17667,
+        18499,
+        17755,
+        17971,
+        13475,
+        17595,
+        11963,
+        17579,
+        11947,
+        17243,
+        11731,
+        17251,
+        11795,
+        17291,
+        11859,
+        17051,
+        11675,
+        16499,
+        11555,
+        16459,
+        10995,
+        15243,
+        10587,
+        14947,
+        10675,
+        14819,
+        10875,
+        14267,
+        11075,
+        13947,
+        9379,
+        13315,
+        8699,
+        13115,
+        8547,
+        12243,
+        8587,
+        10963,
+        7555,
+        9667,
+        7483,
+        8659,
+        6475,
+        7435,
+        6548,
+        6025
+      ],
+      "clock": {
+        "initial": 180,
+        "increment": 2,
+        "totalTime": 260
+      }
+    },
+    "Wg0zJjWa": {
+      "id": "Wg0zJjWa",
+      "rated": true,
+      "variant": "standard",
+      "speed": "blitz",
+      "perf": "blitz",
+      "createdAt": 1791280957266,
+      "lastMoveAt": 1791281187821,
+      "status": "resign",
+      "source": "lobby",
+      "players": {
+        "white": {
+          "user": {
+            "name": "GrouchoHolmes",
+            "id": "grouchoholmes"
+          },
+          "rating": 1578,
+          "ratingDiff": 2
+        },
+        "black": {
+          "user": {
+            "name": "Aryansahoo1",
+            "id": "aryansahoo1"
+          },
+          "rating": 1293,
+          "ratingDiff": -14,
+          "provisional": true
+        }
+      },
+      "winner": "white",
+      "opening": {
+        "eco": "C24",
+        "name": "Bishop's Opening: Berlin Defense",
+        "ply": 4
+      },
+      "moves": "e4 e5 Bc4 Nf6 d3 Nc6 Bg5 h6 Bh4 Bc5 Nc3 g5 Bg3 d6 h4 Ng4 f3 Ne3 Qe2 Nxc4 dxc4 Be6 Nd5 Bxd5 cxd5 Nd4 Qd2 Qe7 O-O-O O-O-O Bf2 Qd7 c3 Nb5 Bxc5 dxc5 Ne2 c6 c4 Nc7 hxg5 hxg5 Rxh8 Rxh8 Qxg5 cxd5 cxd5 Qb5 Nc3 Qe8 d6 Ne6 Qxe5 Rg8 d7+ Qxd7 Rxd7 Kxd7 g4",
+      "clocks": [
+        12003,
+        12003,
+        12179,
+        12131,
+        12347,
+        12251,
+        12491,
+        12219,
+        12659,
+        12387,
+        12403,
+        12155,
+        12547,
+        12307,
+        12683,
+        11235,
+        12443,
+        11259,
+        12435,
+        11059,
+        12547,
+        11299,
+        12547,
+        9739,
+        12155,
+        9875,
+        11995,
+        9427,
+        12115,
+        9491,
+        12059,
+        9043,
+        11715,
+        8403,
+        11867,
+        8483,
+        12035,
+        8587,
+        11971,
+        8707,
+        11867,
+        8643,
+        12019,
+        8763,
+        12219,
+        8619,
+        12123,
+        8387,
+        12051,
+        7515,
+        11811,
+        7667,
+        11843,
+        6827,
+        11987,
+        6755,
+        12163,
+        7011,
+        12089,
+        6757
+      ],
+      "clock": {
+        "initial": 120,
+        "increment": 3,
+        "totalTime": 240
+      }
+    },
+    "8w9ikIra": {
+      "id": "8w9ikIra",
+      "rated": true,
+      "variant": "standard",
+      "speed": "blitz",
+      "perf": "blitz",
+      "createdAt": 1792590730342,
+      "lastMoveAt": 1792590851822,
+      "status": "draw",
+      "source": "pool",
+      "players": {
+        "white": {
+          "user": {
+            "name": "sashka_777",
+            "id": "sashka_777"
+          },
+          "rating": 2042,
+          "ratingDiff": 0
+        },
+        "black": {
+          "user": {
+            "name": "kra22",
+            "id": "kra22"
+          },
+          "rating": 2005,
+          "ratingDiff": 1
+        }
+      },
+      "opening": {
+        "eco": "B01",
+        "name": "Scandinavian Defense: Valencian Variation",
+        "ply": 6
+      },
+      "moves": "e4 d5 exd5 Qxd5 Nc3 Qd8 Nf3 e6 Be2 h6 O-O Nf6 d3 Bd6 Be3 O-O h3 a6 Qe1 b5 Rd1 Bb7 a3 Qe7 Ne4 Nxe4 dxe4 Bxe4 Bd3 Bxf3 gxf3 Qh4 Kg2 Nd7 Be4 Rad8 Rg1 Kh8 Kf1 Qxh3+ Ke2 Ne5 Rh1 Qg2 Rg1 Qh3 Rh1 Qg2 Rg1 Qh3",
+      "clocks": [
+        18003,
+        18003,
+        17891,
+        18003,
+        17803,
+        17931,
+        17803,
+        17907,
+        17787,
+        17907,
+        17779,
+        17899,
+        17771,
+        17899,
+        17763,
+        17875,
+        17747,
+        17843,
+        17723,
+        17795,
+        17691,
+        17715,
+        17547,
+        17659,
+        17467,
+        17451,
+        17467,
+        17387,
+        15891,
+        17243,
+        15715,
+        17107,
+        15451,
+        17003,
+        14539,
+        16827,
+        13939,
+        16619,
+        13411,
+        16483,
+        13363,
+        15787,
+        13291,
+        14811,
+        12107,
+        14459,
+        11235,
+        14355,
+        11123,
+        14281,
+        11127
+      ],
+      "clock": {
+        "initial": 180,
+        "increment": 0,
+        "totalTime": 180
+      }
+    },
+    "PIxrVVwA": {
+      "id": "PIxrVVwA",
+      "rated": true,
+      "variant": "standard",
+      "speed": "blitz",
+      "perf": "blitz",
+      "createdAt": 1791411063998,
+      "lastMoveAt": 1791411404951,
+      "status": "draw",
+      "source": "pool",
+      "players": {
+        "white": {
+          "user": {
+            "name": "Hazem7777",
+            "id": "hazem7777"
+          },
+          "rating": 1156,
+          "ratingDiff": -2
+        },
+        "black": {
+          "user": {
+            "name": "abdelghani12",
+            "id": "abdelghani12"
+          },
+          "rating": 1079,
+          "ratingDiff": 1
+        }
+      },
+      "opening": {
+        "eco": "A06",
+        "name": "Zukertort Opening: Old Indian Attack",
+        "ply": 3
+      },
+      "moves": "Nf3 d5 d3 Nc6 g3 e5 Bg2 Nf6 Nbd2 Bd6 e4 dxe4 dxe4 O-O O-O Bg4 Nc4 Be7 Bg5 Nxe4 Bxe7 Qxe7 h3 Rad8 Qe1 Bxf3 Bxf3 Ng5 Bg2 Qe6 Qc1 Nxh3+ Bxh3 Qxh3 Re1 Rd4 b3 b5 Nxe5 Nxe5 Rxe5 Qg4 Rxb5 Rfd8 Qg5 Rd1+ Rxd1 Qxd1+ Kg2 h6 Qe5 Qxc2 Rc5 Qxa2 Qxc7 Qd2 Qxa7 Qd1 Rc7 Qd5+ Kh2 Qh5+ Kg2 Qd5+ Kh2 Qh5+ Kg1 Qd1+ Kg2 Qd5+",
+      "clocks": [
+        18003,
+        18003,
+        17955,
+        17835,
+        17899,
+        17763,
+        17843,
+        17563,
+        17683,
+        17483,
+        17619,
+        17267,
+        17235,
+        16859,
+        17171,
+        15547,
+        17035,
+        14331,
+        16403,
+        13451,
+        15699,
+        13451,
+        15619,
+        12883,
+        15083,
+        12315,
+        14347,
+        12227,
+        13699,
+        11699,
+        12811,
+        11291,
+        12259,
+        11179,
+        11235,
+        10867,
+        10291,
+        10251,
+        10067,
+        9875,
+        9987,
+        8763,
+        9643,
+        8155,
+        7131,
+        7115,
+        6691,
+        6979,
+        6619,
+        6315,
+        5579,
+        5403,
+        5123,
+        4995,
+        4851,
+        4419,
+        4355,
+        3475,
+        3875,
+        1819,
+        3363,
+        1635,
+        3211,
+        1443,
+        2891,
+        1347,
+        2715,
+        1219,
+        2651,
+        1009,
+        2653
+      ],
+      "clock": {
+        "initial": 180,
+        "increment": 0,
+        "totalTime": 180
+      }
+    },
+    "6zNb3GRb": {
+      "id": "6zNb3GRb",
+      "rated": true,
+      "variant": "standard",
+      "speed": "bullet",
+      "perf": "bullet",
+      "createdAt": 1792174318404,
+      "lastMoveAt": 1792174625581,
+      "status": "outoftime",
+      "source": "pool",
+      "players": {
+        "white": {
+          "user": {
+            "name": "mozank",
+            "id": "mozank"
+          },
+          "rating": 1735,
+          "ratingDiff": -5
+        },
+        "black": {
+          "user": {
+            "name": "yasserchess1994",
+            "id": "yasserchess1994"
+          },
+          "rating": 1768,
+          "ratingDiff": 5
+        }
+      },
+      "winner": "black",
+      "opening": {
+        "eco": "B12",
+        "name": "Caro-Kann Defense: Advance Variation",
+        "ply": 5
+      },
+      "moves": "e4 c6 d4 d5 e5 Bf5 c4 e6 Nc3 Bb4 Bd2 Bxc3 Bxc3 dxc4 Bxc4 Ne7 Nf3 Nd5 O-O Nd7 Bd2 N7b6 Bb3 O-O Ba5 h6 Rc1 Rc8 Nd2 Qd7 Nc4 Nxc4 Bxc4 Qe7 a3 Qg5 Bd2 Qh4 Qf3 Qxd4 Rfd1 Qxb2 Qg3 Qxe5 Bxh6 Qf6 Bg5 Qg6 Bxd5 cxd5 Rxc8 Rxc8 Be7 Qxg3 hxg3 Re8 Bc5 b6 Bb4 Rc8 f3 a5 Bd2 Rc2 Be3 Rb2",
+      "clocks": [
+        12003,
+        12003,
+        11947,
+        12099,
+        11971,
+        12027,
+        11907,
+        12067,
+        11883,
+        11939,
+        11867,
+        12043,
+        11755,
+        12139,
+        11483,
+        12107,
+        11507,
+        12155,
+        11083,
+        12155,
+        10843,
+        12123,
+        10643,
+        11995,
+        10555,
+        10011,
+        9659,
+        9667,
+        7547,
+        9379,
+        6315,
+        8579,
+        5211,
+        6099,
+        3723,
+        6011,
+        3411,
+        4347,
+        2827,
+        4059,
+        1675,
+        3075,
+        1507,
+        1371,
+        1355,
+        1411,
+        1267,
+        1299,
+        990,
+        923,
+        834,
+        903,
+        786,
+        771,
+        851,
+        572,
+        668,
+        545,
+        605,
+        564,
+        477,
+        550,
+        287,
+        587,
+        199,
+        485,
+        0
+      ],
+      "clock": {
+        "initial": 120,
+        "increment": 1,
+        "totalTime": 160
+      }
+    },
+    "UJezndgO": {
+      "id": "UJezndgO",
+      "rated": true,
+      "variant": "standard",
+      "speed": "bullet",
+      "perf": "bullet",
+      "createdAt": 1792149144617,
+      "lastMoveAt": 1792149189712,
+      "status": "mate",
+      "source": "pool",
+      "players": {
+        "white": {
+          "user": {
+            "name": "kdnns",
+            "flair": "symbols.stop-button",
+            "id": "kdnns"
+          },
+          "rating": 2174,
+          "ratingDiff": -5
+        },
+        "black": {
+          "user": {
+            "name": "Sombrero_o",
+            "id": "sombrero_o"
+          },
+          "rating": 2223,
+          "ratingDiff": 6
+        }
+      },
+      "winner": "black",
+      "opening": {
+        "eco": "A00",
+        "name": "Ware Opening",
+        "ply": 1
+      },
+      "moves": "a4 Nf6 a5 g6 a6 Bg7 e3 O-O d4 b6 f4 c5 Nf3 d5 dxc5 bxc5 Bb5 Qb6 Nc3 d4 exd4 cxd4 Nxd4 Ne4 Be3 Nxc3 bxc3 Bxd4 Bxd4 Qxb5 Qf3 Nc6 Qh3 Bxa6 Qh6 Qe2#",
+      "clocks": [
+        6003,
+        6003,
+        6003,
+        5979,
+        5955,
+        5867,
+        5955,
+        5771,
+        5907,
+        5707,
+        5859,
+        5635,
+        5811,
+        5563,
+        5723,
+        5467,
+        5635,
+        5315,
+        5563,
+        5187,
+        5371,
+        5187,
+        5243,
+        4739,
+        5091,
+        4611,
+        5035,
+        4483,
+        4819,
+        4387,
+        4667,
+        4131,
+        4507,
+        3971,
+        4329,
+        3814
+      ],
+      "clock": {
+        "initial": 60,
+        "increment": 0,
+        "totalTime": 60
+      }
+    },
+    "JaH6oTfT": {
+      "id": "JaH6oTfT",
+      "rated": true,
+      "variant": "standard",
+      "speed": "bullet",
+      "perf": "bullet",
+      "createdAt": 1792162492335,
+      "lastMoveAt": 1792162648076,
+      "status": "outoftime",
+      "source": "lobby",
+      "players": {
+        "white": {
+          "user": {
+            "name": "seaaal",
+            "id": "seaaal"
+          },
+          "rating": 1549,
+          "ratingDiff": 2
+        },
+        "black": {
+          "user": {
+            "name": "YazzyFC",
+            "id": "yazzyfc"
+          },
+          "rating": 1500,
+          "ratingDiff": -199,
+          "provisional": true
+        }
+      },
+      "winner": "white",
+      "opening": {
+        "eco": "B13",
+        "name": "Caro-Kann Defense: Exchange Variation",
+        "ply": 7
+      },
+      "moves": "d4 d5 Bf4 c5 e3 cxd4 exd4 Bf5 c3 Qb6 Bd3 Bxd3 Qxd3 Qxb2 Nf3 Qxa1 Qc2 e6 O-O Nf6 Nbd2 Qxf1+ Kxf1 Be7 Ne5 O-O Ndf3 Nc6 Nxc6 bxc6 Ne5 Rab8 Nxc6 Ba3 Bxb8 Rxb8 g3 Rb2 Qd3 Ne4 Qa6 Rb1+ Kg2 g6 Ne5 Bd6 Qc8+ Kg7 Nd7 Rb2 Ne5 Rxf2+ Kh3 Ng5+ Kg4",
+      "clocks": [
+        6003,
+        6003,
+        6035,
+        5939,
+        6043,
+        5891,
+        6011,
+        5843,
+        6051,
+        5779,
+        6107,
+        5411,
+        5931,
+        5451,
+        5235,
+        5091,
+        5203,
+        4507,
+        5163,
+        2771,
+        5131,
+        2747,
+        5003,
+        2835,
+        4931,
+        2827,
+        4779,
+        2819,
+        4715,
+        2915,
+        4707,
+        2619,
+        4667,
+        1971,
+        4547,
+        2067,
+        4539,
+        1923,
+        4435,
+        1555,
+        4283,
+        1395,
+        4243,
+        1403,
+        3971,
+        813,
+        3859,
+        797,
+        3795,
+        577,
+        2691,
+        412,
+        2635,
+        375,
+        2596,
+        0
+      ],
+      "clock": {
+        "initial": 60,
+        "increment": 1,
+        "totalTime": 100
+      }
+    },
+    "bzVmhdUK": {
+      "id": "bzVmhdUK",
+      "rated": true,
+      "variant": "standard",
+      "speed": "bullet",
+      "perf": "bullet",
+      "createdAt": 1792090725666,
+      "lastMoveAt": 1792090810287,
+      "status": "mate",
+      "source": "lobby",
+      "players": {
+        "white": {
+          "user": {
+            "name": "eeedem",
+            "id": "eeedem"
+          },
+          "rating": 1775,
+          "ratingDiff": 6
+        },
+        "black": {
+          "user": {
+            "name": "ttbm",
+            "id": "ttbm"
+          },
+          "rating": 1828,
+          "ratingDiff": -6
+        }
+      },
+      "winner": "white",
+      "opening": {
+        "eco": "D00",
+        "name": "Queen's Pawn Game: Accelerated London System",
+        "ply": 3
+      },
+      "moves": "d4 d5 Bf4 e6 e3 Bd6 Bg3 Bxg3 hxg3 Nf6 Nf3 c6 c3 b6 Bd3 Bb7 Qc2 Nbd7 Nbd2 c5 O-O cxd4 exd4 b5 Rfe1 a6 a4 bxa4 Qxa4 Qc7 Qc2 O-O Ne5 Nxe5 Rxe5 Rad8 Rae1 h6 Nf3 Ng4 R5e2 Nf6 Ne5 Ng4 Nxg4 Bc6 Ne5 Bb5 Bxb5 axb5 Re3 Ra8 Rf3 Ra7 Qd2 Rfa8 Rf4 Qe7 Rg4 Ra1 Qxh6 Rxe1+ Kh2 g6 Nxg6 fxg6 Rxg6+ Qg7 Qxg7#",
+      "clocks": [
+        300,
+        300,
+        360,
+        351,
+        419,
+        451,
+        480,
+        468,
+        580,
+        459,
+        639,
+        485,
+        693,
+        544,
+        755,
+        644,
+        816,
+        680,
+        881,
+        729,
+        846,
+        748,
+        883,
+        772,
+        983,
+        804,
+        956,
+        748,
+        974,
+        729,
+        989,
+        727,
+        995,
+        699,
+        1091,
+        538,
+        1131,
+        429,
+        1179,
+        451,
+        1115,
+        441,
+        1155,
+        339,
+        1163,
+        286,
+        1011,
+        282,
+        1011,
+        349,
+        1075,
+        374,
+        1067,
+        373,
+        935,
+        305,
+        946,
+        332,
+        945,
+        260,
+        750,
+        198,
+        663,
+        151,
+        625,
+        150,
+        596,
+        205,
+        455
+      ],
+      "clock": {
+        "initial": 0,
+        "increment": 1,
+        "totalTime": 40
+      }
+    },
+    "gz3moCWx": {
+      "id": "gz3moCWx",
+      "rated": true,
+      "variant": "standard",
+      "speed": "bullet",
+      "perf": "bullet",
+      "createdAt": 1791195545233,
+      "lastMoveAt": 1791195620627,
+      "status": "outoftime",
+      "source": "arena",
+      "players": {
+        "white": {
+          "user": {
+            "name": "rnbqkrva",
+            "id": "rnbqkrva"
+          },
+          "rating": 1896,
+          "ratingDiff": -1
+        },
+        "black": {
+          "user": {
+            "name": "ding2025",
+            "flair": "people.person-with-crown-light-skin-tone",
+            "id": "ding2025"
+          },
+          "rating": 1839,
+          "ratingDiff": 1
+        }
+      },
+      "opening": {
+        "eco": "D07",
+        "name": "Queen's Gambit Declined: Chigorin Defense",
+        "ply": 5
+      },
+      "moves": "d4 Nc6 c4 d5 Nc3 Nf6 Bg5 e6 Bxf6 gxf6 cxd5 exd5 Rc1 Bf5 e3 Nb4 Nf3 Nc2+ Rxc2 Bxc2 Qxc2 Bb4 a3 Bxc3+ Qxc3 O-O Bd3 Qd6 Bb1 Rfe8 Qd3 c5 Qxh7+ Kf8 Qh8+ Ke7 Qh4 cxd4 Nxd4 Qe5 Nf5+ Qxf5 Bxf5 Kd6 Qxf6+ Kc5 Qxf7 Rec8 Qxb7 Kd6 Bxc8 Rxc8 Qxc8 Ke5 Qa8 Ke4 Qxa7 Kd3 Qd4+ Kc2 Qxd5 Kxb2 O-O Kxa3 Qd1 Ka2 Qc1 Kb3 Rd1 Ka4 Rd2 Kb4 Qc3+ Ka4 Rc2 Kb5",
+      "clocks": [
+        3003,
+        3003,
+        2979,
+        2947,
+        2971,
+        2731,
+        2907,
+        2643,
+        2859,
+        2555,
+        2859,
+        2491,
+        2763,
+        2443,
+        2755,
+        2395,
+        2659,
+        2243,
+        2555,
+        2243,
+        2539,
+        2227,
+        2411,
+        2171,
+        2411,
+        2099,
+        2107,
+        2035,
+        2051,
+        1939,
+        1979,
+        1731,
+        1907,
+        1627,
+        1907,
+        1587,
+        1635,
+        1499,
+        1515,
+        1355,
+        1387,
+        1283,
+        1219,
+        1227,
+        1107,
+        861,
+        867,
+        747,
+        730,
+        628,
+        431,
+        532,
+        365,
+        532,
+        305,
+        532,
+        305,
+        481,
+        249,
+        476,
+        184,
+        439,
+        133,
+        397,
+        99,
+        376,
+        99,
+        329,
+        69,
+        329,
+        63,
+        307,
+        52,
+        287,
+        20,
+        285,
+        0
+      ],
+      "arenaTour": {
+        "id": "0UqSPir7",
+        "name": "Hourly HyperBullet Arena"
+      },
+      "clock": {
+        "initial": 30,
+        "increment": 0,
+        "totalTime": 30
+      }
+    },
+    "vE91lB41": {
+      "id": "vE91lB41",
+      "rated": true,
+      "variant": "standard",
+      "speed": "bullet",
+      "perf": "bullet",
+      "createdAt": 1792435654849,
+      "lastMoveAt": 1792435765368,
+      "status": "draw",
+      "source": "pool",
+      "players": {
+        "white": {
+          "user": {
+            "name": "Lastfa",
+            "id": "lastfa"
+          },
+          "rating": 1216,
+          "ratingDiff": -1
+        },
+        "black": {
+          "user": {
+            "name": "XXTheCh0senXX",
+            "id": "xxthech0senxx"
+          },
+          "rating": 1193,
+          "ratingDiff": 1
+        }
+      },
+      "opening": {
+        "eco": "C48",
+        "name": "Four Knights Game: Spanish Variation, Ranken Variation",
+        "ply": 9
+      },
+      "moves": "e4 e5 Nf3 Nf6 Nc3 Nc6 Bb5 a6 Bxc6 dxc6 O-O Ng4 h3 Nh6 Nxe5 Qg5 Nf3 Qg6 Nh4 Qg5 Nf3 Qg6 Ne5 Qg5 Nf3",
+      "clocks": [
+        12003,
+        12003,
+        11979,
+        11915,
+        11923,
+        11947,
+        11851,
+        11867,
+        11835,
+        11899,
+        11795,
+        11387,
+        11515,
+        10443,
+        11427,
+        9787,
+        11091,
+        9491,
+        10299,
+        9139,
+        9091,
+        9131,
+        8411,
+        8595,
+        7680,
+        8597
+      ],
+      "clock": {
+        "initial": 120,
+        "increment": 1,
+        "totalTime": 160
+      }
+    },
+    "W7osCRYM": {
+      "id": "W7osCRYM",
+      "rated": true,
+      "variant": "standard",
+      "speed": "classical",
+      "perf": "classical",
+      "createdAt": 1793060874200,
+      "lastMoveAt": 1793061046682,
+      "status": "resign",
+      "source": "pool",
+      "players": {
+        "white": {
+          "user": {
+            "name": "alfonsobernal",
+            "id": "alfonsobernal"
+          },
+          "rating": 1361,
+          "ratingDiff": -4
+        },
+        "black": {
+          "user": {
+            "name": "AJAY0209",
+            "id": "ajay0209"
+          },
+          "rating": 1464,
+          "ratingDiff": 61,
+          "provisional": true
+        }
+      },
+      "winner": "black",
+      "opening": {
+        "eco": "C23",
+        "name": "Bishop's Opening",
+        "ply": 3
+      },
+      "moves": "e4 e5 Bc4 Nc6 Qf3 Nf6 d4 Nxd4 Qc3 a5 Be3 Bb4 Bxf7+ Kxf7 Ne2 Nxc2+ Kd1 Bxc3 bxc3 Nxa1 Ke1 d5",
+      "clocks": [
+        180003,
+        180003,
+        179075,
+        179555,
+        178851,
+        179027,
+        178467,
+        178811,
+        177011,
+        177771,
+        176795,
+        177443,
+        174571,
+        177115,
+        173331,
+        175611,
+        170931,
+        175243,
+        170579,
+        175051,
+        169987,
+        174769,
+        169616
+      ],
+      "clock": {
+        "initial": 1800,
+        "increment": 0,
+        "totalTime": 1800
+      }
+    },
+    "ulLWu7Zp": {
+      "id": "ulLWu7Zp",
+      "rated": true,
+      "variant": "standard",
+      "speed": "classical",
+      "perf": "classical",
+      "createdAt": 1792492356544,
+      "lastMoveAt": 1792492470470,
+      "status": "timeout",
+      "source": "lobby",
+      "players": {
+        "white": {
+          "user": {
+            "name": "mischiko",
+            "id": "mischiko"
+          },
+          "rating": 1670,
+          "ratingDiff": -4
+        },
+        "black": {
+          "user": {
+            "name": "romanruslan",
+            "id": "romanruslan"
+          },
+          "rating": 1806,
+          "ratingDiff": 16
+        }
+      },
+      "winner": "black",
+      "opening": {
+        "eco": "C44",
+        "name": "Scotch Game: Benima Defense",
+        "ply": 8
+      },
+      "moves": "e4 e5 Nf3 Nc6 Bc4 Be7 d4 exd4 Nxd4 d6 Nxc6 bxc6 Qf3 Nf6",
+      "clocks": [
+        90003,
+        90003,
+        91227,
+        91331,
+        92547,
+        92667,
+        93523,
+        93987,
+        94907,
+        95251,
+        95899,
+        96499,
+        95419,
+        92222,
+        63208
+      ],
+      "clock": {
+        "initial": 900,
+        "increment": 15,
+        "totalTime": 1500
+      }
+    },
+    "7bo6CTIp": {
+      "id": "7bo6CTIp",
+      "rated": true,
+      "variant": "standard",
+      "speed": "classical",
+      "perf": "classical",
+      "createdAt": 1791367010266,
+      "lastMoveAt": 1791367775880,
+      "status": "mate",
+      "source": "lobby",
+      "players": {
+        "white": {
+          "user": {
+            "name": "Gandhisaubhagya1A",
+            "id": "gandhisaubhagya1a"
+          },
+          "rating": 1139,
+          "ratingDiff": 4
+        },
+        "black": {
+          "user": {
+            "name": "ananaskor",
+            "id": "ananaskor"
+          },
+          "rating": 1086,
+          "ratingDiff": -4
+        }
+      },
+      "winner": "white",
+      "opening": {
+        "eco": "D00",
+        "name": "Amazon Attack",
+        "ply": 3
+      },
+      "moves": "d4 d5 Qd3 e6 Nf3 Bb4+ c3 Ba5 b4 Bb6 a4 a5 c4 axb4 c5 Ba5 e4 Nf6 e5 Ne4 Bd2 Na6 Qb5+ c6 Qd3 Nc3 Bxc3 bxc3 Nxc3 Bxc3+ Qxc3 O-O Bd3 h6 O-O b6 Bb1 bxc5 Qd3 Qa5 Qh7#",
+      "clocks": [
+        150003,
+        150003,
+        148683,
+        148867,
+        146419,
+        148251,
+        146211,
+        147739,
+        145979,
+        146675,
+        145755,
+        145699,
+        144995,
+        145059,
+        143851,
+        143379,
+        137147,
+        141123,
+        135859,
+        140443,
+        131403,
+        134043,
+        128499,
+        128515,
+        124531,
+        125235,
+        124235,
+        124915,
+        123723,
+        121563,
+        123419,
+        119243,
+        122139,
+        115059,
+        121243,
+        108675,
+        120147,
+        107307,
+        119707,
+        105790,
+        118823
+      ],
+      "clock": {
+        "initial": 1500,
+        "increment": 0,
+        "totalTime": 1500
+      }
+    },
+    "bBy6nms3": {
+      "id": "bBy6nms3",
+      "rated": true,
+      "variant": "standard",
+      "speed": "classical",
+      "perf": "classical",
+      "createdAt": 1793378321832,
+      "lastMoveAt": 1793379163219,
+      "status": "resign",
+      "source": "pool",
+      "players": {
+        "white": {
+          "user": {
+            "name": "babou94",
+            "id": "babou94"
+          },
+          "rating": 1380,
+          "ratingDiff": 6
+        },
+        "black": {
+          "user": {
+            "name": "FruttoloFruttolo",
+            "id": "fruttolofruttolo"
+          },
+          "rating": 1446,
+          "ratingDiff": -46,
+          "provisional": true
+        }
+      },
+      "winner": "white",
+      "opening": {
+        "eco": "B01",
+        "name": "Scandinavian Defense: Main Line",
+        "ply": 6
+      },
+      "moves": "e4 d5 exd5 Qxd5 Nc3 Qa5 Bb5+ c6 Be2 Bf5 Bd3 e6 Nge2 Nf6 Nd4 Bd6 Nxf5 exf5 Qe2+ Be5 O-O O-O Bxf5 Bxh2+ Kxh2 Qxf5 Kg1 Re8 Qd3 Qh5 Re1 Nbd7 Ne2 Ng4 Qh3 Qf5 d3 Nde5 Qg3 Re6 Nd4 Nf3+ Nxf3 Rxe1+ Nxe1 Re8 Bd2 Re2 Qf4 Qh5 Qb8+",
+      "clocks": [
+        180003,
+        180003,
+        179723,
+        179491,
+        179427,
+        179107,
+        177579,
+        178651,
+        177147,
+        177755,
+        175187,
+        175899,
+        174675,
+        174619,
+        174011,
+        171771,
+        172707,
+        171227,
+        171003,
+        170419,
+        169211,
+        168451,
+        167699,
+        166643,
+        167491,
+        166243,
+        166867,
+        163787,
+        166131,
+        159835,
+        164723,
+        157915,
+        163035,
+        156619,
+        161627,
+        153107,
+        158699,
+        151491,
+        156171,
+        145979,
+        155131,
+        141731,
+        151019,
+        138563,
+        150251,
+        137443,
+        148451,
+        136715,
+        147131,
+        133299,
+        146383,
+        132557
+      ],
+      "clock": {
+        "initial": 1800,
+        "increment": 0,
+        "totalTime": 1800
+      }
+    },
+    "60mUCMQ9": {
+      "id": "60mUCMQ9",
+      "rated": true,
+      "variant": "standard",
+      "speed": "classical",
+      "perf": "classical",
+      "createdAt": 1792367703224,
+      "lastMoveAt": 1792368285893,
+      "status": "timeout",
+      "source": "lobby",
+      "players": {
+        "white": {
+          "user": {
+            "name": "BoBByuger",
+            "id": "bobbyuger"
+          },
+          "rating": 925,
+          "ratingDiff": -1
+        },
+        "black": {
+          "user": {
+            "name": "mati1143",
+            "flair": "nature.fox",
+            "id": "mati1143"
+          },
+          "rating": 875,
+          "ratingDiff": 3
+        }
+      },
+      "opening": {
+        "eco": "A01",
+        "name": "Nimzo-Larsen Attack: Modern Variation",
+        "ply": 2
+      },
+      "moves": "b3 e5 Bb2 d6 e3 Qh4 Nf3 Qg4 d3 Qf5 Qd2 d5 Bxe5 d4 Bxc7",
+      "clocks": [
+        210003,
+        210003,
+        209659,
+        209963,
+        205939,
+        209563,
+        198443,
+        208403,
+        193339,
+        203707,
+        190651,
+        202307,
+        187211,
+        202195,
+        166570,
+        184754
+      ],
+      "clock": {
+        "initial": 2100,
+        "increment": 3,
+        "totalTime": 2220
+      }
+    },
+    "HZkrW8JA": {
+      "id": "HZkrW8JA",
+      "rated": true,
+      "variant": "standard",
+      "speed": "classical",
+      "perf": "classical",
+      "createdAt": 1792805021087,
+      "lastMoveAt": 1792806961912,
+      "status": "draw",
+      "source": "lobby",
+      "players": {
+        "white": {
+          "user": {
+            "name": "ANDREwmu",
+            "flair": "smileys.dizzy-face",
+            "id": "andrewmu"
+          },
+          "rating": 1588,
+          "ratingDiff": 2
+        },
+        "black": {
+          "user": {
+            "name": "Ambika123",
+            "id": "ambika123"
+          },
+          "rating": 1669,
+          "ratingDiff": -1
+        }
+      },
+      "opening": {
+        "eco": "A11",
+        "name": "English Opening: Caro-Kann Defensive System",
+        "ply": 2
+      },
+      "moves": "c4 c6 Nc3 d5 cxd5 cxd5 d4 a6 e3 Nc6 a3 Bf5 Nf3 h6 Bd3 Bxd3 Qxd3 Nf6 Qf5 e6 Qd3 Bd6 O-O O-O Re1 Bc7 h3 Re8 e4 dxe4 Nxe4 Nxe4 Qxe4 Qd5 Bd2 Rad8 Bc3 Qxe4 Rxe4 f6 Rae1 e5 dxe5 fxe5 Nxe5 Nxe5 Bxe5 Bxe5 Rxe5 Rxe5 Rxe5 Rd1+ Kh2 Rd2 b4 Rxf2 Kg3 Ra2 Ra5 Kf7 Kf3 Kf6 g4 g5 b5 axb5 Rxb5 Rxa3+ Kg2 Ra2+ Kf3 Ra3+ Kg2 Ra7 Kg3 Ra3+ Kg2",
+      "clocks": [
+        90003,
+        90003,
+        92931,
+        91979,
+        94699,
+        94083,
+        97571,
+        96051,
+        100459,
+        98043,
+        103027,
+        100155,
+        105603,
+        102179,
+        108363,
+        103787,
+        111363,
+        105659,
+        109211,
+        106523,
+        109139,
+        105091,
+        111571,
+        107251,
+        111491,
+        109131,
+        105867,
+        111379,
+        105299,
+        113195,
+        107651,
+        107235,
+        104859,
+        106475,
+        102195,
+        105875,
+        102771,
+        90635,
+        105323,
+        85251,
+        106827,
+        86899,
+        104235,
+        86763,
+        106531,
+        88803,
+        109219,
+        88123,
+        112219,
+        89603,
+        115219,
+        90155,
+        117227,
+        91875,
+        109467,
+        93259,
+        111931,
+        94195,
+        114723,
+        92243,
+        117491,
+        93851,
+        119731,
+        92435,
+        115787,
+        89563,
+        118475,
+        90859,
+        121331,
+        88099,
+        122611,
+        89915,
+        125395,
+        86547,
+        124515,
+        87419,
+        126561,
+        87423
+      ],
+      "clock": {
+        "initial": 900,
+        "increment": 30,
+        "totalTime": 2100
+      }
+    },
+    "Itv5LEW0": {
+      "id": "Itv5LEW0",
+      "rated": true,
+      "variant": "standard",
+      "speed": "rapid",
+      "perf": "rapid",
+      "createdAt": 1792494134214,
+      "lastMoveAt": 1792494675268,
+      "status": "mate",
+      "source": "pool",
+      "players": {
+        "white": {
+          "user": {
+            "name": "toftof29",
+            "id": "toftof29"
+          },
+          "rating": 1282,
+          "ratingDiff": -5
+        },
+        "black": {
+          "user": {
+            "name": "greatvastforest",
+            "id": "greatvastforest"
+          },
+          "rating": 1331,
+          "ratingDiff": 5
+        }
+      },
+      "winner": "black",
+      "opening": {
+        "eco": "C23",
+        "name": "Bishop's Opening",
+        "ply": 3
+      },
+      "moves": "e4 e5 Bc4 Ne7 Qh5 d5 exd5 Nxd5 Nf3 Be6 Nxe5 Qf6 d4 Nd7 Nxd7 Bxd7 Bxd5 Qe7+ Be3 O-O-O O-O Bc6 Bxf7 Rd5 Bxd5 Bxd5 Qxd5 Qf6 Nc3 Bd6 g4 Qh4 f4 Qxg4+ Qg2 Qf5 Qh3 Qxh3 Ne4 Qxe3+ Nf2 Qxd4 Rad1 Qxf4 Rxd6 Qxd6 Ng4 Rf8 Re1 Qd4+ Kg2 Qd2+ Kh3 Qxe1 c4 Rf3+ Kg2 Qf1#",
+      "clocks": [
+        60003,
+        60003,
+        59595,
+        58475,
+        59419,
+        57851,
+        58659,
+        56731,
+        58459,
+        55835,
+        57947,
+        55139,
+        54907,
+        53443,
+        53675,
+        53099,
+        53203,
+        51387,
+        52395,
+        50355,
+        52211,
+        47995,
+        51227,
+        46579,
+        50875,
+        46371,
+        50451,
+        44971,
+        49019,
+        44755,
+        47883,
+        43483,
+        45603,
+        43067,
+        45355,
+        40811,
+        44611,
+        40163,
+        43675,
+        39067,
+        43555,
+        38115,
+        43331,
+        35539,
+        41027,
+        34147,
+        40875,
+        33835,
+        40331,
+        33283,
+        39115,
+        32315,
+        37259,
+        32003,
+        36619,
+        31747,
+        36388,
+        31429
+      ],
+      "clock": {
+        "initial": 600,
+        "increment": 0,
+        "totalTime": 600
+      }
+    },
+    "JGxmrnQa": {
+      "id": "JGxmrnQa",
+      "rated": true,
+      "variant": "standard",
+      "speed": "rapid",
+      "perf": "rapid",
+      "createdAt": 1791435807743,
+      "lastMoveAt": 1791436036382,
+      "status": "resign",
+      "source": "pool",
+      "players": {
+        "white": {
+          "user": {
+            "name": "baggyfrog24",
+            "id": "baggyfrog24"
+          },
+          "rating": 1414,
+          "ratingDiff": -10
+        },
+        "black": {
+          "user": {
+            "name": "fsmr13",
+            "id": "fsmr13"
+          },
+          "rating": 1421,
+          "ratingDiff": 15
+        }
+      },
+      "winner": "black",
+      "opening": {
+        "eco": "B30",
+        "name": "Sicilian Defense: Nyezhmetdinov-Rossolimo Attack",
+        "ply": 5
+      },
+      "moves": "e4 c5 Nf3 Nc6 Bb5 a6 Bxc6 bxc6 b3 d6 c4 g6 O-O Bg7 Nc3 Bg4 h3 Bxf3 Qxf3 Nf6 d3 O-O Bb2 Nd7 Rfe1 Nb6 a4 a5 Re2 e6 Nd1 Bxb2 Nxb2 d5 exd5 cxd5 cxd5 Nxd5 Nc4 Rb8 Nxa5 Qxa5 Rc2 Rxb3 Qe3",
+      "clocks": [
+        60003,
+        60003,
+        59787,
+        59835,
+        59515,
+        59699,
+        59387,
+        59699,
+        59099,
+        59491,
+        58859,
+        58731,
+        58779,
+        58603,
+        58171,
+        57699,
+        57947,
+        57419,
+        57947,
+        57195,
+        57675,
+        57003,
+        57475,
+        56475,
+        57083,
+        56123,
+        56867,
+        55771,
+        56291,
+        54595,
+        52515,
+        54187,
+        52515,
+        54099,
+        52075,
+        54099,
+        52027,
+        54035,
+        51467,
+        53155,
+        50683,
+        52179,
+        49035,
+        51235,
+        47214,
+        50956
+      ],
+      "clock": {
+        "initial": 600,
+        "increment": 0,
+        "totalTime": 600
+      }
+    }
+  }
+}

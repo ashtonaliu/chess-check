@@ -32,8 +32,8 @@ https://ashtonaliu.github.io/chess-check/privacy.html
 
 ## What's new in 0.9.0
 
-Chess Check now recaps finished Lichess games. Finished Chess960 and odds games show a clear
-message. The classic Chess.com `/live` page pauses analysis, and the WebAssembly replay rejects
+Chess Check now recaps finished Lichess games. On Chess.com, finished Chess960 and odds games
+show a clear message and the classic `/live` page pauses analysis. The WebAssembly replay rejects
 empty move entries. These three fixes ship for the first time in 0.9.0.
 [#112](https://github.com/ashtonaliu/chess-check/pull/112) · [#110](https://github.com/ashtonaliu/chess-check/pull/110) · [#114](https://github.com/ashtonaliu/chess-check/pull/114)
 

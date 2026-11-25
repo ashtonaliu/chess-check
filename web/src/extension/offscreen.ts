@@ -6,14 +6,14 @@
 // When the engine runs: the profile is built when the cube asks to "warm" it,
 // which it does only on pages that are not a game or the play page, and for a
 // finished game. Nothing here runs while the player is in a game.
-import { DEFAULT_SITE, type Site, type SiteId } from "../browser/site";
+import { DEFAULT_SITE, type SafetyKey, type Site, type SiteId } from "../browser/site";
 import { defaultSite, siteForId } from "../browser/sites";
 import type { Callback } from "../browser/callbackGame";
 import { defaultWorkers, pruneAnalysisCache, type GameAnalysis } from "../browser/engine";
 import { moveFeatures } from "../browser/findRate";
 import { analyzeGame, type Profile } from "../browser/follow";
 import { fetchGames, type Game } from "../browser/games";
-import { gameId } from "../browser/ids";
+import { gameCacheId } from "../browser/ids";
 import { Pace, SharedPace, startingWorkers } from "../browser/pace";
 import { analyzeInBrowser } from "../browser/pipeline";
 import { buildRecap, opponentNote, type Recap } from "../browser/recap";
@@ -28,7 +28,7 @@ import { ANALYSIS_LIMIT, PROFILE_LIMIT, rememberRecap, reviewDependencies } from
 
 export type Request = { site?: SiteId } & (
   | { type: "warm"; username: string }
-  | { type: "page-state"; url: string; finished: boolean }
+  | { type: "page-state"; pageKey: SafetyKey; finished: boolean }
   | { type: "stop" }                           // a game is starting: stop any analysis now
   | { type: "seed"; username: string }         // past blunders to start an empty review queue
   | { type: "stalls" }                         // the page the cube is on stuttered (pace.ts)
@@ -100,7 +100,7 @@ function scheduleStorageCleanup(signal: AbortSignal) {
       const profile = slots.get(key)?.profile;
       if (profile) for (const id of profileGameIds(profile)) games.add(id);
     }
-    for (const job of jobs.values()) games.add(gameId(job.game.url));
+    for (const job of jobs.values()) games.add(gameCacheId(job.game.url));
     await pruneAnalysisCache(games, ANALYSIS_LIMIT, signal);
   }).catch(() => { /* storage unavailable or play resumed; try again after a safe build */ });
 }

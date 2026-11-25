@@ -16,7 +16,7 @@ export function enginePruneKeys(keys: IDBValidKey[], endTimes: ReadonlyMap<strin
   const savedGames = new Set<string>(), protectedKeys = new Set<string>();
   for (const key of keys) {
     if (typeof key !== "string") continue;
-    const match = /^(deep_)?v\d+_(\d+)_d\d+$/.exec(key);
+    const match = /^(deep_)?v\d+_(\d+|lichess:[A-Za-z0-9]{8})_d\d+$/.exec(key);
     if (!match) continue;
     const id = match[2];
     gameByKey.set(key, id);

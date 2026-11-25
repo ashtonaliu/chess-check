@@ -1,9 +1,9 @@
 # Plan: Lichess support
 
-Status: not started.
+Status: Parts 1 to 4 implemented. Part 4 live timings pending.
 
-Chess Check only works for Chess.com players today. This plan adds Lichess to the extension and the
-demo, so a Lichess player gets the same recap, patterns and review queue after each game they finish.
+Chess Check supports Chess.com in the extension and demo. Part 4 adds the same finished-game
+recap, patterns and review queue for Lichess in the extension. Part 5 covers the demo.
 Most of the analysis already works for Lichess: Phase A parses and labels Lichess games, and the
 neural find-rate model was trained on both sites and takes the site as an input
 (`source: "lichess"` in `neuralFindRate.ts`, with all six Lichess speeds). The new work is getting
@@ -186,9 +186,13 @@ After Parts 1 to 3 are merged.
 - An end-to-end test with a stubbed engine, like `web/test/wasm-archive.parity.ts`, that goes from a
   fixture's status check to a finished recap. A second test shows that a `started` status keeps the
   recap pending and never asks the engine for anything.
+- Lichess reads the zero-based replay fragment and removes it from the address. The content script
+  keeps the initial fragment before mounting the panel. [Lila replay source][replay-ply]
 - **Live check:** on a finished Lichess game (any public game, never one in progress), the cube
   turns green and the recap fills in. Record the cold and warm recap times the same way the README
   records them for Chess.com.
+
+[replay-ply]: https://github.com/lichess-org/lila/blob/39fe88107d406839d94052ae8f9958423d7c3fc3/ui/analyse/src/ctrl.ts#L278-L290
 
 ## Part 5: Lichess in the demo (Gemini, optional)
 

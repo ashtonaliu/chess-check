@@ -12,11 +12,11 @@ Education, English
 
 **Description**
 
-Chess Check adds a small recap panel to Chess.com. Open a finished game to see the result, the move that cost you the most, and what Stockfish found. Jump to that move on the Chess.com board, try an alternative, or reveal the engine’s answer.
+Chess Check adds a small recap panel to Chess.com and Lichess. Open a finished game to see the result, the move that cost you the most, and what Stockfish found. Jump to that move on the site's board, try an alternative, or reveal the engine’s answer.
 
-The panel also shows patterns from your previous games and brings back missed moves for spaced review. Recaps and reviews are available between games. Chess Check waits for Chess.com to confirm a game is finished before building its recap.
+The panel also shows patterns from your previous games and brings back missed moves for spaced review. Recaps and reviews are available between games. Chess Check waits for the site to confirm a game is finished before building its recap.
 
-To build recaps, the extension uses your Chess.com username, the game ID, and game records from Chess.com. The engine runs in your browser, and your analysis and review progress are stored there.
+To build recaps, the extension uses your Chess.com or Lichess username, the public game ID, and game records from the site. The engine runs in your browser, and your analysis and review progress are stored there.
 
 **Website**
 
@@ -38,24 +38,26 @@ Review cards now use a neural find-rate model to estimate how often players at y
 
 **Single purpose**
 
-Help Chess.com players learn from finished games with on-device Stockfish recaps and spaced review of missed moves.
+Help Chess.com and Lichess players learn from finished games with on-device Stockfish recaps and spaced review of missed moves.
 
 **Permissions**
 
 - `storage` remembers the selected player, panel position, and review progress in this Chrome profile.
 - `unlimitedStorage` keeps the IndexedDB analysis cache and saved profiles for many games. Reusing those searches avoids repeatedly running Stockfish across the same history.
-- `offscreen` runs bundled workers for Stockfish and tactics analysis outside the Chess.com page’s rendering thread.
+- `offscreen` runs bundled workers for Stockfish and tactics analysis outside the game page's rendering thread.
 - Chess.com content script access is limited to `www.chess.com` and `chess.com`. The script reads the game ID and player identity, checks the game’s status and moves with Chess.com, and mounts the recap panel on the page.
 - `https://api.chess.com/*` allows the offscreen document to retrieve historical games via the public archive API.
-- `https://www.chess.com/*` and `https://chess.com/*` host access (added in 0.7.1) lets the service worker read the addresses of open Chess.com tabs. While any tab is on the Play page or on a game not yet confirmed finished, it pauses analysis in every tab. It reads only the address, not page content.
+- `https://www.chess.com/*` and `https://chess.com/*` host access (added in 0.7.1) lets the service worker read the addresses of open Chess.com tabs. While any tab is on the Play page or on a game not yet confirmed finished, it pauses analysis in every tab. The service worker uses the address to apply the pause.
+
+- `https://lichess.org/*` gives the content script access to the page address and signed-in username and lets it mount the panel. The service worker uses the public game ID to check status, fetches details after the game ends, and reads finished game history. It pauses analysis across tabs when a Lichess game is unconfirmed or a play page is open.
 
 **Remote code**
 
-The extension runs packaged JavaScript and WebAssembly. Network requests to Chess.com return game data. The unpacked-install reload bridge is gated to development installs in the service worker.
+The extension runs packaged JavaScript and WebAssembly. Network requests to Chess.com and Lichess return game data. The unpacked-install reload bridge is gated to development installs in the service worker.
 
 **Data handling**
 
-Disclose Chess.com usernames, Chess.com tab addresses, game URLs and IDs, game records, board and move data, ratings, review activity, preferences, and frame timings for local performance tuning. Chrome sends existing Chess.com cookies when requesting a game from the Chess.com game endpoint. The extension uses this data for its single purpose, keeps analysis and review progress locally, and sends no game or analysis data to the developer or analytics providers. Match the dashboard’s data categories and declarations to the policy and the version being uploaded.
+Disclose Chess.com and Lichess usernames, supported site tab addresses, public game URLs and IDs, game records, board and move data, ratings, review activity, preferences, and frame timings for local performance tuning. Chrome sends existing Chess.com cookies when requesting a game from the Chess.com game endpoint. Lichess API requests omit cookies and use public game IDs. The extension uses this data for its single purpose, keeps analysis and review progress locally, and sends no game or analysis data to the developer or analytics providers. Match the dashboard’s data categories and declarations to the policy and the version being uploaded.
 
 ## Assets
 

@@ -4,6 +4,7 @@
 import { Chess, type Move } from "chess.js";
 import { enginePruneKeys, pruneTransaction } from "./cacheRetention";
 import type { Game } from "./games";
+import { gameCacheId } from "./ids";
 import { getWasmChess, type WasmChess } from "./wasmChess";
 
 export const OPENING_PLIES = 24;   // through move 12
@@ -411,7 +412,7 @@ export async function analyseGames(games: Game[], opts: PoolOptions): Promise<Ga
   const writes: Promise<void>[] = [];
   let out: (Stored | undefined)[];
   try {
-    const key = (g: Game) => `v${CACHE_VERSION}_${g.url.split("/").pop()}_d${opts.depth}`;
+    const key = (g: Game) => `v${CACHE_VERSION}_${gameCacheId(g.url)}_d${opts.depth}`;
     out = await readCached<Stored>(db, games.map(key));
     const todo = games.map((_g, i) => i).filter(i => !out[i]);
     const cached = games.length - todo.length;
@@ -427,7 +428,7 @@ export async function analyseGames(games: Game[], opts: PoolOptions): Promise<Ga
       const game = games[i];
       writes.push(idbWrite(db, s => {
         if (recordEndTimes) {
-          const id = game.url.split("/").pop()!;
+          const id = gameCacheId(game.url);
           s.put({ id, endTime: game.endTime }, `end_${id}`);
         }
         s.put(res, key(game));
@@ -468,7 +469,7 @@ export async function recheckBlunders(analyses: GameAnalysis[], opts: { depth?: 
   type Deep = Record<string, { deep_best: string | null; deep_refutation: string | null; deep_cp_before: number; deep_cp_after: number; deep_loss: number }>;
   let cached: Deep[] = [];
   try {
-    const key = (a: GameAnalysis) => `deep_v1_${a.url.split("/").pop()}_d${depth}`;
+    const key = (a: GameAnalysis) => `deep_v1_${gameCacheId(a.url)}_d${depth}`;
     cached = (await readCached<Deep>(db, analyses.map(key))).map(d => d ?? {});
     const tasks = analyses.flatMap((a, i) => a.moves
       .filter(m => m.wp_loss >= BLUNDER_DROP && (opts.only?.(m) ?? true) && !cached[i][String(m.ply)])

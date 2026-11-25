@@ -12,14 +12,14 @@
   </header>
   <main>
     <h1>Chess Check extension privacy policy</h1>
-    <p>This policy covers the Chrome extension. Its purpose is to recap finished Chess.com games and let you practice positions from those games.</p>
+    <p>This policy covers the Chrome extension. Its purpose is to recap finished Chess.com and Lichess games and let you practice positions from those games.</p>
 
     <h2>What the extension uses</h2>
-    <p>On Chess.com, the extension reads the game ID from the page address and looks for your Chess.com username in the page’s account information or profile link. Signed out, you can pick a player from the game. It reads game results, moves, ratings, clocks, openings and public game history to build recaps and a review queue. It also checks open Chess.com tab addresses so that a Play page or an unconfirmed game pauses analysis across tabs.</p>
-    <p>The extension also uses frame timings on visible Chess.com pages to reduce background engine work if the page stutters.</p>
+    <p>On Chess.com, the extension reads the game ID from the page address and looks for your Chess.com username in the page’s account information or profile link. On Lichess it reads the signed-in username from the account menu and uses the public 8-character game ID. Signed out, you can pick a player from the game. It reads game results, moves, ratings, clocks, openings and public game history to build recaps and a review queue. It also checks open Chess.com and Lichess tab addresses so that a play page or an unconfirmed game pauses analysis across tabs.</p>
+    <p>The extension also uses frame timings on visible Chess.com and Lichess pages to reduce background engine work if the page stutters.</p>
 
     <h2>What leaves this browser</h2>
-    <p>The extension requests game details from Chess.com and public game history from api.chess.com. Those requests include the game ID or the player username needed for the lookup. Chrome sends your existing Chess.com cookies with requests to the Chess.com game endpoint as it normally would for that site. The extension does not read your password or cookie values.</p>
+    <p>The extension requests game details from Chess.com and public game history from api.chess.com. On Lichess, it requests status first, then details and public history for finished games. Lichess requests omit cookies and use the public game ID or username. Those requests include the game ID or the player username needed for the lookup. Chrome sends your existing Chess.com cookies with requests to the Chess.com game endpoint as it normally would for that site. The extension does not read your password or cookie values.</p>
     <p>Stockfish analysis runs in Chrome. The extension has no analytics service and sends no game data, analysis or review results to the Chess Check developer. The developer does not sell or use extension data for advertising.</p>
 
     <h2>Local storage and deletion</h2>

@@ -114,7 +114,7 @@ function openingFamily(name: string): string {
 export function parseLichessGame(raw: unknown, user: string): Game | null {
   if (!raw || typeof raw !== "object") return null;
   const g = raw as LichessExport;
-  if (typeof g.id !== "string" || !g.id) return null;
+  if (typeof g.id !== "string" || !/^[A-Za-z0-9]{8}$/.test(g.id)) return null;
   if (g.variant && g.variant.toLowerCase() !== "standard") return null;
   if (g.initialFen) return null;
   if (!g.status || SKIPPED_STATUSES.has(g.status) || !FINISHED_STATUSES.has(g.status)) return null;

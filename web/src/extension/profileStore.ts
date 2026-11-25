@@ -3,7 +3,7 @@
 // engine cache only analyzes games played since it was saved.
 import type { Profile } from "../browser/follow";
 import { excessKeys, pruneTransaction } from "../browser/cacheRetention";
-import { gameId } from "../browser/ids";
+import { gameCacheId } from "../browser/ids";
 import { DEFAULT_SITE, type SiteId } from "../browser/site";
 import { legacyProfileKey, qualifyProfileKey } from "./storageKeys";
 
@@ -102,7 +102,7 @@ export function profilePruneKeys(entries: ProfileEntry[], current: ReadonlySet<s
 }
 
 export function profileGameIds(profile: Profile): Set<string> {
-  return new Set([...(profile.games ?? []), ...(profile.rows ?? [])].map(game => gameId(game.url)));
+  return new Set([...(profile.games ?? []), ...(profile.rows ?? [])].map(game => gameCacheId(game.url)));
 }
 
 /** The games behind profiles left on disk still need their engine results for a refresh. */

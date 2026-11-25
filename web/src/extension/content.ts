@@ -15,7 +15,7 @@ import type { Recap } from "../browser/recap";
 import { addItems, applyReviewRates, grade, itemFromRecap, patchItems, pendingReviewRates, reviewRate,
   type ReviewItem } from "../browser/reviewQueue";
 import { createRecapView, esc, moveLink, quizHint, tacticSentence } from "../ui/recapCard";
-import { defaultSitePages, pageSite, type FinishedPage } from "../browser/site";
+import { DEFAULT_SITE, defaultSitePages, pageSite, type FinishedPage } from "../browser/site";
 import { gameIdFromPage, isPlayPage } from "./guard";
 import { loadStoredQueue, queueKey, updateQueue, type QueueDeps } from "./queueStore";
 import {
@@ -43,8 +43,17 @@ async function load<T>(key: string, fallback: T): Promise<T> {
 async function save(key: string, value: unknown) {
   try { await chrome.storage.local.set({ [key]: value }); } catch { /* not remembered */ }
 }
-const pageUrl = () => (window as Window & { __ccPageUrl?: string }).__ccPageUrl ?? location.href;
-const site = pageSite(pageUrl()) ?? defaultSitePages;
+const address = () => (window as Window & { __ccPageUrl?: string }).__ccPageUrl ?? location.href;
+const site = pageSite(address()) ?? defaultSitePages;
+const readPageUrl = () => site.publicPageUrl?.(new URL(address())) ?? address();
+const initialPageUrl = readPageUrl();
+const unmarkedPage = initialPageUrl.split("#")[0];
+// Lichess removes the replay fragment once it has used it to set the initial position.
+const pageUrl = () => {
+  const current = readPageUrl();
+  return site.id === "lichess" && current === unmarkedPage ? initialPageUrl : current;
+};
+const accountKey = site.id === DEFAULT_SITE ? "accounts" : `accounts:${site.id}`;
 let signedIn: string | null = null;
 const signedInUser = () => (signedIn = site.signedInUser(document));
 
@@ -285,16 +294,17 @@ async function collect(r: Recap | null, user: string) {
   if (it && !queue.some(q => q.id === it.id)) await changeQueue(q => addItems(q, [it]));
   // an empty queue starts from the profile; entries saved before positions were kept get theirs
   const missing = queue.some(q => !q.fen || q.timeClass === undefined);
-  if (!seedAsked.has(u) && (missing || !(await load<boolean>(`seeded:${u}`, false))) && reviewAllowed(pageUrl(), state)) {
+  const seededKey = site.id === DEFAULT_SITE ? `seeded:${u}` : `seeded:${site.id}:${u}`;
+  if (!seedAsked.has(u) && (missing || !(await load<boolean>(seededKey, false))) && reviewAllowed(pageUrl(), state)) {
     seedAsked.add(u);
     try {
       const reply = await ask({ type: "seed", username: user });
       if (reply.status === "seed" && reply.items.length && queueOwner === u) {
-        const seed = !(await load<boolean>(`seeded:${u}`, false));
+        const seed = !(await load<boolean>(seededKey, false));
         // entries the profile cannot fill (from games outside it) are marked so they are not asked about again
         await changeQueue(q => patchItems(seed ? addItems(q, reply.items) : q, reply.items)
           .map(i => (i.timeClass === undefined ? { ...i, timeClass: "unknown" } : i)));
-        if (seed) void save(`seeded:${u}`, true);
+        if (seed) void save(seededKey, true);
       }
     } catch { /* try again later */ }
   }
@@ -340,7 +350,7 @@ function renderPanel() {
       `<button data-name="${esc(n)}">${known.length ? "Recap for " : "I am "}${esc(n)}</button>`).join("")}</div>`;
     body.querySelectorAll<HTMLButtonElement>("button[data-name]").forEach(b => b.addEventListener("click", () => {
       const name = b.dataset.name!;
-      if (!known.length) { accounts = [name.toLowerCase()]; void save("accounts", accounts); }
+      if (!known.length) { accounts = [name.toLowerCase()]; void save(accountKey, accounts); }
       viewer = name;
       setState("loading", "Loading your recap…");
       void requestRecap();
@@ -351,7 +361,7 @@ function renderPanel() {
     choose: "", ready: "",
     idle: ["Open one of your finished games to see its recap.", nextText()].filter(Boolean).join(" "),
     loading: message || "Looking up this game…",
-    finished: "",
+    finished: "", aborted: "This game was aborted.",
     building: `Setting up for ${viewer}: ${message}`,
     pending: "<strong>Your recap will appear when this game ends.</strong>",
     error: `Something went wrong: ${message}`,
@@ -437,10 +447,17 @@ panel.addEventListener("click", e => {
   if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
   const link = (e.target as HTMLElement).closest<HTMLAnchorElement>(".quiz-board");
   const game = link && gameIdFromPage(link.href);
-  if (game) markFind(store, game, link.dataset.review ?? null);
+  if (!game || !link) return;
+  markFind(store, game, link.dataset.review ?? null);
+  if (site.id === "lichess" && link.href.split("#")[0] === location.href.split("#")[0]) {
+    // Lichess initializes the replay from the fragment on page load.
+    e.preventDefault();
+    location.href = link.href;
+    location.reload();
+  }
 });
 reset.addEventListener("click", () => {
-  accounts = []; void save("accounts", accounts); lastId = null; void check();
+  accounts = []; void save(accountKey, accounts); lastId = null; void check();
 });
 
 // ---------- the game in the tab ----------
@@ -465,7 +482,8 @@ async function check() {
   // any polling running. Clearing the timer first left the cube stuck on "Setting up" for good.
   // Pages that are not games always run, to warm up or stop.
   if (id && id === lastId && state !== "error" && state !== "pending") return;
-  const markPage = (finished: boolean) => ask({ type: "page-state", url, finished }).catch(() => {});
+  const pageKey = site.pageSafetyKey(new URL(url));
+  const markPage = (finished: boolean) => ask({ type: "page-state", pageKey, finished }).catch(() => {});
   const changedGame = id !== lastId;
   if (changedGame || onPlay) togglePanel(false);
   if (id !== lastId || intent) {
@@ -508,7 +526,9 @@ async function check() {
     const g = await site.lookupFinishedPage(id, new URL(url), lookup.signal);
     if (!isCurrent()) return;
     const reopen = boardIntent && boardIntent.expires > Date.now() ? boardIntent : null;
-    const step = afterLookup(g && { finished: true, ...g.players }, url, signedInUser(), accounts,
+    const finished = g && typeof g === "object" && "players" in g ? g : null;
+    const step = afterLookup(finished ? { finished: true, ...finished.players } : g as Exclude<typeof g, FinishedPage>,
+                             url, finished ? signedInUser() : null, accounts,
                              reopen?.item ?? null, !!reopen && !reopen.item);
     if (step.next === "pending") {
       setState("pending");
@@ -520,7 +540,9 @@ async function check() {
     await markPage(true);
     if (!isCurrent()) return;
     boardIntent = null;
-    served = g; players = g!.players;
+    if (step.next === "aborted") { setState("aborted"); return; }
+    served = finished;
+    players = finished!.players;
     if (step.next === "choose") { setState("choose"); if (step.open) togglePanel(true); return; }
     viewer = step.viewer;
     if (queueOwner !== viewer.toLowerCase()) await loadQueue(viewer, isCurrent);
@@ -601,7 +623,7 @@ try {
 // Chess.com changes pages without reloading, so watch the address.
 let lastUrl = "";
 function checkRoute() {
-  if (pageUrl() !== lastUrl) { lastUrl = pageUrl(); void check(); }
+  if (lastUrl && pageUrl() !== lastUrl) { lastUrl = pageUrl(); void check(); }
 }
 (window as Window & { navigation?: EventTarget }).navigation?.addEventListener("currententrychange", checkRoute);
 window.addEventListener("popstate", checkRoute);
@@ -615,10 +637,13 @@ try {
 } catch { /* dev harness */ }
 
 void (async () => {
-  accounts = await load<string[]>("accounts", []);
-  const old = await load("username", "");                  // v0.2 stored one typed username
-  if (!accounts.length && old) { accounts = [old.toLowerCase()]; void save("accounts", accounts); }
+  accounts = await load<string[]>(accountKey, []);
+  const old = site.id === DEFAULT_SITE ? await load("username", "") : "";                  // v0.2 stored one typed username
+  if (!accounts.length && old) { accounts = [old.toLowerCase()]; void save(accountKey, accounts); }
   pos = await load("position", pos);
+  if (document.readyState === "loading") {
+    await new Promise<void>(resolve => document.addEventListener("DOMContentLoaded", () => resolve(), { once: true }));
+  }
   document.documentElement.appendChild(host);
   place();
   lastUrl = pageUrl();

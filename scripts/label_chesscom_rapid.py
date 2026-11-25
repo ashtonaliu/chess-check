@@ -319,6 +319,8 @@ def run_label(out_dir: Path, settings: dict, max_per_band: int, seed: int) -> No
     manifest["counts"]["searched_positions"] = int(len(full))
     manifest["counts"]["critical_positions"] = int(len(critical))
     manifest["counts"]["critical_by_speed"] = {k: int(v) for k, v in critical["time_class"].value_counts().items()}
+    if "split" in critical.columns:
+        manifest["counts"]["critical_by_split"] = {k: int(v) for k, v in critical["split"].value_counts().items()}
     manifest["counts"]["critical_games"] = int(critical["game_id"].nunique())
     manifest["data_bytes"] = dir_bytes(out_dir)
     write_json(manifest_path, manifest)

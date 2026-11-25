@@ -73,9 +73,17 @@ def load_manifest(out_dir: Path) -> dict:
     }
 
 
+def player_split(username: str) -> str:
+    h = int(pd.util.hash_pandas_object(pd.Series([username.casefold()]), index=False).to_numpy()[0])
+    if h % TEST_MOD == 0:
+        return "test"
+    if (h // TEST_MOD) % TEST_MOD == 0:
+        return "validation"
+    return "train"
+
+
 def is_test_player(username: str) -> bool:
-    h = pd.util.hash_pandas_object(pd.Series([username.casefold()]), index=False).to_numpy()[0]
-    return int(h % TEST_MOD) == 0
+    return player_split(username) == "test"
 
 
 def _retry_delay(response: requests.Response, attempt: int) -> float:
@@ -153,8 +161,8 @@ class RateLimitedClient:
         return None
 
 
-def v1_test_candidates(v1_root: Path, per_blitz_stratum: int, seed: int) -> list[str]:
-    """Draw a rating-stratified pool of held-out test usernames from data/engine/v1."""
+def v1_candidates(v1_root: Path, per_blitz_stratum: int, seed: int, split_mode: str = "test") -> list[str]:
+    """Draw a rating-stratified pool of test or non-test usernames from data/engine/v1."""
     with EngineDataset(v1_root, threads=4) as ds:
         df = ds.connection.execute("""
             SELECT player, max(rating_after) AS blitz_rating
@@ -163,7 +171,12 @@ def v1_test_candidates(v1_root: Path, per_blitz_stratum: int, seed: int) -> list
             GROUP BY player
         """).df()
     groups = pd.util.hash_pandas_object(df["player"].str.casefold(), index=False).to_numpy()
-    df = df.loc[groups % TEST_MOD == 0].copy()
+    if split_mode == "test":
+        df = df.loc[groups % TEST_MOD == 0].copy()
+    elif split_mode == "non-test":
+        df = df.loc[groups % TEST_MOD != 0].copy()
+    else:
+        raise ValueError(f"Unknown split_mode: {split_mode}")
     df["stratum"] = (df["blitz_rating"].clip(400, 2600) // STRATUM_WIDTH) * STRATUM_WIDTH
 
     rng = np.random.default_rng(seed)
@@ -228,7 +241,7 @@ def run_stats(args: argparse.Namespace) -> None:
     )
     seen = set(existing["player"].tolist())
 
-    candidates = [u for u in v1_test_candidates(args.v1_root, args.per_blitz_stratum, args.seed) if u not in seen]
+    candidates = [u for u in v1_candidates(args.v1_root, args.per_blitz_stratum, args.seed, args.split) if u not in seen]
     candidates = candidates[: args.max_stats]
     if not candidates:
         print("No new candidates to probe for stats.", flush=True)
@@ -252,6 +265,7 @@ def run_stats(args: argparse.Namespace) -> None:
 
     manifest = load_manifest(args.output)
     manifest["v1_root"] = str(args.v1_root)
+    manifest["split_mode"] = args.split
     manifest["test_mod"] = TEST_MOD
     manifest["seed"] = args.seed
     manifest["request_batches"].append({
@@ -273,7 +287,7 @@ def run_stats(args: argparse.Namespace) -> None:
         active = merged[(merged[col].notna()) & (merged[gcol] >= args.min_player_games)
                         & (merged[col] >= MIN_RATING) & (merged[col] < MAX_RATING)]
         bands = ((active[col].astype(int) // STRATUM_WIDTH) * STRATUM_WIDTH).value_counts().sort_index().to_dict()
-        print(f"Active {speed} test players (600-2399, >={args.min_player_games} games): {len(active)} -> {bands}")
+        print(f"Active {speed} {args.split} players (600-2399, >={args.min_player_games} games): {len(active)} -> {bands}")
 
 
 def select_stratified_players(stats: pd.DataFrame, per_stratum: int, min_games: int, seed: int) -> dict[str, set[str]]:
@@ -326,6 +340,7 @@ def extract_game_moves(raw: dict, player: str, pregame_rating: int) -> tuple[dic
     if not game_id:
         return None
 
+    split = player_split(player)
     board = pg.board()
     prev_clock = {"white": float(base_seconds), "black": float(base_seconds)}
     moves: list[dict] = []
@@ -353,7 +368,7 @@ def extract_game_moves(raw: dict, player: str, pregame_rating: int) -> tuple[dic
                 "fen": board.fen(),
                 "move_uci": move.uci(),
                 "move_san": board.san(move),
-                "split": "test",
+                "split": split,
             })
         if clock_after is not None:
             prev_clock[mover] = clock_after
@@ -375,7 +390,7 @@ def extract_game_moves(raw: dict, player: str, pregame_rating: int) -> tuple[dic
         "rating_after": int(rating_after) if isinstance(rating_after, int) else None,
         "plies": ply,
         "focal_moves": len(moves),
-        "split": "test",
+        "split": split,
     }
     return game_row, moves
 
@@ -434,6 +449,10 @@ def run_games(args: argparse.Namespace) -> None:
     if not stats_path.exists():
         raise SystemExit(f"{stats_path} not found. Run 'stats' first.")
     stats = pd.read_parquet(stats_path)
+    if args.split == "test":
+        stats = stats[stats["player"].map(is_test_player)]
+    else:
+        stats = stats[~stats["player"].map(is_test_player)]
     selected = select_stratified_players(stats, args.players_per_stratum, args.min_player_games, args.seed)
 
     games_path = args.output / "games.parquet"
@@ -507,6 +526,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--v1-root", type=Path, default=ROOT / "data" / "engine" / "v1")
     parser.add_argument("--output", type=Path, default=ROOT / "data" / "engine" / "chesscom-rapid-v1")
+    parser.add_argument("--split", choices=("test", "non-test"), default="test")
     parser.add_argument("--seed", type=int, default=SEED)
     sub = parser.add_subparsers(dest="action", required=True)
 

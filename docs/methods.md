@@ -336,6 +336,21 @@ amounted to about 0.24 s per recap. [Stockfish.js clock](https://github.com/nmru
 
 I would keep the current Stockfish build.
 
+### End-to-end tests
+
+I load the unpacked extension in headless Chromium and run Stockfish in the offscreen page.
+The 8 tests check finished recaps and reopening at the turning point on both sites, the
+Chess.com `/play` and `/live` cross-tab pause, and what happens when a game is still in
+progress or is aborted. A loopback HTTPS server supplies the game data and small stand-ins
+for the pages. The proxy rejects requests outside the fixtures. The store ZIP check makes
+sure the panel's shadow root stays closed.
+
+The suite took 16.6 s on my M5 Pro Mac and 20.3 s on GitHub's Ubuntu runners, the median of
+3 runs on each. That is the browser test time, with installation and build time excluded.
+The stand-ins cannot catch changes to either site's live markup, API availability, or
+sign-in behavior. To run it, install Chromium with `npx playwright install chromium --no-shell`
+in `web`, then run `npm run test:e2e`.
+
 ## Lichess
 
 A Lichess game keeps the same address when it ends, and its export can answer while the game is

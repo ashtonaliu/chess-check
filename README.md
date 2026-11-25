@@ -209,6 +209,8 @@ For Docker or a hosted instance, set a strong `CHESS_CHECK_COACH_TOKEN` in the s
 
 Tests: `.venv/bin/python -m pytest -q` and `cd web && npm test`. GitHub Actions runs both, plus the site and extension builds, on every pull request.
 
+I also run 8 headless Chromium tests for the extension's fair-play guard and recaps on both sites. [End-to-end tests](docs/methods.md#end-to-end-tests)
+
 ## License note
 
 The browser demo and the extension serve [Stockfish.js](https://github.com/nmrugg/stockfish.js) (GPL-3.0) as a separate file, with one line changed at build time so its pauses during a search do not wait for the browser's 4 ms timer minimum (`web/scripts/patchStockfish.mjs`, which documents the change). The WebAssembly file is unmodified.

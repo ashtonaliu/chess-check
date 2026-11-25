@@ -4,11 +4,13 @@
 import { Chess } from "chess.js";
 import { getWasmChess, type ParsedPgn, type WasmChess } from "./wasmChess";
 
+import type { Site, SiteId } from "./site";
+import { gameIdFromApiUrl } from "./sites/chesscomPages";
+
 export interface Game {
+  site: SiteId;
   url: string;
-  /** Where the ratings come from: "pregame" (Chess.com's game endpoint gives the change, so exact),
-   *  "estimated" (worked out from the archive's ratings after each game), or "after-game" (no
-   *  earlier game to work from, so the stored ratings, which already include this game's result). */
+  /** Whether the ratings are exact before play, estimated, or recorded after the game. */
   ratingSource?: "pregame" | "estimated" | "after-game";
   color: "white" | "black";
   myRating: number;
@@ -21,7 +23,7 @@ export interface Game {
   family: string;
   endTime: number;
   opponent?: string;      // the opponent's username
-  result: string;         // Chess.com result code for the user, e.g. "timeout"
+  result: string;         // Normalized result code for the user, e.g. "timeout"
   oppResult: string;      // ...and for the opponent
   moves: string[];        // SAN
   pgn: string;
@@ -104,7 +106,7 @@ export function parseGame(raw: RawGame, user: string, parsed?: ParsedPgn | null)
   if (!gamePgn) return null;
   const [opening, family] = openingNames(raw.eco || gamePgn.ecoUrl || "");
   const game: Game = {
-    url: raw.url, color, myRating: me.rating, oppRating: opp.rating, score: scoreOf(me.result),
+    site: "chesscom", url: raw.url, color, myRating: me.rating, oppRating: opp.rating, score: scoreOf(me.result),
     timeClass: raw.time_class ?? "", timeControl: raw.time_control ?? "", eco: gamePgn.eco ?? "?",
     opening, family, endTime: raw.end_time ?? 0, result: me.result ?? "", oppResult: opp.result ?? "", opponent: opp.username,
     moves: gamePgn.moves, pgn: raw.pgn, ...(gamePgn.startFen ? { startFen: gamePgn.startFen } : {}),
@@ -198,7 +200,7 @@ export function withPregameRatings(games: Game[]): Game[] {
 
 /** The player's most recent games, newest first, with pre-game ratings (one extra game is read so
  *  the oldest one returned has a previous game too). */
-export async function fetchGames(user: string, maxGames: number, timeClass: string | null,
+export async function history(user: string, timeClass: string | null, maxGames: number,
                                  signal?: AbortSignal): Promise<Game[]> {
   const games = await fetchStored(user, maxGames + 1, timeClass, signal);
   return withPregameRatings(games).slice(0, maxGames);
@@ -245,7 +247,7 @@ export async function findGame(user: string, gameId: string, months = 3, signal?
   for (const month of archives.slice(-months).reverse()) {
     const m = await fetchArchive(month, signal);
     if (!m.ok) throw new Error(`Chess.com API error ${m.status}.`);
-    const rg = (m.data?.games ?? []).find(g => g.url.match(/\/(\d+)$/)?.[1] === gameId);
+    const rg = (m.data?.games ?? []).find(g => gameIdFromApiUrl(g.url) === gameId);
     if (rg) {
       const wasm = await wasmReady;
       signal?.throwIfAborted();
@@ -253,4 +255,10 @@ export async function findGame(user: string, gameId: string, months = 3, signal?
     }
   }
   return null;
+}
+
+/** Load the requested site's history. Callers without a site use the Chess.com archive. */
+export function fetchGames(user: string, maxGames: number, timeClass: string | null,
+                           signal?: AbortSignal, site?: Site): Promise<Game[]> {
+  return site ? site.history(user, timeClass, maxGames, signal) : history(user, timeClass, maxGames, signal);
 }

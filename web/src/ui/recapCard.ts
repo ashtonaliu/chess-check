@@ -1,6 +1,7 @@
 // Shared rendering for the website and the Chrome extension's side panel: the post-game recap
 // card. Board diagrams are in board.ts, which needs chess.js; the extension leaves the board to
 // Chess.com, so its script does not load chess.js at all.
+import { defaultSitePages, pageSite } from "../browser/site";
 import type { Recap } from "../browser/recap";
 
 export const esc = (s: string) => s.replace(/[&<>"']/g, c =>
@@ -21,7 +22,6 @@ export const ago = (t: number) => {
 };
 const VERDICT_CLASS = (r: Recap) => r.surprise >= 0.4 ? "good" : r.surprise <= -0.4 ? "weak" : r.score === 1 ? "good" : "";
 
-/** Link to a game on Chess.com, opened at the position before move `ply` (0-based half-moves). */
 const article = (w: string) => (/^[aeiou]/.test(w) ? "an " : "a ") + w;
 
 /** The answer's tactic sentence, such as " You allowed a fork and missed a skewer." */
@@ -40,7 +40,7 @@ export function quizHint(tactics: { kind: "allowed" | "missed"; motif: string }[
 }
 
 export function moveLink(url: string, ply: number): string {
-  try { const u = new URL(url); u.searchParams.set("move", String(ply)); return u.toString(); } catch { return url; }
+  return (pageSite(url) ?? defaultSitePages).moveLink(url, ply);
 }
 
 // Whether the player has revealed a recap's answer, per tab, so it survives the page reload that

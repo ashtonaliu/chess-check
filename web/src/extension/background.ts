@@ -1,11 +1,14 @@
 // Service worker: relays the cube's requests to the offscreen analysis page
 // (creating it when needed), and toggles the cube when the toolbar icon is clicked.
 
-import { pageSafetyKey } from "./guard";
+import { DEFAULT_SITE, siteTabPatterns } from "../browser/site";
+import { pageSafety } from "./guard";
+import { QUEUE_PREFIX } from "./queueStore";
 import type { Reply } from "./offscreen";
 
 const SAFETY_KEY = "analysis-paused-tabs";
-const chessTabs = ["https://www.chess.com/*", "https://chess.com/*"];
+type PageSafety = NonNullable<ReturnType<typeof pageSafety>>;
+const safetyKey = ({ site, key }: PageSafety) => key.startsWith("game:") ? `${site}:${key}` : key;
 const tabStates = new Map<number, { key: string; paused: boolean }>();
 let saveState = Promise.resolve();
 let pauseWork = Promise.resolve();
@@ -37,13 +40,15 @@ function setTab(id: number, key: string | null, finished?: boolean, resetConfirm
 }
 
 const safetyReady = (async () => {
-  const [tabs, saved] = await Promise.all([chrome.tabs.query({ url: chessTabs }), chrome.storage.session.get([SAFETY_KEY])]);
+  const [tabs, saved] = await Promise.all([chrome.tabs.query({ url: siteTabPatterns }), chrome.storage.session.get([SAFETY_KEY])]);
   const previous = new Map((saved[SAFETY_KEY] as [number, { key: string; paused: boolean }][] | undefined) ?? []);
   for (const tab of tabs) {
-    const key = pageSafetyKey(tab.url);
-    if (tab.id === undefined || !key || key === "other") continue;
+    const page = pageSafety(tab.url);
+    if (tab.id === undefined || !page || page.key === "other") continue;
+    const key = safetyKey(page);
     const savedTab = previous.get(tab.id);
-    tabStates.set(tab.id, { key, paused: key === "play" || savedTab?.key !== key || savedTab.paused });
+    const same = savedTab?.key === key || (page.site === DEFAULT_SITE && savedTab?.key === page.key);
+    tabStates.set(tab.id, { key, paused: key === "play" || !same || savedTab?.paused !== false });
   }
   if (hasPausedTab()) stopAnalysis();
 })();
@@ -51,7 +56,8 @@ const safetyReady = (async () => {
 chrome.tabs.onUpdated.addListener((id, change, tab) => {
   if (change.url === undefined && change.status === undefined) return;
   void safetyReady.then(() => {
-    const key = pageSafetyKey(change.url ?? tab.url);
+    const page = pageSafety(change.url ?? tab.url);
+    const key = page && safetyKey(page);
     // Chrome can report loading after the content script confirms the same game.
     // A fresh content script reports finished: false before checking the game again.
     if (key || change.status === "complete") setTab(id, key);
@@ -61,9 +67,10 @@ chrome.tabs.onRemoved.addListener(id => { void safetyReady.then(() => setTab(id,
 chrome.tabs.onReplaced.addListener((added, removed) => {
   // A replaced page has no active content script confirmation yet.
   void safetyReady.then(async () => {
-    const tabs = await chrome.tabs.query({ url: chessTabs });
+    const tabs = await chrome.tabs.query({ url: siteTabPatterns });
     const tab = tabs.find(item => item.id === added);
-    if (tab) setTab(added, pageSafetyKey(tab.url), undefined, true);
+    const page = pageSafety(tab?.url);
+    if (page) setTab(added, safetyKey(page), undefined, true);
     setTab(removed, null);
   }).catch(() => {});
 });
@@ -100,7 +107,7 @@ chrome.runtime.onMessage.addListener((msg: { target?: string; type?: string; url
   if (msg.target === "review-dependencies" && sender.url === chrome.runtime.getURL("offscreen.html")) {
     // Chrome only exposes the runtime API to the offscreen page.
     void chrome.storage.local.get(null).then(storage => {
-      sendResponse(Object.fromEntries(Object.entries(storage).filter(([key]) => key.startsWith("queue:"))));
+      sendResponse(Object.fromEntries(Object.entries(storage).filter(([key]) => key.startsWith(QUEUE_PREFIX))));
     }, () => sendResponse(null));
     return true;
   }
@@ -121,13 +128,15 @@ chrome.runtime.onMessage.addListener((msg: { target?: string; type?: string; url
       const id = sender.tab?.id;
       // The sender's frame URL can still refer to the original document after pushState.
       // The tab URL reflects the current route, and the frame URL validates the origin.
-      const key = pageSafetyKey(sender.tab?.url);
-      if (id === undefined || !key || !pageSafetyKey(sender.url) || sender.frameId !== 0) {
+      const page = pageSafety(sender.tab?.url);
+      if (id === undefined || !page || pageSafety(sender.url)?.site !== page.site || sender.frameId !== 0) {
         sendResponse({ status: "paused" });
         return;
       }
+      const key = safetyKey(page);
       if (msg.type === "page-state") {
-        if (pageSafetyKey(msg.url) === key) setTab(id, key, msg.finished === true);
+        const reported = pageSafety(msg.url);
+        if (reported?.site === page.site && reported.key === page.key) setTab(id, key, msg.finished === true);
         sendResponse({ status: "ready" });
         return;
       }
@@ -139,7 +148,7 @@ chrome.runtime.onMessage.addListener((msg: { target?: string; type?: string; url
       }
       await pauseWork;
       await ensureOffscreen();
-      sendResponse(await toOffscreen(msg, true) ?? { status: "error", message: "The analysis page did not answer." });
+      sendResponse(await toOffscreen({ ...msg, site: page.site }, true) ?? { status: "error", message: "The analysis page did not answer." });
     } catch (e) {
       // always answer, so the cube never waits forever
       sendResponse({ status: "error", message: (e as Error).message });

@@ -15,9 +15,9 @@ import type { Recap } from "../browser/recap";
 import { addItems, applyReviewRates, grade, itemFromRecap, patchItems, pendingReviewRates, reviewRate,
   type ReviewItem } from "../browser/reviewQueue";
 import { createRecapView, esc, moveLink, quizHint, tacticSentence } from "../ui/recapCard";
-import type { Callback } from "../browser/callbackGame";
+import { defaultSitePages, pageSite, type FinishedPage } from "../browser/site";
 import { gameIdFromPage, isPlayPage } from "./guard";
-import { queueKey, updateQueue, type QueueDeps } from "./queueStore";
+import { loadStoredQueue, queueKey, updateQueue, type QueueDeps } from "./queueStore";
 import {
   afterLookup, cubeLook, daysAgo, dueNow, markFind, markSeen, panelView, reviewAllowed, reviewCard, StallWatch,
   takeBoardIntent, wasSeen, whenNext, type BoardIntent, type State, type View,
@@ -33,7 +33,7 @@ const KNIGHT = `<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="tru
  *  background and is asked about again), so a missing answer means something broke: say so. */
 const ASK_TIMEOUT_MS = 20_000;
 const ask = (req: Request) => Promise.race([
-  chrome.runtime.sendMessage<Reply>({ ...req, target: "bg" }),
+  chrome.runtime.sendMessage<Reply>({ ...req, target: "bg", site: site.id }),
   new Promise<never>((_, reject) => setTimeout(() => reject(new Error(
     "the extension did not answer. Reload the page, or reload Chess Check in chrome://extensions.")), ASK_TIMEOUT_MS)),
 ]);
@@ -43,46 +43,12 @@ async function load<T>(key: string, fallback: T): Promise<T> {
 async function save(key: string, value: unknown) {
   try { await chrome.storage.local.set({ [key]: value }); } catch { /* not remembered */ }
 }
-type Dev = { __ccPageUrl?: string; __ccCallback?: (id: string) => Promise<Callback | null>; __ccSignedIn?: string };
-const dev = window as unknown as Dev;
-const pageUrl = () => dev.__ccPageUrl ?? location.href;
-
-export interface Players { white: string; black: string }
-
-/** The signed-in Chess.com username: from the user settings the page embeds as JSON, or from the
- *  sidebar link to your profile. Null when signed out. Nothing else on the page is read. */
+const pageUrl = () => (window as Window & { __ccPageUrl?: string }).__ccPageUrl ?? location.href;
+const site = pageSite(pageUrl()) ?? defaultSitePages;
 let signedIn: string | null = null;
-function signedInUser(): string | null {
-  if (dev.__ccSignedIn !== undefined) return dev.__ccSignedIn || null;
-  if (signedIn) return signedIn;
-  for (const s of Array.from(document.scripts)) {
-    const m = s.textContent?.match(/"user":\{"id":\d+,[^{}]*?"username":"([\w-]+)"/);
-    if (m) return (signedIn = m[1]);
-  }
-  const href = document.querySelector('a.sidebar-link[href*="/member/"]')?.getAttribute("href");
-  const m = href?.match(/\/member\/([\w-]+)/);
-  return m ? (signedIn = m[1]) : null;
-}
+const signedInUser = () => (signedIn = site.signedInUser(document));
 
-interface Served { kind: "live" | "daily"; callback: Callback; players: Players }
-
-/** The game from the same Chess.com endpoint the game page loads, or null while Chess.com does not
- *  serve it, which for a live game means it is still being played. */
-async function fetchGame(id: string, url: string): Promise<Served | null> {
-  const kind = /\/daily\//.test(new URL(url).pathname) ? "daily" : "live";
-  let callback: Callback | null;
-  if (dev.__ccCallback) callback = await dev.__ccCallback(id);
-  else {
-    const r = await fetch(`/callback/${kind}/game/${id}`, { credentials: "include" });
-    if (r.status === 404) return null;
-    if (!r.ok) throw new Error(`Chess.com game lookup failed (${r.status}).`);
-    callback = await r.json();
-  }
-  if (!callback) return null;
-  const h = callback.game?.pgnHeaders ?? {};
-  if (!h.White || !h.Black) throw new Error("Chess.com did not say who played this game.");
-  return { kind, callback, players: { white: String(h.White), black: String(h.Black) } };
-}
+type Players = FinishedPage["players"];
 
 // ---------- DOM ----------
 
@@ -124,7 +90,7 @@ root.innerHTML = `<style>${siteCss.replace(/:root/g, ":host")}
 <div class="panel hidden" id="cc-panel" role="dialog" aria-label="Chess Check recap">
   <div class="head"><span>Chess Check</span><span><button data-act="reset" hidden>Change player</button><button data-act="close" aria-label="Close">✕</button></span></div>
   <div class="body"></div>
-  <p class="fine">Recaps appear only after Chess.com lists a game as finished. Nothing is shown or analyzed during a game.</p>
+  <p class="fine">Recaps appear only after ${site.name} lists a game as finished. Nothing is shown or analyzed during a game.</p>
 </div>`;
 const cube = root.querySelector(".cube") as HTMLButtonElement;
 const panel = root.querySelector(".panel") as HTMLElement;
@@ -134,7 +100,7 @@ const reset = root.querySelector<HTMLButtonElement>('[data-act="reset"]')!;
 let state: State = "idle";
 let accounts: string[] = [];              // usernames the user has said are theirs (lowercase)
 let players: Players | null = null;       // the game in the tab
-let served: Served | null = null;
+let served: FinishedPage | null = null;
 let viewer = "";                          // whose recap to show for this game
 let recap: Recap | null = null;
 let basis = 150;                          // how many of your past games the recap's profile used
@@ -153,7 +119,7 @@ let reviewRevealed = false;
 
 async function loadQueue(user: string | null, isCurrent = () => true) {
   const u = (user ?? "").toLowerCase();
-  const next = u ? await load<ReviewItem[]>(queueKey(u), []) : [];
+  const next = u ? await loadStoredQueue(queueKey(u, site.id)) : [];
   if (!isCurrent()) return;
   queue = next;
   queueOwner = u;
@@ -161,7 +127,7 @@ async function loadQueue(user: string | null, isCurrent = () => true) {
 // Every change goes through queueStore.updateQueue: applied to the latest saved queue under a lock
 // all Chess.com tabs share, so a tab with an older copy cannot undo another tab's grade.
 const queueDeps: QueueDeps = {
-  load: key => load<ReviewItem[]>(key, []),
+  load: loadStoredQueue,
   save,
   lock: typeof navigator !== "undefined" && navigator.locks
     ? (name, fn) => navigator.locks.request(name, () => fn()) as unknown as Promise<ReviewItem[]> : null,
@@ -170,14 +136,14 @@ async function changeQueue(change: (q: ReviewItem[]) => ReviewItem[]) {
   const u = queueOwner;
   if (!u) return;
   try {
-    const next = await updateQueue(queueDeps, u, change);
+    const next = await updateQueue(queueDeps, u, change, site.id);
     if (queueOwner === u) queue = next;
   } catch { /* not saved; the next change tries again */ }
 }
 // another tab changed the queue: show its version
 try {
   chrome.storage.onChanged?.addListener((changes, area) => {
-    const c = area === "local" && queueOwner ? changes[queueKey(queueOwner)] : undefined;
+    const c = area === "local" && queueOwner ? changes[queueKey(queueOwner, site.id)] : undefined;
     if (!c) return;
     queue = (c.newValue as ReviewItem[] | undefined) ?? [];
     refreshReviewDisplay();
@@ -369,7 +335,7 @@ function renderPanel() {
     const known = me ? [me] : accounts;
     const intro = known.length
       ? `This is not one of your games (${esc(known.join(", "))}). Whose recap do you want?`
-      : "Which player are you? Chess Check remembers this, so you only answer once. Signing in to Chess.com skips this.";
+      : `Which player are you? Chess Check remembers this, so you only answer once. Signing in to ${site.name} skips this.`;
     body.innerHTML = `<p class="note">${intro}</p><div class="who">${names.map(n =>
       `<button data-name="${esc(n)}">${known.length ? "Recap for " : "I am "}${esc(n)}</button>`).join("")}</div>`;
     body.querySelectorAll<HTMLButtonElement>("button[data-name]").forEach(b => b.addEventListener("click", () => {
@@ -481,6 +447,7 @@ reset.addEventListener("click", () => {
 
 let lastId: string | null = null;
 let checkVersion = 0;
+let lookup: AbortController | null = null;
 let boardIntent: BoardIntent | null = null;
 let retryBoardLookup = false;
 
@@ -506,6 +473,8 @@ async function check() {
     retryBoardLookup = !!intent;
   }
   const version = ++checkVersion;
+  lookup?.abort();
+  lookup = null;
   const isCurrent = () => version === checkVersion
     && (id ? gameIdFromPage(pageUrl()) === id : pageUrl() === url);
   if (timer) { clearTimeout(timer); timer = null; }
@@ -535,11 +504,11 @@ async function check() {
   }
   if (state !== "pending") setState("loading");      // a recheck of a game in progress stays on "pending"
   try {
-    const g = await fetchGame(id, url);
+    lookup = new AbortController();
+    const g = await site.lookupFinishedPage(id, new URL(url), lookup.signal);
     if (!isCurrent()) return;
-    const finished = !!g?.callback.game.isFinished && String(g.callback.game.id) === id;
     const reopen = boardIntent && boardIntent.expires > Date.now() ? boardIntent : null;
-    const step = afterLookup(g && { finished, ...g.players }, url, signedInUser(), accounts,
+    const step = afterLookup(g && { finished: true, ...g.players }, url, signedInUser(), accounts,
                              reopen?.item ?? null, !!reopen && !reopen.item);
     if (step.next === "pending") {
       setState("pending");
@@ -579,7 +548,7 @@ async function requestRecap() {
   if (!id || !viewer || !g) return;
   const isCurrent = () => version === checkVersion && gameIdFromPage(pageUrl()) === id;
   let reply: Reply;
-  try { reply = await ask({ type: "recap", username: viewer, kind: g.kind, gameId: id, callback: g.callback }); }
+  try { reply = await ask({ type: "recap", username: viewer, gameId: id, evidence: g.evidence }); }
   catch (e) { if (isCurrent()) setState("error", (e as Error).message); return; }
   if (!isCurrent()) return;
   switch (reply.status) {

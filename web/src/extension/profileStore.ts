@@ -4,6 +4,8 @@
 import type { Profile } from "../browser/follow";
 import { excessKeys, pruneTransaction } from "../browser/cacheRetention";
 import { gameId } from "../browser/ids";
+import { DEFAULT_SITE, type SiteId } from "../browser/site";
+import { legacyProfileKey, qualifyProfileKey } from "./storageKeys";
 
 export interface Saved { profile: Profile; games: number; savedAt: number }
 
@@ -21,20 +23,42 @@ function open(): Promise<IDBDatabase | null> {
   });
 }
 
+function withSite(saved: Saved): Saved {
+  const stamp = <T extends { site: SiteId }>(game: T): T => game.site ? game : { ...game, site: DEFAULT_SITE };
+  const { profile } = saved;
+  return { ...saved, profile: { ...profile, rows: profile.rows.map(stamp),
+    ...(profile.games ? { games: profile.games.map(stamp) } : {}) } };
+}
+
 export async function loadProfile(key: string): Promise<Saved | null> {
+  key = qualifyProfileKey(key);
   const db = await open();
   if (!db) return null;
   return new Promise(resolve => {
     try {
-      const store = db.transaction(STORE, "readwrite").objectStore(STORE);
+      const tx = db.transaction(STORE, "readwrite");
+      const store = tx.objectStore(STORE);
+      const legacy = legacyProfileKey(key);
+      let saved: Saved | null = null;
+      tx.oncomplete = () => { db.close(); resolve(saved); };
+      tx.onerror = tx.onabort = () => { db.close(); resolve(null); };
       const req = store.get(key);
       req.onsuccess = () => {
-        const saved = req.result as Saved | undefined;
-        if (saved) store.put(Date.now(), USED + key);
-        resolve(saved ?? null);
-        db.close();
+        if (req.result) {
+          saved = req.result as Saved;
+          store.put(Date.now(), USED + key);
+        } else if (legacy) {
+          const old = store.get(legacy);
+          old.onsuccess = () => {
+            if (!old.result) return;
+            saved = withSite(old.result as Saved);
+            store.put(saved, key);
+            store.put(Date.now(), USED + key);
+            store.delete(legacy);
+            store.delete(USED + legacy);
+          };
+        }
       };
-      req.onerror = () => { db.close(); resolve(null); };
     } catch { db.close(); resolve(null); }
   });
 }
@@ -45,14 +69,20 @@ async function write(key: string, value: Saved | number): Promise<void> {
   await new Promise<void>(resolve => {
     try {
       const tx = db.transaction(STORE, "readwrite");
-      tx.objectStore(STORE).put(value, key);
+      const store = tx.objectStore(STORE);
+      store.put(value, key);
+      const legacy = legacyProfileKey(key);
+      if (typeof value !== "number" && legacy) {
+        store.delete(legacy);
+        store.delete(USED + legacy);
+      }
       tx.oncomplete = tx.onerror = tx.onabort = () => { db.close(); resolve(); };
     } catch { db.close(); resolve(); }
   });
 }
 
-export const saveProfile = (key: string, saved: Saved) => write(key, saved);
-export const touchProfile = (key: string) => write(USED + key, Date.now());
+export const saveProfile = (key: string, saved: Saved) => write(qualifyProfileKey(key), saved);
+export const touchProfile = (key: string) => write(USED + qualifyProfileKey(key), Date.now());
 
 interface ProfileEntry {
   key: string; gameIds: ReadonlySet<string>; lastUsed: number;
@@ -60,10 +90,12 @@ interface ProfileEntry {
 
 export function profilePruneKeys(entries: ProfileEntry[], current: ReadonlySet<string>,
                                  legacyQueueGames: ReadonlyMap<string, ReadonlySet<string>>, limit: number): string[] {
-  const keep = new Set(current);
+  const keep = new Set(entries.filter(entry => current.has(qualifyProfileKey(entry.key))
+    || current.has(entry.key)).map(entry => entry.key));
   for (const entry of entries) {
-    const user = entry.key.split("|")[0];
-    const legacy = legacyQueueGames.get(user);
+    const qualified = qualifyProfileKey(entry.key);
+    const player = qualified.slice(0, qualified.lastIndexOf("|"));
+    const legacy = legacyQueueGames.get(player) ?? legacyQueueGames.get(legacyProfileKey(player) ?? "");
     if (legacy && [...legacy].some(id => entry.gameIds.has(id))) keep.add(entry.key);
   }
   return excessKeys([...entries].sort((a, b) => b.lastUsed - a.lastUsed).map(entry => entry.key), limit, keep);

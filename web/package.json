@@ -15,6 +15,7 @@
   },
   "devDependencies": {
     "esbuild": "0.25.10",
+    "fake-indexeddb": "6.2.8",
     "stockfish": "19.0.1",
     "tsx": "4.23.15",
     "typescript": "5.9.3"

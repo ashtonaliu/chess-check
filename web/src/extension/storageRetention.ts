@@ -1,4 +1,7 @@
 import { gameId } from "../browser/ids";
+import type { SiteId } from "../browser/site";
+import { QUEUE_PREFIX, queueKey } from "./queueStore";
+import { playerKey } from "./storageKeys";
 import type { ReviewItem } from "../browser/reviewQueue";
 
 export const RECAP_LIMIT = 200;
@@ -16,7 +19,10 @@ export function reviewDependencies(storage: Record<string, unknown>) {
   const games = new Set<string>();
   const legacyByUser = new Map<string, Set<string>>();
   for (const [key, value] of Object.entries(storage)) {
-    if (!key.startsWith("queue:") || !Array.isArray(value)) continue;
+    if (!key.startsWith(QUEUE_PREFIX) || !Array.isArray(value)) continue;
+    const owner = key.slice(QUEUE_PREFIX.length);
+    const colon = owner.indexOf(":");
+    if (colon === -1 && Array.isArray(storage[queueKey(owner)])) continue;
     const legacy = new Set<string>();
     for (const item of value as ReviewItem[]) {
       if (item.done) continue;
@@ -24,7 +30,8 @@ export function reviewDependencies(storage: Record<string, unknown>) {
       games.add(id);
       if (!item.fen || item.timeClass === undefined) legacy.add(id);
     }
-    if (legacy.size) legacyByUser.set(key.slice("queue:".length), legacy);
+    if (legacy.size) legacyByUser.set(colon === -1 ? owner
+      : playerKey(owner.slice(0, colon) as SiteId, owner.slice(colon + 1)), legacy);
   }
   return { games, legacyByUser };
 }

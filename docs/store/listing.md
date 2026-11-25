@@ -37,6 +37,12 @@ show a clear message and the classic `/live` page pauses analysis. The WebAssemb
 empty move entries. These three fixes ship for the first time in 0.9.0.
 [#112](https://github.com/ashtonaliu/chess-check/pull/112) · [#110](https://github.com/ashtonaliu/chess-check/pull/110) · [#114](https://github.com/ashtonaliu/chess-check/pull/114)
 
+Review cards show how often players at your rating find the move only where I checked the
+estimate against held-out games. On Lichess that now covers UltraBullet, bullet, blitz, rapid and
+classical, each with its own rating range. On Chess.com it covers blitz from 1200 to 1899. The
+estimate ran about 3 points too high from 1900 to 2000, so those cards no longer show it.
+[#130](https://github.com/ashtonaliu/chess-check/pull/130)
+
 ## What's new in 0.8.0
 
 Review cards now use a neural find-rate model to estimate how often players at your rating find the best move. Analysis uses a Rust chess core compiled to WebAssembly.

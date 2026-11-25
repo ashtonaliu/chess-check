@@ -19,9 +19,14 @@
 
   <section class="hero">
     <h1>What are you actually bad at in chess?</h1>
-    <p class="lede">Enter a Chess.com username. Stockfish checks every move, the results are adjusted for your opponents' ratings, and you get the patterns that cost you games.</p>
+    <p id="lede" class="lede">Enter a Chess.com username. Stockfish checks every move, the results are adjusted for your opponents' ratings, and you get the patterns that cost you games.</p>
     <form id="form" class="search" autocomplete="off">
-      <label class="sr-only" for="username">Chess.com username</label>
+      <label class="sr-only" for="site">Site</label>
+      <select id="site" name="site">
+        <option value="chesscom" selected>Chess.com</option>
+        <option value="lichess">Lichess</option>
+      </select>
+      <label id="usernameLabel" class="sr-only" for="username">Chess.com username</label>
       <input id="username" name="username" placeholder="Chess.com username" required spellcheck="false">
       <label class="sr-only" for="time_class">Time control</label>
       <select id="time_class" name="time_class">
@@ -117,7 +122,7 @@
   <section id="how" class="how">
     <h2 class="section-title">How it works</h2>
     <ol>
-      <li><strong>Your games</strong> come straight from the Chess.com public API.</li>
+      <li id="howSource"><strong>Your games</strong> come straight from the Chess.com public API.</li>
       <li><strong>Stockfish</strong> scores every position, and every blunder is double-checked with a deeper search.</li>
       <li><strong>Tactics</strong> such as forks and discovered attacks are recognised on the board and compared with your opponents' rates.</li>
       <li><strong>Openings</strong> are judged against what your rating predicts, with small samples treated cautiously.</li>
@@ -125,7 +130,7 @@
     </ol>
   </section>
 
-  <footer>Data: Chess.com public API. Engine: <a href="https://github.com/nmrugg/stockfish.js/tree/0d5dd7944f88c817c07a26bc4fb1905d5f9c46d6" target="_blank" rel="noopener">Stockfish.js</a> (GPL-3.0, <a href="https://github.com/ashtonaliu/chess-check/blob/b17be94/web/scripts/patchStockfish.mjs">JavaScript yield patch</a>). Puzzles: Lichess. <a href="https://github.com/ashtonaliu/chess-check" target="_blank" rel="noopener">Source code</a>. <a href="/static/privacy.html">Extension privacy</a>.</footer>
+  <footer><span id="dataCredit">Data: Chess.com public API.</span> Engine: <a href="https://github.com/nmrugg/stockfish.js/tree/0d5dd7944f88c817c07a26bc4fb1905d5f9c46d6" target="_blank" rel="noopener">Stockfish.js</a> (GPL-3.0, <a href="https://github.com/ashtonaliu/chess-check/blob/b17be94/web/scripts/patchStockfish.mjs">JavaScript yield patch</a>). Puzzles: Lichess. <a href="https://github.com/ashtonaliu/chess-check" target="_blank" rel="noopener">Source code</a>. <a href="/static/privacy.html">Extension privacy</a>.</footer>
   <script src="/static/dist/main.js" type="module"></script>
 </body>
 </html>

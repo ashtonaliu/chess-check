@@ -4,6 +4,7 @@
 // page has no server.
 import { factsText, feedback, verify, type Fact, type Verification } from "./facts";
 import type { Row } from "./model";
+import type { SiteId } from "./site";
 import type { GameRow } from "./stats";
 import { ToolBox, TOOLS } from "./tools";
 
@@ -27,6 +28,10 @@ Rules (a program checks your report against them):
 - Recommendations should be concrete (what to study, which puzzle theme link) but must not invent statistics.
 
 Format (Markdown, under 350 words): a one-sentence summary, then "## Biggest weaknesses" with up to 3 items (evidence, then what to do), then "## What's working" (1-2 items), then "## Training plan" (3-5 bullet points).`;
+
+export function systemPrompt(site: SiteId = "chesscom"): string {
+  return site === "lichess" ? SYSTEM.replace("Chess.com", "Lichess") : SYSTEM;
+}
 
 /** The slice of the SDK the coach uses, so tests can pass a fake. */
 export interface CoachClient {
@@ -59,7 +64,8 @@ export function describeError(e: unknown): string {
 
 export async function runCoach(opts: {
   client: CoachClient; username: string; facts: Fact[]; games: GameRow[]; moves: Row[];
-  engineUrl: string; signal?: AbortSignal; repair?: boolean; onStatus?: (msg: string) => void; summaries?: [string, string][];
+  engineUrl: string; signal?: AbortSignal; repair?: boolean; onStatus?: (msg: string) => void;
+  summaries?: [string, string][]; site?: SiteId;
 }): Promise<CoachResult> {
   const facts = opts.facts.map(f => ({ ...f }));       // tool results get appended
   const box = new ToolBox(opts.games, opts.moves, facts, opts.engineUrl, opts.summaries ?? []);
@@ -71,7 +77,7 @@ export async function runCoach(opts: {
     for (let i = 0; i <= MAX_TOOL_TURNS; i++) {
       opts.signal?.throwIfAborted();
       const resp = await opts.client.beta.messages.create({
-        model: MODEL, max_tokens: 16000, system: SYSTEM, tools: TOOLS, messages,
+        model: MODEL, max_tokens: 16000, system: systemPrompt(opts.site), tools: TOOLS, messages,
         output_config: { effort: "medium" },
         ...(FALLBACK_MODELS.has(MODEL) ? { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" } : {}),
       }, { signal: opts.signal });

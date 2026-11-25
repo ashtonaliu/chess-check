@@ -120,6 +120,12 @@ architecture trained on Chess.com alone scored **0.40663**. Each of those means 
 The Chess.com-only logistic and boosting baselines scored 0.44100 and 0.40956. All fits excluded
 Stockfish's numerical evaluations. [Neural training methods](docs/methods.md#training-and-evaluation)
 
+**Retraining with Chess.com rapid and bullet.** Adding 95,683 labeled Chess.com rapid and bullet
+positions from 863 players cut held-out log loss by **0.021** on Chess.com rapid and **0.020** on
+bullet. Review cards now show an estimate for Chess.com rapid from 600 to 1499 and bullet from 600
+to 1599, where the first model was only calibrated from 1800 and 1700 up to 2099. Lichess rapid got
+0.0023 worse with recorded clocks. [Retraining methods](docs/methods.md#retraining-with-chesscom-rapid-and-bullet)
+
 **Engine dataset.** To make later questions cheap, I analyzed 664,898 games (49.1 million positions) once with Stockfish 19, keeping the two best moves, win/draw/loss chances and clock time for every position. It took 33 hours on my laptop, and profiles for all 171,126 players in it now take 12 seconds to compute. On all 14,739 test games, none of the engine profiles (accuracy, blunders, conversion, time trouble, form, a rating implied by move quality) improved on the odds formula. The test was precise enough to rule out effects bigger than about 2 points of expected score.
 
 **Lichess pipeline.** I scanned every rated standard game in the October 2026 archive and wrote

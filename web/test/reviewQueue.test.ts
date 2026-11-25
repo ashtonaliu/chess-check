@@ -146,9 +146,9 @@ test("review rate limits enforce per-site and per-speed calibrated rating bounds
 
   // Chess.com: calibrated per speed, other speeds refused.
   const chesscomBounds: [string, number, number][] = [
-    ["bullet", 1700, 2099],
+    ["bullet", 600, 1599],
     ["blitz", 1200, 1899],
-    ["rapid", 1800, 2099],
+    ["rapid", 600, 1499],
   ];
   for (const [speed, lo, hi] of chesscomBounds) {
     assert.equal(reviewFindRate(req(speed, lo - 1), "chesscom"), null, `chesscom ${speed} below ${lo}`);
@@ -161,17 +161,17 @@ test("review rate limits enforce per-site and per-speed calibrated rating bounds
   for (const speed of ["ultraBullet", "classical", "daily"]) {
     assert.equal(reviewFindRate(req(speed, 1850), "chesscom"), null, `chesscom ${speed} refused`);
   }
-  const chesscomBlitz = reviewFindRate(req("blitz", 1850), "chesscom");
-  const chesscomRapid = reviewFindRate(req("rapid", 1850), "chesscom");
+  const chesscomBlitz = reviewFindRate(req("blitz", 1300), "chesscom");
+  const chesscomRapid = reviewFindRate(req("rapid", 1300), "chesscom");
   assert.ok(chesscomBlitz !== null && chesscomRapid !== null && chesscomBlitz !== chesscomRapid);
 
   // Lichess: calibrated per speed, daily refused.
   const lichessBounds: [string, number, number][] = [
-    ["ultraBullet", 1000, 1799],
-    ["bullet", 1000, 2299],
-    ["blitz", 1100, 1899],
-    ["rapid", 1300, 2199],
-    ["classical", 1100, 1699],
+    ["ultraBullet", 1000, 1999],
+    ["bullet", 900, 2599],
+    ["blitz", 900, 2299],
+    ["rapid", 1100, 2199],
+    ["classical", 1100, 1499],
   ];
   for (const [speed, lo, hi] of lichessBounds) {
     assert.equal(reviewFindRate(req(speed, lo - 1), "lichess"), null, `lichess ${speed} below ${lo}`);
@@ -192,7 +192,7 @@ test("review rate limits enforce per-site and per-speed calibrated rating bounds
   const lichessUrl = (id: string) => ["https:", "", "lichess.org", "game", id].join("/");
   const lichessRapid = item("abc12345:12", { url: lichessUrl("abc12345"), fen, best: "Nc6", rating: 2150, timeClass: "rapid" });
   const lichessBulletHigh = item("def67890:12", { url: lichessUrl("def67890"), fen, best: "Nc6", rating: 2299, timeClass: "bullet" });
-  const lichessBlitzHigh = item("jkl22222:12", { url: lichessUrl("jkl22222"), fen, best: "Nc6", rating: 1900, timeClass: "blitz" });
+  const lichessBlitzHigh = item("jkl22222:12", { url: lichessUrl("jkl22222"), fen, best: "Nc6", rating: 2300, timeClass: "blitz" });
   const lichessDaily = item("ghi11111:12", { url: lichessUrl("ghi11111"), fen, best: "Nc6", rating: 1600, timeClass: "daily" });
   const chesscomHigh = item("999:12", { fen, best: "Nc6", rating: 1900, timeClass: "blitz" });
   const pending = pendingReviewRates([lichessRapid, lichessBulletHigh, lichessBlitzHigh, lichessDaily, chesscomHigh]);

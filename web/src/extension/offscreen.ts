@@ -12,7 +12,7 @@ import type { Callback } from "../browser/callbackGame";
 import { defaultWorkers, finishEngineTiming, pruneAnalysisCache, startEngineTiming, type GameAnalysis } from "../browser/engine";
 import { moveFeatures } from "../browser/findRate";
 import { analyzeGame, type Profile } from "../browser/follow";
-import { fetchGames, type Game } from "../browser/games";
+import { fetchGames, fetchOpponentGames, type Game } from "../browser/games";
 import { gameCacheId, gameId } from "../browser/ids";
 import { Pace, SharedPace, startingWorkers } from "../browser/pace";
 import { analyzeInBrowser } from "../browser/pipeline";
@@ -117,7 +117,7 @@ function startJob(site: Site, key: string, game: Game, signal: AbortSignal): Gam
   })
     .catch(e => { job.error = (e as Error).message; });
   if (game.opponent) {
-    fetchGames(game.opponent, 100, game.timeClass, signal, site)
+    fetchOpponentGames(game.opponent, game.color === "white" ? "black" : "white", game.timeClass, site, signal)
       .then(gs => { job.opponentGames = gs.filter(g => g.url !== game.url); })
       .catch(() => { /* no opponent note */ })
       .finally(() => { job.opponentDone = true; });

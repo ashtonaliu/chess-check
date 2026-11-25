@@ -159,6 +159,10 @@ is finished. Times are in seconds, with the median followed by the range.
 I used two finished Chess.com bullet games and three finished Lichess blitz games. The saved
 profile held 150 games, and reopening reused the finished recap. [Timing methods](docs/methods.md#where-the-time-goes)
 
+The Lichess opponent note was mostly the download of the opponent's last 100 games. It now asks
+for their last 50 games in the color the note reads, and that download went from a median of 4.16
+to 2.16 s (6 players, 3 runs each). I have not rerun the table above since.
+
 In the demo, 150 Lichess blitz games with nothing cached showed the score and opening table after
 7.11 and 7.26 s in two runs, and the full analysis after 15.97 and 16.27 s. The first number is
 mostly the download, since Lichess sends anonymous history at about 20 games a second.

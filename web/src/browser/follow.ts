@@ -2,7 +2,7 @@
 // as soon as it is finished. Only finished games appear in the public API, so
 // nothing here can run during a game.
 import { analyseGames, defaultWorkers, recheckBlunders } from "./engine";
-import { fetchGames, type Game } from "./games";
+import { fetchGames, fetchOpponentGames, type Game } from "./games";
 import { defaultSite, siteForId } from "./sites";
 import type { SiteId } from "./site";
 import { buildRecap, opponentNote, type Recap } from "./recap";
@@ -118,9 +118,9 @@ export async function analyzeGame(g: Game, engineUrl: string, signal?: AbortSign
 export function opponentNoteFor(g: Game, timeClass: string | null): Promise<string | null> {
   const opponent = g.opponent;
   if (!opponent) return Promise.resolve(null);
-  return fetchGames(opponent, 100, g.timeClass || timeClass, undefined, siteForId(g.site) ?? defaultSite)
-    .then(games => opponentNote(opponent, games.filter(game => game.url !== g.url),
-      g.family, g.color === "white" ? "black" : "white"))
+  const color = g.color === "white" ? "black" : "white";
+  return fetchOpponentGames(opponent, color, g.timeClass || timeClass, siteForId(g.site) ?? defaultSite)
+    .then(games => opponentNote(opponent, games.filter(game => game.url !== g.url), g.family, color))
     .catch(() => null);
 }
 

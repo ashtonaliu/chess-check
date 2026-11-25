@@ -21,6 +21,14 @@ test("history without a selected time class requests all six standard time class
   const url = historyUrl({ user: "player", timeClass: null, max: 150 });
   assert.equal(url.searchParams.get("perfType"), "ultraBullet,bullet,blitz,rapid,classical,correspondence");
   assert.equal(url.searchParams.get("max"), "150");
+  assert.equal(url.searchParams.has("color"), false);
+});
+
+test("an opponent history request asks Lichess for one color", () => {
+  const url = historyUrl({ user: "opponent", timeClass: "blitz", max: 50, color: "black" });
+  assert.equal(url.searchParams.get("color"), "black");
+  assert.equal(url.searchParams.get("max"), "50");
+  assert.equal(url.searchParams.get("perfType"), "blitz");
 });
 
 test("history and status share a request slot until the response body is consumed", async () => {
@@ -94,13 +102,17 @@ test("a finished Lichess export reaches a complete recap using only the public g
   let checked = 0;
   let now = 0;
   let status = "started";
+  const histories: URL[] = [];
   const username = game.players.white.user.name;
   const active = { status: "started", get moves() { assert.fail("read active moves"); },
     get clocks() { assert.fail("read active clocks"); }, get id() { assert.fail("read active ID"); } };
   t.mock.method(Date, "now", () => now);
   t.mock.method(globalThis, "fetch", async input => {
     const request = new URL(String(input));
-    if (request.pathname.startsWith("/api/games/user/")) return new Response(JSON.stringify(game));
+    if (request.pathname.startsWith("/api/games/user/")) {
+      histories.push(request);
+      return new Response(JSON.stringify(game));
+    }
     checked++;
     assert.equal(request.pathname, `/game/export/${game.id}`);
     if (status === "started") {
@@ -200,6 +212,11 @@ test("a finished Lichess export reaches a complete recap using only the public g
         assert.equal(reply.recap.url, url.href);
         assert.equal(reply.games, 50);
         assert.equal(analyzed, 1);
+        // The opponent played Black, and the note reads only their games as Black.
+        const opponent = histories.filter(h => h.pathname.endsWith(`/${game.players.black.user.name}`));
+        assert.deepEqual(opponent.map(h => [h.searchParams.get("color"), h.searchParams.get("max")]), [["black", "50"]]);
+        assert.ok(histories.some(h => h.pathname.endsWith(`/${username}`)));
+        assert.ok(histories.filter(h => h.pathname.endsWith(`/${username}`)).every(h => !h.searchParams.has("color")));
         assert.ok(messages.some(msg => "target" in msg && msg.target === "offscreen" && "site" in msg && msg.site === "lichess"));
         assert.doesNotMatch(JSON.stringify({ messages, session, recap: reply.recap }), /fake/);
         return;

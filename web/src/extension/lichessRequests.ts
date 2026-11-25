@@ -6,18 +6,18 @@ type Failure = { status: "error"; message: string };
 export type LichessStatusReply = Wait | Failure | { status: "pending" | "aborted" }
   | { status: "finished"; evidence: LichessExport };
 export type LichessHistoryReply = Wait | Failure | { status: "history"; text: string };
-export interface LichessHistoryRequest { user: string; timeClass: string | null; max: number }
+export interface LichessHistoryRequest { user: string; timeClass: string | null; max: number; color?: "white" | "black" }
 
 const ORIGIN = "https://lichess.org";
 const STANDARD_PERF_TYPES = "ultraBullet,bullet,blitz,rapid,classical,correspondence";
 export const LICHESS_COOLDOWN_KEY = "lichess-api-cooldown";
 
-export function historyUrl({ user, timeClass, max }: LichessHistoryRequest): URL {
+export function historyUrl({ user, timeClass, max, color }: LichessHistoryRequest): URL {
   const url = new URL(`/api/games/user/${encodeURIComponent(user)}`, ORIGIN);
   // Lichess applies max before our parser can drop variants and custom starts.
   const perfType = timeClass === "daily" ? "correspondence" : timeClass || STANDARD_PERF_TYPES;
   url.search = new URLSearchParams({ max: String(max), clocks: "true", opening: "true",
-    ongoing: "false", finished: "true", perfType }).toString();
+    ongoing: "false", finished: "true", perfType, ...(color ? { color } : {}) }).toString();
   return url;
 }
 

@@ -47,7 +47,8 @@ test("the recap shows archive details after the turning point and keeps polling 
         return { analysis: { url: game.url, color: game.color, moves: [], opening_eval: null }, blunders: [] };
       };
     `,
-    "../browser/games": "export const fetchGames = globalThis.__profileTest.fetchGames;",
+    "../browser/games": "export const fetchGames = globalThis.__profileTest.fetchGames; " +
+      "export const fetchOpponentGames = user => globalThis.__profileTest.fetchGames(user);",
     "../browser/pipeline": `
       export const analyzeInBrowser = async ({ username, games, signal, prefetchedGames }) => {
         globalThis.__profileTest.builds.push(games);

@@ -118,13 +118,14 @@ interface BackgroundMessage extends Partial<LichessHistoryRequest> {
 chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendResponse) => {
   if (msg.target === "lichess-history") {
     if (sender.url !== chrome.runtime.getURL("offscreen.html")) return false;
-    const { user, timeClass, max } = msg;
+    const { user, timeClass, max, color } = msg;
     void safetyReady.then(() => {
       if (hasPausedTab()) throw new Error("Lichess history was paused.");
-      if (!user || max === undefined || !Number.isInteger(max) || max < 1 || max > 150) {
+      if (!user || max === undefined || !Number.isInteger(max) || max < 1 || max > 150
+          || (color !== undefined && color !== "white" && color !== "black")) {
         throw new Error("Invalid Lichess history request.");
       }
-      return lichessRequests.history({ user, timeClass: timeClass ?? null, max });
+      return lichessRequests.history({ user, timeClass: timeClass ?? null, max, ...(color ? { color } : {}) });
     }).then(sendResponse, error => sendResponse({ status: "error", message: (error as Error).message }));
     return true;
   }

@@ -12,11 +12,24 @@ Education, English
 
 **Description**
 
-Chess Check adds a small recap panel to Chess.com and Lichess. Open a finished game to see the result, the move that cost you the most, and what Stockfish found. Jump to that move on the site's board, try an alternative, or reveal the engine’s answer.
+Chess Check gives you a short recap after every game you finish on Chess.com or Lichess, right on the site.
 
-The panel also shows patterns from your previous games and brings back missed moves for spaced review. Recaps and reviews are available between games. Chess Check waits for the site to confirm a game is finished before building its recap.
+When a game ends, the Chess Check cube in the corner turns green. Open it to see:
+• The result, and how likely it was from both players' ratings
+• The turning point: the move that cost you the most, asked as a question. Find the better move on the site's own board, or reveal it.
+• Your opening, and how it has gone for you in your recent games
+• What your opponent usually plays in that opening
+• Patterns from your recent games, such as the tactics you miss most
 
-To build recaps, the extension uses your Chess.com or Lichess username, the public game ID, and game records from the site. The engine runs in your browser, and your analysis and review progress are stored there.
+Missed moves go into a review queue that brings each position back after 1, 3, 7 and 21 days until you find it. Review cards also say how often players at your rating find the move, where that estimate has been checked against real games.
+
+Fair play first. Chess.com and Lichess forbid outside help during a game. Chess Check shows and computes nothing about a game until the site confirms it is over, and it pauses all analysis while any tab is on a play page or an unfinished game.
+
+Fast and private. Stockfish runs in your browser. With your history saved, a recap is ready in about 1 to 5 seconds. Your analysis and review progress stay in your Chrome profile, and nothing is sent to me or to any analytics service.
+
+No account and no setup. Chess Check reads your signed-in username from the page, or asks once which player you are.
+
+Chess Check is open source: https://github.com/ashtonaliu/chess-check
 
 **Website**
 
@@ -84,3 +97,4 @@ Disclose Chess.com and Lichess usernames, supported site tab addresses, public g
 2. Click the Chess Check cube in the lower-right corner. If prompted, choose the White player, ashton-iwnl.
 3. Wait for the turning point. Select **Find it on the board** to open the move with the recap beside it, or select **Reveal the move** to see the answer.
 4. To verify the game-in-progress guard, open the Chess.com Play page. The extension provides no review positions there.
+5. For Lichess, open [this finished Lichess game](https://lichess.org/game/BYvvanic) and click the cube. Lichess may show a short security check first. Choose either player, since this is not your game, and the recap appears the same way.

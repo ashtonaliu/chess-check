@@ -88,7 +88,10 @@ Disclose Chess.com and Lichess usernames, supported site tab addresses, public g
 ## Assets
 
 - Upload the ZIP from `bash scripts/build_extension.sh`. Its manifest is at the archive root.
-- Use [the 128 × 128 icon](../../extension/icons/128.png) and [the 1280 × 800 finished-game screenshot](recap-1280x800.png).
+- Use [the 128 × 128 icon](../../extension/icons/128.png) and three 1280 × 800 screenshots, in this order:
+  1. [A Lichess recap beside the turning point](lichess-recap-1280x800.png). The board shows the position before the move that cost the most.
+  2. [A Chess.com recap after a finished game](recap-1280x800.png).
+  3. [A review card on the Chess.com board](review-card-1280x800.png), asking for the better move in an earlier game.
 - Confirm the public privacy URL is accessible after the GitHub Pages deployment before submitting. Review the listing and privacy fields in the Developer Dashboard. [Chrome listing requirements](https://developer.chrome.com/docs/webstore/cws-dashboard-listing) · [Chrome privacy guidance](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy)
 
 ## Reviewer instructions

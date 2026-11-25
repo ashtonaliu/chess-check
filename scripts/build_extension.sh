@@ -20,4 +20,10 @@ cp "$ROOT/web/node_modules/stockfish/Copying.txt" "$OUT/licenses/Stockfish-GPL-3
 cp "$ROOT/web/node_modules/chess.js/LICENSE" "$OUT/licenses/chess.js-BSD-2-Clause.txt"
 rm -f "$OUT.zip"
 (cd "$OUT" && zip -qr "$OUT.zip" manifest.json offscreen.html icons dist engine licenses THIRD_PARTY_NOTICES.txt)
+# Inspect the archived entry itself. The store content script must have a closed shadow root.
+CONTENT="$(unzip -p "$OUT.zip" dist/content.js)"
+if [[ "$CONTENT" != *'attachShadow({mode:"closed"})'* || "$CONTENT" == *'attachShadow({mode:"open"})'* || "$CONTENT" == *'__CC_TEST__'* ]]; then
+  echo "The store ZIP must not contain the extension's test hook." >&2
+  exit 1
+fi
 echo "Built extension/, dist/chess-check-extension/ and dist/chess-check-extension.zip ($(du -h "$ROOT/dist/chess-check-extension.zip" | cut -f1))"

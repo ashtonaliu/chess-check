@@ -116,3 +116,30 @@ jobs:
           npm run build
       - name: Build the extension
         run: scripts/build_extension.sh
+
+  extension-e2e:
+    name: Chromium extension tests
+    runs-on: ubuntu-latest
+    env:
+      RUSTUP_TOOLCHAIN: '1.99.1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install the Rust WebAssembly target and wasm-bindgen
+        run: |
+          rustup toolchain install 1.99.1 --profile minimal --target wasm32-unknown-unknown
+          release=wasm-bindgen-0.2.130-x86_64-unknown-linux-musl
+          curl --retry 3 -fsSL "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/0.2.130/$release.tar.gz" -o "$RUNNER_TEMP/$release.tar.gz"
+          echo "9687f3bb551b9f66f37ed32a40d7913a00f7962db653054e56857bc306c3227f  $RUNNER_TEMP/$release.tar.gz" | sha256sum --check
+          tar -xzf "$RUNNER_TEMP/$release.tar.gz" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/$release" >> "$GITHUB_PATH"
+      - name: Install dependencies and run the extension suite
+        working-directory: web
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium --no-shell
+          npm run test:e2e

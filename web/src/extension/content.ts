@@ -64,7 +64,8 @@ type Players = FinishedPage["players"];
 const host = document.createElement("div");
 host.style.cssText = "position:fixed;z-index:2147483000;width:0;height:0;";
 host.classList.add("hidden");
-const root = host.attachShadow({ mode: "closed" });
+declare const __CC_TEST__: boolean;
+const root = host.attachShadow({ mode: typeof __CC_TEST__ !== "undefined" && __CC_TEST__ ? "open" : "closed" });
 root.innerHTML = `<style>${siteCss.replace(/:root/g, ":host")}
   :host { all: initial; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); }
   :host(.hidden) { display: none !important; }

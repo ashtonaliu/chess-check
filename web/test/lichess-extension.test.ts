@@ -7,7 +7,7 @@ import { enginePruneKeys } from "../src/browser/cacheRetention";
 import { gameCacheId } from "../src/browser/ids";
 import { siteForId } from "../src/browser/sites";
 import { gameIdFromPage, pageSafetyKey } from "../src/extension/guard";
-import { LichessRequests } from "../src/extension/lichessRequests";
+import { historyUrl, LichessRequests } from "../src/extension/lichessRequests";
 import { afterLookup, markFind } from "../src/extension/panelModel";
 import { recapKey } from "../src/extension/storageKeys";
 
@@ -16,6 +16,12 @@ const fixture = JSON.parse(readFileSync(new URL("./fixtures/lichess_parity.json"
 const game = fixture.exports[fixture.expected[0].game_id];
 const url = new URL(`https://lichess.org/game/${game.id}`);
 const site = siteForId("lichess")!;
+
+test("history without a selected time class requests all six standard time classes", () => {
+  const url = historyUrl({ user: "player", timeClass: null, max: 150 });
+  assert.equal(url.searchParams.get("perfType"), "ultraBullet,bullet,blitz,rapid,classical,correspondence");
+  assert.equal(url.searchParams.get("max"), "150");
+});
 
 test("history and status share a request slot until the response body is consumed", async () => {
   const requested: URL[] = [];

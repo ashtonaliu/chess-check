@@ -9,13 +9,15 @@ export type LichessHistoryReply = Wait | Failure | { status: "history"; text: st
 export interface LichessHistoryRequest { user: string; timeClass: string | null; max: number }
 
 const ORIGIN = "https://lichess.org";
+const STANDARD_PERF_TYPES = "ultraBullet,bullet,blitz,rapid,classical,correspondence";
 export const LICHESS_COOLDOWN_KEY = "lichess-api-cooldown";
 
 export function historyUrl({ user, timeClass, max }: LichessHistoryRequest): URL {
   const url = new URL(`/api/games/user/${encodeURIComponent(user)}`, ORIGIN);
+  // Lichess applies max before our parser can drop variants and custom starts.
+  const perfType = timeClass === "daily" ? "correspondence" : timeClass || STANDARD_PERF_TYPES;
   url.search = new URLSearchParams({ max: String(max), clocks: "true", opening: "true",
-    ongoing: "false", finished: "true" }).toString();
-  if (timeClass) url.searchParams.set("perfType", timeClass === "daily" ? "correspondence" : timeClass);
+    ongoing: "false", finished: "true", perfType }).toString();
   return url;
 }
 

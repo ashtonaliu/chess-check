@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from chesscheck.neural_find_rate import BOARD_PLANES, CHANNELS, HIDDEN, SPEEDS, NeuralFindRate
-from scripts.eval_find_rate import move_design
+from scripts.eval_find_rate import TEST_MOD, move_design
 from scripts.prepare_neural_find_rate import MOVE_COLUMNS, PACKED_WIDTH, encode_chunk, inputs
 
 REVIEW_CLOCK_FRACTION = 0.6561
@@ -30,6 +30,8 @@ SITE_ORDER = (
     ("lichess", "bullet"),
     ("lichess", "classical"),
     ("lichess", "ultraBullet"),
+    ("chesscom", "rapid"),
+    ("chesscom", "bullet"),
 )
 
 
@@ -59,7 +61,46 @@ def load_shipped_model(weights_path: Path) -> tuple[NeuralFindRate, dict]:
     return model, artifact
 
 
-def load_test_split(data_root: Path, prepared: Path | None, workers: int) -> tuple[pd.DataFrame, np.ndarray]:
+def encode_dataframe(df: pd.DataFrame, workers: int, *, compute_features: bool) -> tuple[pd.DataFrame, np.ndarray]:
+    columns = MOVE_COLUMNS.split(", ")
+    packed = np.empty((len(df), PACKED_WIDTH), dtype=np.uint8)
+    batches = [df.index[i:i + 2048] for i in range(0, len(df), 2048)]
+    if workers <= 1:
+        for idx in batches:
+            chunk_boards, features = encode_chunk(
+                (df.loc[idx, "fen"].tolist(), df.loc[idx, "best_uci"].tolist(), compute_features)
+            )
+            packed[idx] = chunk_boards
+            if features:
+                df.loc[idx, columns] = pd.DataFrame(features, columns=columns, index=idx)
+        return df, packed
+
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        tasks = (
+            (df.loc[idx, "fen"].tolist(), df.loc[idx, "best_uci"].tolist(), compute_features)
+            for idx in batches
+        )
+        for idx, (chunk_boards, features) in zip(batches, pool.map(encode_chunk, tasks), strict=True):
+            packed[idx] = chunk_boards
+            if features:
+                df.loc[idx, columns] = pd.DataFrame(features, columns=columns, index=idx)
+    return df, packed
+
+
+def load_extra_chesscom(extra_path: Path, workers: int) -> tuple[pd.DataFrame, np.ndarray]:
+    df = pd.read_parquet(extra_path)
+    groups = pd.util.hash_pandas_object(df["player"].str.casefold(), index=False).to_numpy()
+    df = df.loc[groups % TEST_MOD == 0].reset_index(drop=True)
+    if not len(df):
+        return df, np.empty((0, PACKED_WIDTH), dtype=np.uint8)
+    df["source"] = "chesscom"
+    df["split"] = "test"
+    df["test"] = 1   # the Chess.com blitz rows carry this flag when the split is built without --prepared
+    return encode_dataframe(df, workers, compute_features=True)
+
+
+def load_test_split(data_root: Path, prepared: Path | None, workers: int,
+                    chesscom_extra: Path | None = None) -> tuple[pd.DataFrame, np.ndarray]:
     if prepared is not None:
         manifest = json.loads((prepared / "inputs.json").read_text())
         rows = pd.read_parquet(prepared / "rows.parquet")
@@ -67,38 +108,27 @@ def load_test_split(data_root: Path, prepared: Path | None, workers: int) -> tup
         if boards.shape != (manifest["rows"], PACKED_WIDTH) or len(rows) != manifest["rows"]:
             raise ValueError("Prepared tensors and rows disagree")
         test_idx = np.flatnonzero(rows["split"] == "test")
-        return rows.iloc[test_idx].reset_index(drop=True), np.asarray(boards[test_idx])
-
-    df = inputs(data_root, workers)
-    test_df = df.loc[df["split"] == "test"].reset_index(drop=True)
-    columns = MOVE_COLUMNS.split(", ")
-    packed = np.empty((len(test_df), PACKED_WIDTH), dtype=np.uint8)
-    if workers <= 1:
+        base_rows, base_boards = rows.iloc[test_idx].reset_index(drop=True), np.asarray(boards[test_idx])
+    else:
+        df = inputs(data_root, workers)
+        test_df = df.loc[df["split"] == "test"].reset_index(drop=True)
+        parts_df = []
+        parts_boards = []
         for source in ("chesscom", "lichess"):
-            idx_all = test_df.index[test_df["source"] == source]
-            for i in range(0, len(idx_all), 2048):
-                idx = idx_all[i:i + 2048]
-                chunk_boards, features = encode_chunk(
-                    (test_df.loc[idx, "fen"].tolist(), test_df.loc[idx, "best_uci"].tolist(), source == "lichess")
-                )
-                packed[idx] = chunk_boards
-                if features:
-                    test_df.loc[idx, columns] = pd.DataFrame(features, columns=columns, index=idx)
-        return test_df, packed
+            sub = test_df.loc[test_df["source"] == source].reset_index(drop=True)
+            sub_df, sub_boards = encode_dataframe(sub, workers, compute_features=(source == "lichess"))
+            parts_df.append(sub_df)
+            parts_boards.append(sub_boards)
+        base_rows = pd.concat(parts_df, ignore_index=True)
+        base_boards = np.concatenate(parts_boards, axis=0)
 
-    with ProcessPoolExecutor(max_workers=workers) as pool:
-        for source in ("chesscom", "lichess"):
-            idx_all = test_df.index[test_df["source"] == source]
-            batches = [idx_all[i:i + 2048] for i in range(0, len(idx_all), 2048)]
-            tasks = (
-                (test_df.loc[idx, "fen"].tolist(), test_df.loc[idx, "best_uci"].tolist(), source == "lichess")
-                for idx in batches
-            )
-            for idx, (chunk_boards, features) in zip(batches, pool.map(encode_chunk, tasks), strict=True):
-                packed[idx] = chunk_boards
-                if features:
-                    test_df.loc[idx, columns] = pd.DataFrame(features, columns=columns, index=idx)
-    return test_df, packed
+    if chesscom_extra is not None and chesscom_extra.exists():
+        extra_rows, extra_boards = load_extra_chesscom(chesscom_extra, workers)
+        if len(extra_rows):
+            keep_cols = list(base_rows.columns)
+            base_rows = pd.concat([base_rows, extra_rows[keep_cols]], ignore_index=True)
+            base_boards = np.concatenate([base_boards, extra_boards], axis=0)
+    return base_rows, base_boards
 
 
 def predict_review_clock(model: NeuralFindRate, artifact: dict, rows: pd.DataFrame, boards: np.ndarray,
@@ -268,6 +298,8 @@ def main():
     parser.add_argument("--data-root", type=Path, default=ROOT / "data" / "engine")
     parser.add_argument("--prepared", type=Path, default=None,
                         help="Optional prepared-v1 directory from scripts/prepare_neural_find_rate.py")
+    parser.add_argument("--chesscom-extra", type=Path, default=None,
+                        help="Optional Chess.com rapid/bullet training.parquet (defaults to <data-root>/chesscom-rapid-v1/training.parquet if present)")
     parser.add_argument("--weights", type=Path, default=ROOT / "web" / "src" / "extension" / "neuralFindRateWeights.json")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--draws", type=int, default=DEFAULT_DRAWS)
@@ -278,8 +310,14 @@ def main():
     if args.draws < 1000:
         raise ValueError("Use at least 1,000 Monte Carlo draws for the ECE noise floor")
 
+    extra_path = args.chesscom_extra
+    if extra_path is None:
+        candidate = args.data_root / "chesscom-rapid-v1" / "training.parquet"
+        if candidate.exists():
+            extra_path = candidate
+
     model, artifact = load_shipped_model(args.weights)
-    rows, boards = load_test_split(args.data_root, args.prepared, args.workers)
+    rows, boards = load_test_split(args.data_root, args.prepared, args.workers, extra_path)
     preds = predict_review_clock(model, artifact, rows, boards)
     table, first_ranges, new_ranges = evaluate_groups(rows, preds, args.draws, args.seed)
 

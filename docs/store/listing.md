@@ -43,6 +43,13 @@ https://github.com/ashtonaliu/chess-check/issues
 
 https://ashtonaliu.github.io/chess-check/privacy.html
 
+## What's new in 0.9.1
+
+Chess.com review cards now also show find-rate estimates for rapid (1800 to 2099) and bullet
+(1700 to 2099), where the shipped model passed held-out calibration checks. Other Chess.com
+rapid and bullet ratings stay hidden. The model has no Chess.com rapid or bullet training games,
+and its estimates there were off by up to 13 points on rapid and 15 on bullet.
+
 ## What's new in 0.9.0
 
 Chess Check now recaps finished Lichess games. On Chess.com, finished Chess960 and odds games

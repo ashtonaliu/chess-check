@@ -159,6 +159,14 @@ and a 73.95% overall find rate. [Lichess methods](docs/methods.md#lichess-datase
 | October ingest | 95,395,628 games and 315,894,636 boards | 9.05 GB | 714.3 s |
 | Evaluation conversion | 193,996,647 normalized FENs | 5.46 GB | 423.4 s |
 
+**Labeling overhead.** On 2,000 puzzle positions on an 18-core M5 Pro Mac (Stockfish 19, depth 10,
+MultiPV 2, 32 MB hash cleared per search, 17 workers), the current `python-chess` thread pool ran
+at **603.9 searches/s** and 17 raw-UCI worker processes ran at **765.0 searches/s**, both below the
+Stockfish-only ceiling (**3,400.0 searches/s** from the 5.00 ms sequential median search time, or
+**1,156.5 searches/s** from the 14.70 ms parallel mean), with 0 output mismatches. Clearing the
+32 MB hash table alone took a median of 3.24 ms per search (37.6% of raw-UCI wall time), so an
+in-process C++ batch labeler is justified. [Labeling overhead](docs/methods.md#labeling-overhead)
+
 **Offscreen WebAssembly.** I used the same finished games for three cold builds per size and
 backend in Chrome. Stockfish still takes most of the build time. [WebAssembly methods](docs/methods.md#webassembly-bindings)
 

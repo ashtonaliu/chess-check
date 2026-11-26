@@ -48,7 +48,7 @@ https://ashtonaliu.github.io/chess-check/privacy.html
 You can now answer review cards by playing your move directly on the Chess.com or Lichess board
 after clicking "Find it on the board". The extension grades your first move automatically (accepting
 the best move or any alternative within 5 percentage points of winning chances), keeps the review
-panel compact and clear of the move list, and keeps "Reveal the move" as a fallback. The turning
+card off the board, and keeps "Reveal the move" as a fallback. The turning
 point move in recaps now links directly to that ply, review cards name the actual site and time
 control in their find-rate line, and Chess.com opening names restore missing apostrophes.
 

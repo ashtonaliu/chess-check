@@ -76,6 +76,12 @@ const OPENING_POSSESSIVES: Record<string, string> = {
   Scholars: "Scholar's",
 };
 
+/** Put the apostrophes back in an opening name built from a Chess.com URL slug. Older saved
+ *  profiles hold names from before this was done, so they are passed through it on load. */
+export function restorePossessives(name: string): string {
+  return name.split(" ").map(tok => OPENING_POSSESSIVES[tok] ?? tok).join(" ");
+}
+
 export function openingNames(ecoUrl: string): [string, string] {
   const slug = ecoUrl ? ecoUrl.replace(/\/+$/, "").split("/").pop() ?? "" : "";
   const tokens: string[] = [];

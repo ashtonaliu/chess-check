@@ -15,6 +15,8 @@ export interface BoardReading {
 
 export type BoardGradeResult =
   | { kind: "not-a-move" }
+  // the move played in the game, which is also what stepping forward through the game shows
+  | { kind: "game-move"; san: string }
   | { kind: "correct"; san: string; best: string }
   | { kind: "also-works"; san: string; best: string; keptPct: number; lossPct: number }
   | { kind: "missed"; san: string; best: string; keptPct: number; lossPct: number };
@@ -129,7 +131,7 @@ export const isBoardAnswerFound = (result: BoardGradeResult): boolean =>
   result.kind === "correct" || result.kind === "also-works";
 
 /** Panel message for a graded board answer. */
-export function formatBoardGrade(result: Exclude<BoardGradeResult, { kind: "not-a-move" }>): string {
+export function formatBoardGrade(result: Exclude<BoardGradeResult, { kind: "not-a-move" | "game-move" }>): string {
   if (result.kind === "correct") return "Correct";
   if (result.kind === "also-works") return `Also works: ${result.san} keeps ${Math.round(result.keptPct)}%`;
   return `${result.san} loses ${Math.round(result.lossPct)}%. Better was ${result.best}.`;

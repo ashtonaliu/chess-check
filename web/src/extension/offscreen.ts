@@ -35,7 +35,7 @@ export type Request = { site?: SiteId } & (
   | { type: "stalls" }                         // the page the cube is on stuttered (pace.ts)
   | { type: "pace" }                           // the worker count now, for testing
   | { type: "rate"; items: ReviewRateRequest[] }
-  | { type: "grade-move"; fen: string; board: string; best: string }
+  | { type: "grade-move"; fen: string; board: string; best: string; played?: string }
   | { type: "recap"; username: string; gameId: string; evidence?: unknown });
 export type Reply =
   | { status: "building"; progress: string }
@@ -265,6 +265,7 @@ export async function handle(req: Request): Promise<Reply> {
       if (isStoredBestMove(resolved.san, req.best)) {
         return { status: "grade", result: { kind: "correct", san: resolved.san, best: req.best } };
       }
+      if (req.played && resolved.san === req.played) return { status: "grade", result: { kind: "game-move", san: resolved.san } };
       let result: BoardGradeResult = { kind: "not-a-move" };
       await runPool(1, { engineUrl: ENGINE_URL, signal, workers: 1 }, async eng => {
         const before = await eng.analyse(req.fen, DEEP_DEPTH_BROWSER);

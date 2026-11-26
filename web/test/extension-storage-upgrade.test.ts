@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import "fake-indexeddb/auto";
+import { restorePossessives } from "../src/browser/games";
 import { loadProfile, pruneProfiles, type Saved } from "../src/extension/profileStore";
 import { loadStoredQueue, queueKey, updateQueue } from "../src/extension/queueStore";
 import { profileKey } from "../src/extension/storageKeys";
@@ -31,9 +32,13 @@ test("0.8.x profile and review queue load under the Chess.com keys", async () =>
   assert.deepEqual(await pruneProfiles(() => new Set([current]), new Map(), 0, new AbortController().signal),
     new Set(["12345"]));
 
+  // Saved Chess.com names lost their apostrophes; loading restores them to match new games.
+  const named = <T extends { opening: string; family: string }>(game: T) =>
+    ({ ...game, site: "chesscom", opening: restorePossessives(game.opening), family: restorePossessives(game.family) });
   const expected = { ...record, profile: { ...record.profile,
-    rows: record.profile.rows.map(row => ({ ...row, site: "chesscom" })),
-    games: record.profile.games!.map(game => ({ ...game, site: "chesscom" })) } };
+    rows: record.profile.rows.map(named), games: record.profile.games!.map(named) } };
+  assert.equal(record.profile.rows[0].opening, "Kings Pawn Opening");
+  assert.equal((await loadProfile(current))!.profile.rows[0].opening, "King's Pawn Opening");
   assert.deepEqual(await loadProfile(current), expected);
   assert.deepEqual(await loadProfile(current), expected);
   const keys = await new Promise<IDBValidKey[]>((resolve, reject) => {

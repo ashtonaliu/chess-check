@@ -224,13 +224,14 @@ function updateRecapReviewLink() {
 
 let asked: ReviewItem | null = null;   // the entry as this tab asked it, to grade against
 const gradedVisits = new Set<string>(); // first attempt per card per visit
-let boardResult: { item: ReviewItem; grade: Exclude<BoardGradeResult, { kind: "not-a-move" }>; back: "back" | "show" | null } | null = null;
+let boardResult: { item: ReviewItem; grade: Exclude<BoardGradeResult, { kind: "not-a-move" | "game-move" }>; back: "back" | "show" | null } | null = null;
 let checkingCardId: string | null = null;
 let boardError = "";
 
 function setCompact(compact: boolean) {
   if (panel.classList.contains("compact") === compact) return;
   panel.classList.toggle("compact", compact);
+  placeTries = 0;
   place();
 }
 
@@ -252,7 +253,7 @@ async function handleBoardMove(itemId: string, placement: string) {
   renderPanel();
   let reply: Reply;
   try {
-    reply = await ask({ type: "grade-move", fen: item.fen, board: placement, best: item.best });
+    reply = await ask({ type: "grade-move", fen: item.fen, board: placement, best: item.best, played: item.san });
   } catch (e) {
     if (version !== checkVersion || checkingCardId !== itemId) return;
     checkingCardId = null;
@@ -273,7 +274,11 @@ async function handleBoardMove(itemId: string, placement: string) {
     renderPanel();
     return;
   }
-  if (reply.result.kind === "not-a-move") {
+  if (reply.result.kind === "not-a-move" || reply.result.kind === "game-move") {
+    // Stepping forward through the game shows the move that was played, so it is not an answer.
+    if (reply.result.kind === "game-move") {
+      boardError = `${reply.result.san} is the move from the game. Go back a move and try another, or reveal the answer.`;
+    }
     boardWatcher.resume(itemId);
     renderPanel();
     return;
@@ -514,12 +519,16 @@ function renderPanel() {
 // ---------- position and dragging ----------
 
 let pos = { right: 24, bottom: 120 };
+let placeRetry: ReturnType<typeof setTimeout> | undefined, placeTries = 0;
 function place() {
+  clearTimeout(placeRetry);
   pos.right = Math.min(Math.max(pos.right, 4), window.innerWidth - 48);
   pos.bottom = Math.min(Math.max(pos.bottom, 4), window.innerHeight - 48);
   cube.style.right = `${pos.right}px`; cube.style.bottom = `${pos.bottom}px`;
   if (panel.classList.contains("compact")) {
-    // Keep the compact review card off the right-side move list on both Chess.com and Lichess.
+    // Keep the compact review card off the board and the move list where the player's try appears:
+    // left of the board when there is room, else at the bottom of the column right of the board
+    // (below Chess.com's move list), else the bottom-left corner on narrow windows.
     const width = Math.min(280, window.innerWidth - 16);
     const boardRect = reviewAllowed(pageUrl(), state) ? site.readBoard(document)?.element.getBoundingClientRect() : null;
     if (boardRect && boardRect.width > 0 && boardRect.left >= width + 16) {
@@ -529,7 +538,16 @@ function place() {
       panel.style.top = `${top}px`;
       panel.style.bottom = "";
       panel.style.maxHeight = `${Math.max(160, window.innerHeight - top - 8)}px`;
+    } else if (boardRect && boardRect.width > 0 && window.innerWidth - boardRect.right >= width + 24) {
+      // 120px up, where the full panel sits, leaves the site's move buttons below it clickable.
+      panel.style.left = `${Math.round(boardRect.right + 12)}px`;
+      panel.style.right = "";
+      panel.style.bottom = "120px";
+      panel.style.top = "";
+      panel.style.maxHeight = `${Math.min(360, window.innerHeight - 128)}px`;
     } else {
+      // The site may not have drawn its board yet when the card turns compact; look again shortly.
+      if (!boardRect && placeTries < 10) { placeTries++; placeRetry = setTimeout(place, 500); }
       panel.style.left = "8px";
       panel.style.right = "";
       panel.style.bottom = "8px";
@@ -655,7 +673,11 @@ async function check() {
   // Same game as before (Chess.com rewrites /game/<id> to /live/game/<id> after loading): leave
   // any polling running. Clearing the timer first left the cube stuck on "Setting up" for good.
   // Pages that are not games always run, to warm up or stop.
-  if (id && id === lastId && state !== "error" && state !== "pending") return;
+  if (id && id === lastId && state !== "error" && state !== "pending") {
+    // Only the move changed (the site's arrows): an open review card may now be at its position again.
+    if (view === "review" && !panel.classList.contains("hidden")) renderPanel();
+    return;
+  }
   const pageKey = site.pageSafetyKey(new URL(url));
   const markPage = (finished: boolean) => ask({ type: "page-state", pageKey, finished }).catch(() => {});
   const changedGame = id !== lastId;

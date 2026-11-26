@@ -3,6 +3,7 @@
 // engine cache only analyzes games played since it was saved.
 import type { Profile } from "../browser/follow";
 import { excessKeys, pruneTransaction } from "../browser/cacheRetention";
+import { restorePossessives } from "../browser/games";
 import { gameCacheId } from "../browser/ids";
 import { DEFAULT_SITE, type SiteId } from "../browser/site";
 import { legacyProfileKey, qualifyProfileKey } from "./storageKeys";
@@ -24,9 +25,18 @@ function open(): Promise<IDBDatabase | null> {
 }
 
 function withSite(saved: Saved): Saved {
-  const stamp = <T extends { site: SiteId }>(game: T): T => game.site ? game : { ...game, site: DEFAULT_SITE };
+  // Older profiles have no site, and their Chess.com opening names lack apostrophes ("Kings
+  // Fianchetto Opening"), which would split an opening's record from newly named games.
+  const stamp = <T extends { site: SiteId; opening: string; family: string }>(game: T): T => {
+    const site = game.site || DEFAULT_SITE;
+    return site === "chesscom"
+      ? { ...game, site, opening: restorePossessives(game.opening), family: restorePossessives(game.family) }
+      : game.site ? game : { ...game, site };
+  };
   const { profile } = saved;
-  return { ...saved, profile: { ...profile, rows: profile.rows.map(stamp),
+  const openings = (profile.openings ?? []).map(o => (profile.site ?? DEFAULT_SITE) === "chesscom"
+    ? { ...o, family: restorePossessives(o.family) } : o);
+  return { ...saved, profile: { ...profile, rows: profile.rows.map(stamp), openings,
     ...(profile.games ? { games: profile.games.map(stamp) } : {}) } };
 }
 

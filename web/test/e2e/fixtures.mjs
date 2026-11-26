@@ -16,8 +16,8 @@ export const lichessId = lichess.id;
 export const chessOrigin = "https://www.chess.com";
 export const chessGame = chessOrigin + "/game/live/" + chessId;
 export const lichessGame = "https://lichess.org/game/" + lichessId;
-const chessUser = callback.game.pgnHeaders.White;
-const lichessUser = lichess.players.white.user.id;
+export const chessUser = callback.game.pgnHeaders.White;
+export const lichessUser = lichess.players.white.user.id;
 const archivePath = "/pub/player/" + chessUser.toLowerCase() + "/games";
 const month = archivePath + "/2026/11";
 const hosts = new Set(["www.chess.com", "chess.com", "api.chess.com", "lichess.org"]);
@@ -40,8 +40,8 @@ function gameFensFromMoves(movesStr) {
   return fens;
 }
 
-const chessFens = gameFensFromPgn(archived.pgn);
-const lichessFens = gameFensFromMoves(lichess.moves);
+export const chessFens = gameFensFromPgn(archived.pgn);
+export const lichessFens = gameFensFromMoves(lichess.moves);
 
 function chesscomBoardHtml(fen) {
   const placement = fen.split(" ")[0];

@@ -342,6 +342,81 @@ amounted to about 0.24 s per recap. [Stockfish.js clock](https://github.com/nmru
 
 I would keep the current Stockfish build.
 
+### Labeling overhead
+
+To decide whether an in-process C++ batch labeler is worth building for offline dataset generation,
+I measured how much of each Stockfish search in `scripts/stockfish_lichess.py` and
+`scripts/label_chesscom_rapid.py` is spent outside Stockfish's own search.
+
+**Setup.** I ran `scripts/benchmark_labeling_overhead.py` on an Apple M5 Pro Mac (18 cores: 6 super
+cores and 12 performance cores, macOS 27.2.1) using `/opt/homebrew/bin/stockfish` (Stockfish 19,
+network `nn-1a298aa575a0.nnue`, SHA-256
+`4f75fb47deaa8a29ddaaae206ab5edc6ebdfa9441e0e0fca3f15b95d9dae1c0f`, matching `binary_sha256` in
+`data/engine/v1/runs.json`). Every search used the exact v1 settings: depth 10, MultiPV 2,
+`UCI_ShowWDL true`, 32 MB hash, 1 thread per engine, and a hash clear before every position.
+
+I sampled 2,000 rows from `data/puzzles_50k.csv` with seed `20261126`, applied the first move in
+`Moves` to each `FEN` so the position is the one the solver faces, and wrote the FENs to
+`eval_results/labeling-overhead/positions.txt`. No existing engine dataset was used. Puzzle
+positions are more tactical than typical game positions, so per-position search times and overhead
+shares on ordinary game moves can differ.
+
+I compared three timings on the same 2,000 positions:
+
+- **Mode A (`python-chess`).** `SimpleEngine.popen_uci` plus
+  `analyse(board, Limit(depth=10), multipv=2, game=object())`, matching the current labelers.
+- **Mode B (raw UCI over pipe).** `subprocess.Popen` with line-buffered text I/O, sending
+  `ucinewgame`, then `isready` and waiting for `readyok` (timed separately), then `position fen ...`
+  and `go depth 10` until `bestmove`.
+- **Mode C (Stockfish search time).** The `time` field in milliseconds on the last depth-10 `info`
+  line from Mode B.
+
+**Sequential (1 engine).** Three runs each of Modes A and B, alternated `A B A B A B` across all
+2,000 positions (6,000 searches per mode). Mode A run wall times were 26.65 s, 26.68 s, and
+27.53 s; Mode B run wall times were 25.90 s, 26.15 s, and 26.59 s.
+
+| Measurement | Median | p10 | p90 | Mean |
+|---|---:|---:|---:|---:|
+| Mode A (`python-chess`) | 9.01 ms | 5.58 ms | 27.26 ms | 13.48 ms |
+| Mode B (raw UCI pipe) | 8.62 ms | 5.25 ms | 26.75 ms | 13.11 ms |
+| Mode B `ucinewgame`/`readyok` | 3.24 ms | 3.22 ms | 3.28 ms | 3.25 ms |
+| Mode B clear share of B wall time | 37.61% | 12.09% | 61.89% | 37.58% |
+| Mode C (Stockfish `time` field) | 5.00 ms | 2.00 ms | 24.00 ms | 9.83 ms |
+
+Across all 2,000 positions, Mode A and Mode B had **0 mismatches** on best move, second move,
+depth-10 scores, and WDL.
+
+**Parallel (17 engines).** Three alternated runs each of Mode A (`ThreadPoolExecutor` with 17
+`SimpleEngine` instances) and Mode B (17 forked worker processes, each driving one raw UCI pipe).
+
+| Mode | Median throughput | Run throughputs | Median wall/pos | Mean wall/pos |
+|---|---:|---|---:|---:|
+| Mode A (`python-chess` threads, `TA`) | 603.9 searches/s | 622.1, 582.7, 603.9 | 20.80 ms | 25.80 ms |
+| Mode B (raw UCI processes, `TB`) | 765.0 searches/s | 752.9, 765.0, 766.8 | 12.15 ms | 18.67 ms |
+| Ceiling `TC = 17 / median(seq C)` | 3,400.0 searches/s | `0.8 * TC = 2,720.0` | 5.00 ms | 9.83 ms |
+
+In parallel Mode B, `ucinewgame`/`readyok` took a median of 3.79 ms (mean 3.90 ms), and Stockfish's
+own `time` field rose to a median of 8.00 ms (mean 14.70 ms) as 17 workers ran across 6 super cores
+and 11 performance cores.
+
+**Decision.** Under the rule as I first wrote it (`TA >= 0.8 * TC` keeps the current path; `TA < 0.8 * TC` and `TB >= 0.8 * TC` switches to raw UCI worker processes; `TB < 0.8 * TC` justifies a C++ batch labeler), `TB` (765.0 searches/s) is below `0.8 * TC` (2,720.0 searches/s), which points to a C++ labeler. That ceiling was wrong in two ways, so I do not follow it:
+
+- It left out the hash clear. `ucinewgame` clears Stockfish's own hash and search tables, and any labeler that reproduces the v1 labels has to do the same, including one that calls Stockfish in process from C++. The clear took 3.24 ms per search sequentially and 3.90 ms in parallel, and it is most of the gap the first rule measured.
+- It used the median search time. Throughput depends on the mean, and search times are right-skewed (sequential median 5.00 ms against a mean of 9.83 ms).
+
+The ceiling any labeler can reach is the parallel mean of Stockfish's search time plus the clear: 18.59 ms per search, or `TW = 17 / 18.59 ms = 914.2` searches/s. Against it, the rule gives a different answer: `TA` (603.9) is below `0.8 * TW` (731.4) and `TB` (765.0) is above it, so **the fix is a leaner Python driver, and a C++ labeler is not worth building.** Per search, raw UCI adds 0.4% to Stockfish's own work (18.67 ms against 18.59 ms), while `python-chess` threads add 27.9% (25.80 ms). The rest of the gap between `TB` and `TW` is idle time at the end of each run, when some of the 17 workers finish their fixed share of positions before others. A shared queue would fix that in any language.
+
+| Ceiling | Searches/s | `TA / ceiling` | `TB / ceiling` | Branch |
+|---|---:|---:|---:|---|
+| `TC = 17 / median(seq C)` (first rule) | 3,400.0 | 0.178 | 0.225 | build C++ labeler |
+| `TW = 17 / mean(par C + clear)` | 914.2 | 0.661 | 0.837 | switch to raw UCI processes |
+
+I reran the benchmark with the corrected script, which now reports both ceilings and both decisions. The second run gave `TA` 632.3, `TB` 840.0 and `TW` 1,018.9 searches/s (Stockfish work 16.68 ms per search), with overhead of 31.8% for `python-chess` and 0.3% for raw UCI, the same branch, and 0 mismatches. Switching the labelers to raw UCI worker processes would make them about 1.27x to 1.33x faster. A C++ labeler could add at most the 0.3% to 0.4% that the pipe costs.
+
+```sh
+python scripts/benchmark_labeling_overhead.py
+```
+
 ### End-to-end tests
 
 I load the unpacked extension in headless Chromium and run Stockfish in the offscreen page.

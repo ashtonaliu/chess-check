@@ -159,6 +159,13 @@ and a 73.95% overall find rate. [Lichess methods](docs/methods.md#lichess-datase
 | October ingest | 95,395,628 games and 315,894,636 boards | 9.05 GB | 714.3 s |
 | Evaluation conversion | 193,996,647 normalized FENs | 5.46 GB | 423.4 s |
 
+**Labeling overhead.** I measured whether a C++ labeler that calls Stockfish in process would
+speed up dataset labeling. On 2,000 puzzle positions with the v1 settings and 17 workers on an
+18-core M5 Pro Mac, raw UCI over a pipe added only 0.4% to Stockfish's own search and hash clear,
+while the current `python-chess` thread pool added 27.9%. Moving to raw UCI worker processes raised
+throughput from 603.9 to 765.0 searches/s with identical labels, so a leaner Python driver is the
+fix and a C++ labeler is not worth building. [Labeling overhead](docs/methods.md#labeling-overhead)
+
 **Offscreen WebAssembly.** I used the same finished games for three cold builds per size and
 backend in Chrome. Stockfish still takes most of the build time. [WebAssembly methods](docs/methods.md#webassembly-bindings)
 

@@ -132,13 +132,34 @@ def load_test_split(data_root: Path, prepared: Path | None, workers: int,
     return base_rows, base_boards
 
 
+def standardize_ratings(rows: pd.DataFrame, artifact: dict) -> np.ndarray:
+    z = np.zeros(len(rows), dtype=np.float64)
+    for source, scale in artifact["ratings"].items():
+        mask = rows["source"] == source
+        z[mask] = (rows.loc[mask, "pregame_rating"].to_numpy(dtype=np.float64) - scale["mean"]) / scale["std"]
+    return z
+
+
+def apply_recalibration(preds: np.ndarray, rows: pd.DataFrame, artifact: dict,
+                        recalibration: dict[str, dict[str, dict[str, float]]]) -> np.ndarray:
+    out = preds.astype(np.float64, copy=True)
+    z = standardize_ratings(rows, artifact)
+    for source, speeds in recalibration.items():
+        for speed, params in speeds.items():
+            mask = (rows["source"] == source) & (rows["time_class"] == speed)
+            if not mask.any():
+                continue
+            p = np.clip(out[mask], 1e-6, 1.0 - 1e-6)
+            logit_p = np.log(p / (1.0 - p))
+            lin = params["a"] + params["b"] * logit_p + params["c"] * z[mask]
+            out[mask] = 1.0 / (1.0 + np.exp(-lin))
+    return out
+
+
 def predict_review_clock(model: NeuralFindRate, artifact: dict, rows: pd.DataFrame, boards: np.ndarray,
                          batch_size: int = 2048,
                          review_clocks: dict[str, dict[str, float]] | None = None) -> np.ndarray:
-    scaled_rating = np.zeros(len(rows), dtype=np.float32)
-    for source, scale in artifact["ratings"].items():
-        mask = rows["source"] == source
-        scaled_rating[mask] = (rows.loc[mask, "pregame_rating"].to_numpy(dtype=np.float32) - scale["mean"]) / scale["std"]
+    scaled_rating = standardize_ratings(rows, artifact).astype(np.float32)
     clock_arr = np.full(len(rows), REVIEW_CLOCK_FRACTION, dtype=np.float32)
     if review_clocks is not None:
         for source, speeds in review_clocks.items():
@@ -310,6 +331,8 @@ def main():
     parser.add_argument("--weights", type=Path, default=ROOT / "web" / "src" / "extension" / "neuralFindRateWeights.json")
     parser.add_argument("--review-clocks", type=Path, default=None,
                         help="Optional JSON file mapping {site: {speed: clock_fraction}}; defaults to fixed 0.6561")
+    parser.add_argument("--recalibration", type=Path, default=None,
+                        help="Optional JSON file mapping {site: {speed: {a, b, c}}} for post-prediction recalibration")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--draws", type=int, default=DEFAULT_DRAWS)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
@@ -326,9 +349,12 @@ def main():
             extra_path = candidate
 
     review_clocks = json.loads(args.review_clocks.read_text()) if args.review_clocks is not None else None
+    recalibration = json.loads(args.recalibration.read_text()) if args.recalibration is not None else None
     model, artifact = load_shipped_model(args.weights)
     rows, boards = load_test_split(args.data_root, args.prepared, args.workers, extra_path)
     preds = predict_review_clock(model, artifact, rows, boards, review_clocks=review_clocks)
+    if recalibration is not None:
+        preds = apply_recalibration(preds, rows, artifact, recalibration)
     table, first_ranges, new_ranges = evaluate_groups(rows, preds, args.draws, args.seed)
 
     args.output.mkdir(parents=True, exist_ok=True)

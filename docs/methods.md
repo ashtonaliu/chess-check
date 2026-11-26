@@ -88,7 +88,7 @@ The model predicts whether a move will be a blunder from 19 features: move numbe
 
 **It learns only from opponents.** Training on the player's own moves would pull their actual-to-expected ratio toward 1 by construction. The model trains on opponents' moves in 4 of 5 game-grouped folds and predicts the player's moves in the fifth.
 
-**Benchmark** (14,217 moves from 150 games, held-out split grouped by game, blunder rate 1.3%):
+**Benchmark** (14,217 moves from 150 games, held-out split grouped by game, blunder rate 1.3%; reproduced by `scripts/benchmark_model.py`):
 
 | Model | AUC | Log loss | Brier |
 |---|---:|---:|---:|
@@ -871,7 +871,7 @@ The rating says almost nothing here, because nearly every position comes from pl
 
 **Review cards and ordering.** The extension uses the neural model described under [Shipped review model](#shipped-review-model). It estimates how often players on the same site, in the same speed, and near your rating find moves like this, with the clock held at 0.6561 of the starting time so the estimate describes the position. The review card shows the estimate after the answer only within the calibrated site, speed, and rating limits below. The displayed rating is rounded to the nearest 50 and the estimate to the nearest 5%. Training positions had one clearly best move. A review card requires a loss of at least 20 points, so the position can also have other good moves. Review order uses the unrounded estimate, highest first. Positions without an estimate count as the typical 79%.
 
-**Review card calibration and limits.** To set the allowed site, speed, and rating limits from held-out data, `scripts/calibrate_review_find_rate.py` evaluates the shipped float16 weights (`web/src/extension/neuralFindRateWeights.json`) at the fixed review clock fraction 0.6561 on the held-out test split from `scripts/prepare_neural_find_rate.py` (157,583 Chess.com blitz positions and 106,835 Lichess positions across five speeds) and the 20,069 held-out Chess.com rapid and bullet positions in `data/engine/chesscom-rapid-v1`, 284,487 positions in all.
+**Review card calibration and limits.** To set the allowed site, speed, and rating limits from held-out data, `scripts/calibrate_review_find_rate.py` evaluates the shipped float16 weights (`web/src/extension/neuralFindRateWeights.json`) at the fixed review clock fraction 0.6561 on the held-out test split from `scripts/prepare_neural_find_rate.py` (157,583 Chess.com blitz positions and 106,835 Lichess positions across five speeds) and the 20,069 held-out Chess.com rapid and bullet positions in `data/engine/chesscom-rapid-v1`, 284,487 positions in all. Its `--review-clocks` option evaluates each site and speed at a different clock, which I tested and rejected under [Per-speed review clocks](#per-speed-review-clocks).
 
 I first tried a fixed cutoff of 10-bin equal-width ECE at most 0.03 with at least 200 positions per 100-point band. I replaced that rule after review because 10-bin ECE is biased upward in small samples. With 293 positions, a calibrated model's simulated 95th-percentile ECE is 0.0689 and its draws exceed 0.03 most of the time, while at 2,000 positions it almost never does. A flat 0.03 cutoff therefore measured sample size as much as miscalibration, dropping noisy small bands whose mean predictions were accurate while letting larger bands with real bias slip under 0.03.
 
@@ -910,7 +910,7 @@ Comparing both rules shows what changed for the first neural model. The limits f
 | 1900-1999 | shown | hidden | 1,966 | 0.8324 | 0.7986 | +0.0338 | 0.0339 | 0.0233 |
 | 2000-2099 | 2000 only | hidden | 219 | 0.8892 | 0.8584 | +0.0308 | 0.0461 | 0.0553 |
 
-The 1200-1299 band stays in because its observed ECE (0.0530) sits below its 95th-percentile noise floor (0.0689) and its mean prediction (76.69%) is within 0.23 points of actual (76.45%). The 1900-1999 band is dropped because it over-predicts by 3.38 points across 1,966 positions and its ECE (0.0339) exceeds its noise floor (0.0233). On Lichess, the revised rule catches real under-prediction in blitz at 1900-1999 (-2.95 points, ECE 0.0295 vs noise floor 0.0253) and in classical at 1700-1799 (-2.94 points, ECE 0.0294 vs 0.0213), while keeping bullet (1000-2299) and ultraBullet (1000-1799) bands whose earlier misses were small-sample bin noise. Holding the clock fraction at 0.6561 still drives the upper-end under-prediction in slower Lichess speeds, where median test clock fractions are 0.8017 in rapid and 0.8822 in classical against 0.6556 in Chess.com blitz and 0.6750 in Lichess blitz.
+The 1200-1299 band stays in because its observed ECE (0.0530) sits below its 95th-percentile noise floor (0.0689) and its mean prediction (76.69%) is within 0.23 points of actual (76.45%). The 1900-1999 band is dropped because it over-predicts by 3.38 points across 1,966 positions and its ECE (0.0339) exceeds its noise floor (0.0233). On Lichess, the revised rule catches real under-prediction in blitz at 1900-1999 (-2.95 points, ECE 0.0295 vs noise floor 0.0253) and in classical at 1700-1799 (-2.94 points, ECE 0.0294 vs 0.0213), while keeping bullet (1000-2299) and ultraBullet (1000-1799) bands whose earlier misses were small-sample bin noise. I first blamed the upper-end under-prediction in slower Lichess speeds on holding the clock at 0.6561, since median test clock fractions are 0.8017 in rapid and 0.8822 in classical against 0.6556 in Chess.com blitz and 0.6750 in Lichess blitz. Evaluating each speed at its own median clock ruled that out; see [Per-speed review clocks](#per-speed-review-clocks).
 
 | Site | Speed | Rating band | n | Predicted | Actual | Bias | 10-bin ECE | Noise p95 | Brier | Status |
 |---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
@@ -1801,6 +1801,53 @@ python scripts/eval_retrained_find_rate.py \
   --output eval_results/neural-find-rate/retrain-v2/eval-seed-25 --workers 1
 ```
 
+### Per-speed review clocks
+
+Review cards evaluate every position at a clock fraction of 0.6561, the overall training median, while slower speeds end their critical positions with more time left. I tested whether giving each site and speed its own clock would fix the under-prediction at higher ratings in Lichess rapid and classical. It did not, and the extension keeps the fixed clock.
+
+Before looking at any calibration output, I fixed the clock rule: for each of the eight `(site, speed)` pairs, the review clock is the median `clock_frac` over non-test rows (`split != "test"`, ignoring missing clocks) in `eval_results/neural-find-rate/prepared-v2/rows.parquet`, rounded to four decimal places. Test rows (`hash(player.casefold()) % 5 == 0`) were excluded. `scripts/review_clock_medians.py` writes the values to a JSON file.
+
+| Site | Speed | Review clock | Non-test rows | Rows with clock |
+|---|---|---:|---:|---:|
+| Chess.com | bullet | 0.6050 | 47,244 | 47,244 |
+| Chess.com | blitz | 0.6561 | 645,716 | 645,716 |
+| Chess.com | rapid | 0.7903 | 48,439 | 48,439 |
+| Lichess | ultraBullet | 0.6000 | 86,164 | 86,163 |
+| Lichess | bullet | 0.6000 | 84,339 | 82,681 |
+| Lichess | blitz | 0.6733 | 85,594 | 85,569 |
+| Lichess | rapid | 0.8017 | 88,599 | 88,573 |
+| Lichess | classical | 0.8806 | 80,555 | 80,408 |
+
+I ran `scripts/calibrate_review_find_rate.py` twice on all 284,487 held-out test positions with the same seed (24) and 2,000 Monte Carlo draws: once at the fixed 0.6561 and once with `--review-clocks`. The fixed-clock run reproduced all eight limits in `web/src/browser/rateRange.ts` exactly, and a second run of both gave identical output. The table compares the two clocks inside the ranges the extension uses now, weighting each 100-point band by its positions. Bias is mean predicted minus mean actual, in points.
+
+| Site | Speed | Shipped range | Held-out n | Bias, fixed clock | Bias, per-speed clock | Brier, fixed | Brier, per-speed | Longest span, per-speed |
+|---|---|---|---:|---:|---:|---:|---:|---|
+| Chess.com | blitz | 1200-1899 | 154,900 | +0.30 | +0.30 | 0.1309 | 0.1309 | 1200-1899 |
+| Chess.com | rapid | 600-1499 | 4,655 | -0.77 | -0.15 | 0.1461 | 0.1460 | 600-1499 |
+| Chess.com | bullet | 600-1599 | 5,540 | +1.07 | +0.81 | 0.1520 | 0.1519 | 600-1599 |
+| Lichess | ultraBullet | 1000-1999 | 16,122 | +0.05 | -0.28 | 0.2042 | 0.2042 | 1000-2099 |
+| Lichess | bullet | 900-2599 | 20,175 | +0.78 | +0.51 | 0.1467 | 0.1466 | 900-2599 |
+| Lichess | blitz | 900-2299 | 20,412 | -0.10 | -0.02 | 0.1317 | 0.1317 | 900-2299 |
+| Lichess | rapid | 1100-2199 | 18,627 | +0.23 | +0.82 | 0.1327 | 0.1328 | 1100-2199 |
+| Lichess | classical | 1100-1499 | 5,552 | +1.65 | +2.68 | 0.1616 | 0.1620 | 1100-1499 |
+
+The rule I set beforehand only asked whether any range got narrower. None did, and Lichess ultraBullet widened by one band, so by that rule the change would have shipped. I did not ship it because the rule left out calibration inside the ranges, and that got worse for the two pairs the change was meant to help: Lichess classical over-predicts by 2.68 points instead of 1.65, and Lichess rapid by 0.82 instead of 0.23. The Chess.com rapid and bullet and Lichess bullet improvements are smaller than a point, and Brier scores moved by at most 0.0004 anywhere. This decision was made after seeing the test results.
+
+The reason is visible in the Lichess classical bands. Raising its clock from 0.6561 to 0.8806 raises the prediction in every rating band, by 1.23 points at 900-999 down to 0.54 points at 2100-2199. That helps the top, where the model under-predicts (1900-1999 moved from -2.32 to -1.63 and passed), and hurts everywhere else, because the model over-predicts the lower and middle ratings (1000-1099 moved from +6.23 to +7.41, and 1500-1599 from +2.26 to +3.16). The error in classical is the slope of the find rate across ratings, which is too flat, and a clock change only moves its level. The two four-band spans, 1100-1499 and 1600-1999, tied, so the longest-span rule kept the first one.
+
+```sh
+python scripts/review_clock_medians.py \
+  --prepared eval_results/neural-find-rate/prepared-v2/rows.parquet \
+  --output eval_results/review-calibration-per-speed/review_clocks.json
+python scripts/calibrate_review_find_rate.py --data-root data/engine \
+  --chesscom-extra data/engine/chesscom-rapid-v1/training.parquet \
+  --output eval_results/review-calibration-per-speed/baseline --draws 2000 --seed 24
+python scripts/calibrate_review_find_rate.py --data-root data/engine \
+  --chesscom-extra data/engine/chesscom-rapid-v1/training.parquet \
+  --review-clocks eval_results/review-calibration-per-speed/review_clocks.json \
+  --output eval_results/review-calibration-per-speed/per-speed --draws 2000 --seed 24
+```
+
 ## Deployment
 
 - I run the Python tests, TypeScript tests and build, and Chrome extension build in GitHub Actions on pull requests and pushes to main.
@@ -1810,6 +1857,7 @@ python scripts/eval_retrained_find_rate.py \
 
 ## Ideas for later
 
+- Recalibrate the review find rate per site and speed as a function of rating, fitted on the validation players, to fix the slope error that per-speed clocks could not fix in Lichess classical.
 - Compare each opening against all Lichess players at the same rating, using the open Lichess database.
 - Tag blunders by tactical motif (forks, pins, back-rank) and link matching Lichess puzzles.
 - Load the tables into BigQuery; the SQL is standard and only the connection changes.

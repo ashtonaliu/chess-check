@@ -1916,6 +1916,8 @@ Only `1500-1599` (+2.34 points, n = 3,050) still failed, splitting those 13 band
 six-band spans where the rule kept `900-1499`. Because the rule forbids shipping a subset of pairs,
 I left the extension unchanged.
 
+**Why validation did not carry over to test.** I compared the shipped model's band bias on the validation and test players before any recalibration. In Lichess classical the two player sets agree on the shape, with over-prediction below 1600 and under-prediction from 1700 up (-2.42 and -1.84 points at 1800-1899, -4.97 and -4.30 at 2000-2099), so the slope fitted on validation carried over. In Lichess ultraBullet the band biases swing between the two sets by up to 9.2 points (1100-1199: -3.75 on validation, +5.44 on test) with 400 to 900 positions per band, more than sampling noise usually produces. Its 18,210 validation positions come from only 1,610 players, about 11 each, so a few players can move a band. In Lichess rapid, validation under-predicts from 1800 up (-1.05 to -2.69 points) while test is within 0.65 points there, so the steeper slope fitted on validation overshot on test. Running the baseline through the prepared-v2 test rows gave output identical to the default loader, so this is a difference between player sets, not between data pipelines.
+
 Per-band held-out rows (`n >= 200`) after recalibration for the six pairs whose allowed span changed:
 
 | Site | Speed | Rating band | n | Predicted | Actual | Bias | 10-bin ECE | Noise p95 | Brier | Status |
@@ -2012,12 +2014,12 @@ python scripts/fit_review_recalibration.py \
   --prepared eval_results/neural-find-rate/prepared-v2 \
   --output eval_results/review-recalibration/reviewRecalibration.json
 python scripts/calibrate_review_find_rate.py \
-  --data-root /Users/ashton/repos/chess-check/data/engine \
+  --data-root data/engine \
   --prepared eval_results/neural-find-rate/prepared-v2 \
   --chesscom-extra data/engine/chesscom-rapid-v1/training.parquet \
   --output eval_results/review-recalibration/baseline --draws 2000 --seed 24 --workers 1
 python scripts/calibrate_review_find_rate.py \
-  --data-root /Users/ashton/repos/chess-check/data/engine \
+  --data-root data/engine \
   --prepared eval_results/neural-find-rate/prepared-v2 \
   --chesscom-extra data/engine/chesscom-rapid-v1/training.parquet \
   --recalibration eval_results/review-recalibration/reviewRecalibration.json \
@@ -2033,7 +2035,7 @@ python scripts/calibrate_review_find_rate.py \
 
 ## Ideas for later
 
-- Recalibrate the review find rate per site and speed as a function of rating, fitted on the validation players, to fix the slope error that per-speed clocks could not fix in Lichess classical.
+- Correct the rating slope for Lichess classical alone, the one pair where validation and test players agree on the slope error. Choosing that pair used this test split, so it needs newly collected held-out players and a rule set before looking at them.
 - Compare each opening against all Lichess players at the same rating, using the open Lichess database.
 - Tag blunders by tactical motif (forks, pins, back-rank) and link matching Lichess puzzles.
 - Load the tables into BigQuery; the SQL is standard and only the connection changes.

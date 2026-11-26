@@ -61,7 +61,7 @@ def main():
     parser.add_argument(
         "--output",
         type=Path,
-        default=ROOT / "web" / "src" / "extension" / "reviewRecalibration.json",
+        default=ROOT / "eval_results" / "review-recalibration" / "reviewRecalibration.json",
     )
     args = parser.parse_args()
 

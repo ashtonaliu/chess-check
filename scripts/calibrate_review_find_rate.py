@@ -125,8 +125,9 @@ def load_test_split(data_root: Path, prepared: Path | None, workers: int,
     if chesscom_extra is not None and chesscom_extra.exists():
         extra_rows, extra_boards = load_extra_chesscom(chesscom_extra, workers)
         if len(extra_rows):
-            keep_cols = list(base_rows.columns)
-            base_rows = pd.concat([base_rows, extra_rows[keep_cols]], ignore_index=True)
+            # inputs() adds bookkeeping columns such as needs_move_features that the extra rows lack.
+            keep_cols = [col for col in base_rows.columns if col in extra_rows.columns]
+            base_rows = pd.concat([base_rows[keep_cols], extra_rows[keep_cols]], ignore_index=True)
             base_boards = np.concatenate([base_boards, extra_boards], axis=0)
     return base_rows, base_boards
 

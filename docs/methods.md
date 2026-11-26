@@ -399,16 +399,19 @@ In parallel Mode B, `ucinewgame`/`readyok` took a median of 3.79 ms (mean 3.90 m
 own `time` field rose to a median of 8.00 ms (mean 14.70 ms) as 17 workers ran across 6 super cores
 and 11 performance cores.
 
-**Decision.** Under the pre-committed rule (`TA >= 0.8 * TC` keeps the current path; `TA < 0.8 * TC`
-and `TB >= 0.8 * TC` switches to raw UCI worker processes; `TB < 0.8 * TC` justifies a C++ batch
-labeler), `TB` (765.0 searches/s) is below `0.8 * TC` (2,720.0 searches/s), so a **C++ batch
-labeler is justified**. The rule's median-C ratio puts the upper-bound speedup at `TC / TA = 5.63x`,
-while switching to raw UCI processes alone gives `TB / TA = 1.27x`. Because search times are
-right-skewed and 17 workers spill onto performance cores, the mean-time ceilings are tighter:
-1,728.7 searches/s from sequential mean C (`2.86x` over `TA`), 2,125.0 from parallel median C, and
-1,156.5 from parallel mean C (`1.91x` over `TA`, where `0.8 * 1,156.5 = 925.2 > TB`). Even under
-that strictest ceiling, `TB` still falls short of 80%, driven mostly by the 3.24 ms sequential
-(3.79 ms parallel) cost of clearing a 32 MB hash table on every position.
+**Decision.** Under the rule as I first wrote it (`TA >= 0.8 * TC` keeps the current path; `TA < 0.8 * TC` and `TB >= 0.8 * TC` switches to raw UCI worker processes; `TB < 0.8 * TC` justifies a C++ batch labeler), `TB` (765.0 searches/s) is below `0.8 * TC` (2,720.0 searches/s), which points to a C++ labeler. That ceiling was wrong in two ways, so I do not follow it:
+
+- It left out the hash clear. `ucinewgame` clears Stockfish's own hash and search tables, and any labeler that reproduces the v1 labels has to do the same, including one that calls Stockfish in process from C++. The clear took 3.24 ms per search sequentially and 3.90 ms in parallel, and it is most of the gap the first rule measured.
+- It used the median search time. Throughput depends on the mean, and search times are right-skewed (sequential median 5.00 ms against a mean of 9.83 ms).
+
+The ceiling any labeler can reach is the parallel mean of Stockfish's search time plus the clear: 18.59 ms per search, or `TW = 17 / 18.59 ms = 914.2` searches/s. Against it, the rule gives a different answer: `TA` (603.9) is below `0.8 * TW` (731.4) and `TB` (765.0) is above it, so **the fix is a leaner Python driver, and a C++ labeler is not worth building.** Per search, raw UCI adds 0.4% to Stockfish's own work (18.67 ms against 18.59 ms), while `python-chess` threads add 27.9% (25.80 ms). The rest of the gap between `TB` and `TW` is idle time at the end of each run, when some of the 17 workers finish their fixed share of positions before others. A shared queue would fix that in any language.
+
+| Ceiling | Searches/s | `TA / ceiling` | `TB / ceiling` | Branch |
+|---|---:|---:|---:|---|
+| `TC = 17 / median(seq C)` (first rule) | 3,400.0 | 0.178 | 0.225 | build C++ labeler |
+| `TW = 17 / mean(par C + clear)` | 914.2 | 0.661 | 0.837 | switch to raw UCI processes |
+
+I reran the benchmark with the corrected script, which now reports both ceilings and both decisions. The second run gave `TA` 632.3, `TB` 840.0 and `TW` 1,018.9 searches/s (Stockfish work 16.68 ms per search), with overhead of 31.8% for `python-chess` and 0.3% for raw UCI, the same branch, and 0 mismatches. Switching the labelers to raw UCI worker processes would make them about 1.27x to 1.33x faster. A C++ labeler could add at most the 0.3% to 0.4% that the pipe costs.
 
 ```sh
 python scripts/benchmark_labeling_overhead.py

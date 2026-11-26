@@ -25,8 +25,8 @@ sys.path.insert(0, str(ROOT))
 
 from chesscheck.engine import find_stockfish
 
-DEFAULT_PUZZLES = Path("/Users/ashton/repos/chess-check/data/puzzles_50k.csv")
-DEFAULT_V1_RUNS = Path("/Users/ashton/repos/chess-check/data/engine/v1/runs.json")
+DEFAULT_PUZZLES = ROOT / "data" / "puzzles_50k.csv"
+DEFAULT_V1_RUNS = ROOT / "data" / "engine" / "v1" / "runs.json"
 DEFAULT_OUT = ROOT / "eval_results" / "labeling-overhead"
 SAMPLE_COUNT = 2000
 SAMPLE_SEED = 20261126
@@ -511,12 +511,22 @@ def main() -> None:
     mean_c_s = seq_summary["C_ms"]["mean"] / 1000.0
     tc_mean_c = args.workers / mean_c_s
 
-    if ta >= 0.8 * tc:
-        decision = "keep_current_python_chess"
-    elif tb >= 0.8 * tc:
-        decision = "switch_to_raw_uci_processes"
-    else:
-        decision = "build_cpp_batch_labeler"
+    def rule(ceiling: float) -> str:
+        if ta >= 0.8 * ceiling:
+            return "keep_current_python_chess"
+        if tb >= 0.8 * ceiling:
+            return "switch_to_raw_uci_processes"
+        return "build_cpp_batch_labeler"
+
+    # The ucinewgame hash clear is Stockfish's own work: any labeler that reproduces the v1 labels,
+    # including an in-process C++ one, has to clear the hash too. Throughput follows mean time, not
+    # median time, so the ceiling is the parallel mean search time plus the parallel mean clear.
+    par_work_ms = float(np.median([r["sf_stats"]["mean"] + r["clear_stats"]["mean"] for r in par_b_runs]))
+    tw = args.workers / (par_work_ms / 1000.0)
+    par_a_mean_ms = float(np.median([r["stats"]["mean"] for r in par_a_runs]))
+    par_b_mean_ms = float(np.median([r["stats"]["mean"] for r in par_b_runs]))
+    decision_original_rule = rule(tc)
+    decision = rule(tw)
 
     report = {
         "machine": machine_info(),
@@ -542,7 +552,16 @@ def main() -> None:
             "TB_over_TC": tb / tc,
             "TB_over_TA": tb / ta,
             "TC_over_TA": tc / ta,
+            "stockfish_work_ms": par_work_ms,
+            "TW": tw,
+            "A_mean_ms": par_a_mean_ms,
+            "B_mean_ms": par_b_mean_ms,
+            "A_overhead_pct": 100.0 * (par_a_mean_ms - par_work_ms) / par_a_mean_ms,
+            "B_overhead_pct": 100.0 * (par_b_mean_ms - par_work_ms) / par_b_mean_ms,
+            "TA_over_TW": ta / tw,
+            "TB_over_TW": tb / tw,
         },
+        "decision_original_rule": decision_original_rule,
         "decision": decision,
     }
     (args.output / "results.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
@@ -561,7 +580,12 @@ def main() -> None:
     print(f"  TC (17 / median seq C)     : {tc:.1f} searches/s (0.8 * TC = {0.8 * tc:.1f})")
     print(f"  TC (17 / median par C)     : {tc_parallel_c:.1f} searches/s")
     print(f"  TC (17 / mean seq C)       : {tc_mean_c:.1f} searches/s")
-    print(f"  Decision branch            : {decision}")
+    print(f"  Stockfish work (search + clear, parallel mean): {par_work_ms:.2f}ms per search")
+    print(f"  TW (workers / that)        : {tw:.1f} searches/s (0.8 * TW = {0.8 * tw:.1f})")
+    print(f"  Overhead per search        : A {100.0 * (par_a_mean_ms - par_work_ms) / par_a_mean_ms:.1f}%, "
+          f"B {100.0 * (par_b_mean_ms - par_work_ms) / par_b_mean_ms:.1f}%")
+    print(f"  Decision (original TC rule): {decision_original_rule}")
+    print(f"  Decision (TW ceiling)      : {decision}")
 
 
 if __name__ == "__main__":

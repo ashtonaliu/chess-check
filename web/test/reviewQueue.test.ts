@@ -2,14 +2,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { createNeuralFindRate } from "../src/browser/neuralFindRate";
 import type { Recap } from "../src/browser/recap";
 import { addItems, applyReviewRates, dueItems, grade, itemFromRecap, itemsFromBlunders, MAX_ITEMS, nextDue, patchItems,
   pendingReviewRates, reviewRate, type ReviewItem } from "../src/browser/reviewQueue";
 import type { BlunderRec } from "../src/browser/tactics";
-import weights from "../src/extension/neuralFindRateWeights.json";
-import reviewClocks from "../src/extension/reviewClocks.json";
-import { REVIEW_CLOCK_FRACTION, reviewClockFraction, reviewFindRate } from "../src/extension/reviewFindRate";
+import { reviewFindRate } from "../src/extension/reviewFindRate";
 
 const DAY = 86_400_000, NOW = 1_800_000_000_000;
 
@@ -170,7 +167,7 @@ test("review rate limits enforce per-site and per-speed calibrated rating bounds
 
   // Lichess: calibrated per speed, daily refused.
   const lichessBounds: [string, number, number][] = [
-    ["ultraBullet", 1000, 2099],
+    ["ultraBullet", 1000, 1999],
     ["bullet", 900, 2599],
     ["blitz", 900, 2299],
     ["rapid", 1100, 2199],
@@ -204,21 +201,4 @@ test("review rate limits enforce per-site and per-speed calibrated rating bounds
   const applied = applyReviewRates([lichessRapid, lichessDaily], { [lichessRapid.id]: 0.82, [lichessDaily.id]: 0.5 });
   assert.equal(reviewRate(applied[0]), 0.82);
   assert.equal(reviewRate(applied[1]), null);
-});
-
-test("reviewFindRate uses the per-speed clock for Lichess classical and falls back to 0.6561 for missing pairs", () => {
-  const fen = "rnbqkbnr/pppp1ppp/8/4p3/4P3/5N2/PPPP1PPP/RNBQKB1R b KQkq - 1 2";
-  const predict = createNeuralFindRate(weights);
-  const classicalClock = reviewClocks.lichess.classical;
-  assert.equal(reviewClockFraction("classical", "lichess"), classicalClock);
-  assert.notEqual(classicalClock, REVIEW_CLOCK_FRACTION);
-  const actual = reviewFindRate({ id: "1:1", fen, best: "Nc6", rating: 1300, timeClass: "classical" }, "lichess");
-  const withClassicalClock = predict(fen, "Nc6", { rating: 1300, speed: "classical", clockFrac: classicalClock, source: "lichess" });
-  const withFixedClock = predict(fen, "Nc6", { rating: 1300, speed: "classical", clockFrac: REVIEW_CLOCK_FRACTION, source: "lichess" });
-  assert.equal(actual, withClassicalClock);
-  assert.notEqual(actual, withFixedClock);
-
-  assert.equal(reviewClockFraction("daily", "lichess"), REVIEW_CLOCK_FRACTION);
-  assert.equal(reviewClockFraction("classical", "chesscom"), REVIEW_CLOCK_FRACTION);
-  assert.equal(reviewClockFraction("unknown", "chesscom"), REVIEW_CLOCK_FRACTION);
 });

@@ -56,7 +56,7 @@ def main():
     parser.add_argument(
         "--output",
         type=Path,
-        default=ROOT / "web" / "src" / "extension" / "reviewClocks.json",
+        default=ROOT / "eval_results" / "review-calibration-per-speed" / "review_clocks.json",
         help="Destination JSON file for per-site, per-speed review clock fractions",
     )
     args = parser.parse_args()

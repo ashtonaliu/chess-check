@@ -133,6 +133,17 @@ inside its range, and rapid by 0.82 instead of 0.23. The clock moves every ratin
 while the classical error is a curve that is too flat across ratings, so the extension keeps the
 fixed clock. [Per-speed clock methods](docs/methods.md#per-speed-review-clocks)
 
+**Rating recalibration (rejected).** I fitted a three-parameter logistic recalibration on the
+validation players per site and speed (`sigmoid(a + b * logit(p) + c * z)`) to fix the rating
+slope at the fixed 0.6561 review clock. On held-out test games it fixed the Lichess classical
+slope (mean absolute bias inside 1100 to 1499 fell from 1.65 to 0.47 points, and 900 to 1499 and
+1600 to 2199 both passed) and widened Chess.com blitz to 1200 to 2099, but it failed the ship rule
+on Lichess UltraBullet (span narrowed from 1000 to 1999 to 2000 to 2499; in-range mean absolute
+bias rose from 1.36 to 2.58 points and Brier from 0.2042 to 0.2050) and Lichess rapid (in-range
+mean absolute bias rose from 0.55 to 1.50 points), so the extension stays unchanged. Only in
+classical did the validation and test players agree on the slope error.
+[Rating recalibration methods](docs/methods.md#rating-recalibration)
+
 **Engine dataset.** To make later questions cheap, I analyzed 664,898 games (49.1 million positions) once with Stockfish 19, keeping the two best moves, win/draw/loss chances and clock time for every position. It took 33 hours on my laptop, and profiles for all 171,126 players in it now take 12 seconds to compute. On all 14,739 test games, none of the engine profiles (accuracy, blunders, conversion, time trouble, form, a rating implied by move quality) improved on the odds formula. The test was precise enough to rule out effects bigger than about 2 points of expected score.
 
 **Lichess pipeline.** I scanned every rated standard game in the October 2026 archive and wrote

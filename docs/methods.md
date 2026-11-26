@@ -1848,6 +1848,184 @@ python scripts/calibrate_review_find_rate.py --data-root data/engine \
   --output eval_results/review-calibration-per-speed/per-speed --draws 2000 --seed 24
 ```
 
+### Rating recalibration
+
+Because per-speed review clocks only shift every rating band up or down together and cannot fix
+the flat rating slope in Lichess classical, I tested a three-parameter recalibration per site and
+speed at the fixed 0.6561 review clock:
+
+```text
+p' = sigmoid(a + b * logit(p) + c * z)
+```
+
+Here `p` is the shipped float16 network's prediction at clock fraction 0.6561, clamped to
+`[1e-6, 1 - 1e-6]`, and `z` is the player's rating standardized with the exported artifact's
+per-source mean and standard deviation. For each of the eight `(site, speed)` pairs,
+`scripts/fit_review_recalibration.py` fits `(a, b, c)` by unregularized logistic regression of
+`found` on `[logit(p), z]` over the validation rows (`split == "validation"`) in
+`eval_results/neural-find-rate/prepared-v2`, rounding coefficients to six decimal places. Test rows
+were never used for fitting or selection. Note that these same validation players also chose the
+shipped network's seed and epoch, so fitting the recalibration here reuses them a second time.
+
+| Site | Speed | Validation n | a | b | c | Val LL before | Val LL after | Val Brier before | Val Brier after |
+|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Chess.com | blitz | 129,376 | -0.013705 | +1.002823 | -0.059189 | 0.40243 | 0.40236 | 0.13100 | 0.13098 |
+| Lichess | blitz | 17,080 | +0.024163 | +0.959032 | +0.008897 | 0.41485 | 0.41472 | 0.13510 | 0.13507 |
+| Lichess | rapid | 17,611 | +0.113206 | +0.974298 | +0.147897 | 0.41311 | 0.41178 | 0.13407 | 0.13355 |
+| Lichess | bullet | 16,709 | -0.040834 | +1.028029 | -0.018966 | 0.43910 | 0.43898 | 0.14404 | 0.14401 |
+| Lichess | classical | 15,377 | +0.142505 | +0.932308 | +0.214659 | 0.41440 | 0.41271 | 0.13422 | 0.13370 |
+| Lichess | ultraBullet | 18,210 | -0.004074 | +1.022486 | -0.126777 | 0.59126 | 0.58981 | 0.20426 | 0.20369 |
+| Chess.com | rapid | 10,367 | +0.069874 | +1.000376 | -0.016965 | 0.37673 | 0.37609 | 0.12068 | 0.12043 |
+| Chess.com | bullet | 9,085 | -0.121422 | +0.993202 | -0.046210 | 0.43888 | 0.43731 | 0.14366 | 0.14323 |
+
+I ran `scripts/calibrate_review_find_rate.py` twice on all 284,487 held-out test positions with
+seed 24 and 2,000 draws: once with no option and once with `--recalibration`. The baseline
+reproduced all eight limits in `web/src/browser/rateRange.ts` exactly. The table below compares
+band-weighted mean absolute bias (`|bias|`, in points) and Brier inside each pair's shipped range,
+alongside the longest allowed span after recalibration.
+
+| Site | Speed | Shipped range | Held-out n | \|Bias\| before | \|Bias\| after | Brier before | Brier after | New span |
+|---|---|---|---:|---:|---:|---:|---:|---|
+| Chess.com | blitz | 1200-1899 | 154,900 | 0.54 | 0.20 | 0.1309 | 0.1309 | 1200-2099 |
+| Chess.com | rapid | 600-1499 | 4,655 | 1.44 | 1.31 | 0.1461 | 0.1461 | 600-1599 |
+| Chess.com | bullet | 600-1599 | 5,540 | 1.82 | 1.94 | 0.1520 | 0.1520 | 600-1599 |
+| Lichess | ultraBullet | 1000-1999 | 16,122 | 1.36 | 2.58 | 0.2042 | 0.2050 | 2000-2499 |
+| Lichess | bullet | 900-2599 | 20,175 | 0.99 | 0.89 | 0.1467 | 0.1466 | 900-2599 |
+| Lichess | blitz | 900-2299 | 20,412 | 0.76 | 0.80 | 0.1317 | 0.1317 | 800-2299 |
+| Lichess | rapid | 1100-2199 | 18,627 | 0.55 | 1.50 | 0.1327 | 0.1330 | 700-1799 |
+| Lichess | classical | 1100-1499 | 5,552 | 1.65 | 0.47 | 0.1616 | 0.1613 | 900-1499 |
+
+**The ship rule failed, and the extension stays unchanged.** Before running on test, I required
+three checks for every pair: (a) the longest allowed span is the same or wider than the current
+range, (b) in-range band-weighted `|bias|` is not worse by more than 0.0025 (0.25 points), and
+(c) in-range band-weighted Brier is not worse by more than 0.0005. Two pairs failed:
+
+- **Lichess ultraBullet** failed all three checks: its span narrowed from `1000-1999` (10 bands)
+  to `2000-2499` (5 bands), in-range `|bias|` rose by +0.0122 (0.0136 to 0.0258), and in-range
+  Brier rose by +0.0008 (0.2042 to 0.2050). The negative slope term (`c = -0.126777`) flattened the
+  rating curve, helping 2000-2499 while pushing 1000-1499 to +2.5 to +9.1 points of over-prediction
+  and 1800-1999 to -2.7 to -3.7 points of under-prediction.
+- **Lichess rapid** failed check (b): in-range `|bias|` rose by +0.0094 (0.0055 to 0.0150), and
+  1800-1899 failed at +2.31 points of over-prediction, shifting its 11-band span down from
+  `1100-2199` to `700-1799`.
+
+On Lichess classical, the slope correction (`c = +0.214659`) worked as intended across almost the
+whole rating curve: in-range `|bias|` inside `1100-1499` fell from 1.65 to 0.47 points, and every
+band in both `900-1499` and `1600-2199` passed (with bias within 0.66 points from 1100 to 1999).
+Only `1500-1599` (+2.34 points, n = 3,050) still failed, splitting those 13 bands into two tied
+six-band spans where the rule kept `900-1499`. Because the rule forbids shipping a subset of pairs,
+I left the extension unchanged.
+
+**Why validation did not carry over to test.** I compared the shipped model's band bias on the validation and test players before any recalibration. In Lichess classical the two player sets agree on the shape, with over-prediction below 1600 and under-prediction from 1700 up (-2.42 and -1.84 points at 1800-1899, -4.97 and -4.30 at 2000-2099), so the slope fitted on validation carried over. In Lichess ultraBullet the band biases swing between the two sets by up to 9.2 points (1100-1199: -3.75 on validation, +5.44 on test) with 400 to 900 positions per band, more than sampling noise usually produces. Its 18,210 validation positions come from only 1,610 players, about 11 each, so a few players can move a band. In Lichess rapid, validation under-predicts from 1800 up (-1.05 to -2.69 points) while test is within 0.65 points there, so the steeper slope fitted on validation overshot on test. Running the baseline through the prepared-v2 test rows gave output identical to the default loader, so this is a difference between player sets, not between data pipelines.
+
+Per-band held-out rows (`n >= 200`) after recalibration for the six pairs whose allowed span changed:
+
+| Site | Speed | Rating band | n | Predicted | Actual | Bias | 10-bin ECE | Noise p95 | Brier | Status |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
+| Chess.com | blitz | 1200-1299 | 293 | 0.7553 | 0.7645 | -0.0092 | 0.0564 | 0.0712 | 0.1249 | allowed |
+| Chess.com | blitz | 1300-1399 | 1893 | 0.7810 | 0.7845 | -0.0035 | 0.0138 | 0.0269 | 0.1351 | allowed |
+| Chess.com | blitz | 1400-1499 | 7170 | 0.7815 | 0.7848 | -0.0033 | 0.0067 | 0.0141 | 0.1336 | allowed |
+| Chess.com | blitz | 1500-1599 | 29403 | 0.7886 | 0.7904 | -0.0017 | 0.0038 | 0.0068 | 0.1317 | allowed |
+| Chess.com | blitz | 1600-1699 | 57209 | 0.7918 | 0.7909 | +0.0009 | 0.0043 | 0.0049 | 0.1320 | allowed |
+| Chess.com | blitz | 1700-1799 | 44317 | 0.7967 | 0.7951 | +0.0016 | 0.0024 | 0.0055 | 0.1295 | allowed |
+| Chess.com | blitz | 1800-1899 | 14615 | 0.8091 | 0.8017 | +0.0074 | 0.0090 | 0.0091 | 0.1273 | allowed |
+| Chess.com | blitz | 1900-1999 | 1966 | 0.8183 | 0.7986 | +0.0197 | 0.0248 | 0.0247 | 0.1318 | allowed |
+| Chess.com | blitz | 2000-2099 | 219 | 0.8507 | 0.8584 | -0.0077 | 0.0293 | 0.0674 | 0.1085 | allowed |
+| Chess.com | rapid | 600-699 | 267 | 0.7369 | 0.6854 | +0.0515 | 0.0740 | 0.0777 | 0.1727 | allowed |
+| Chess.com | rapid | 700-799 | 672 | 0.7188 | 0.7083 | +0.0105 | 0.0192 | 0.0492 | 0.1646 | allowed |
+| Chess.com | rapid | 800-899 | 437 | 0.7502 | 0.7666 | -0.0164 | 0.0298 | 0.0597 | 0.1487 | allowed |
+| Chess.com | rapid | 900-999 | 448 | 0.7838 | 0.7545 | +0.0293 | 0.0478 | 0.0561 | 0.1487 | allowed |
+| Chess.com | rapid | 1000-1099 | 740 | 0.7481 | 0.7432 | +0.0048 | 0.0268 | 0.0458 | 0.1453 | allowed |
+| Chess.com | rapid | 1100-1199 | 395 | 0.7811 | 0.7595 | +0.0216 | 0.0512 | 0.0595 | 0.1443 | allowed |
+| Chess.com | rapid | 1200-1299 | 484 | 0.7863 | 0.7748 | +0.0115 | 0.0319 | 0.0544 | 0.1471 | allowed |
+| Chess.com | rapid | 1300-1399 | 743 | 0.7830 | 0.7847 | -0.0016 | 0.0308 | 0.0426 | 0.1272 | allowed |
+| Chess.com | rapid | 1400-1499 | 469 | 0.7991 | 0.8017 | -0.0026 | 0.0420 | 0.0525 | 0.1314 | allowed |
+| Chess.com | rapid | 1500-1599 | 475 | 0.8147 | 0.8632 | -0.0484 | 0.0497 | 0.0505 | 0.1012 | allowed |
+| Chess.com | rapid | 1600-1699 | 320 | 0.8155 | 0.8594 | -0.0438 | 0.0713 | 0.0609 | 0.0914 | fail |
+| Chess.com | rapid | 1700-1799 | 399 | 0.8258 | 0.8371 | -0.0113 | 0.0317 | 0.0529 | 0.1173 | pass (outside span) |
+| Chess.com | rapid | 1800-1899 | 703 | 0.8465 | 0.8250 | +0.0214 | 0.0342 | 0.0380 | 0.1192 | pass (outside span) |
+| Chess.com | rapid | 1900-1999 | 606 | 0.8728 | 0.8729 | -0.0001 | 0.0324 | 0.0377 | 0.0828 | pass (outside span) |
+| Chess.com | rapid | 2000-2099 | 575 | 0.8929 | 0.8870 | +0.0059 | 0.0123 | 0.0353 | 0.0809 | pass (outside span) |
+| Chess.com | rapid | 2100-2199 | 555 | 0.8977 | 0.8865 | +0.0112 | 0.0373 | 0.0349 | 0.0850 | pass (outside span) |
+| Chess.com | rapid | 2200-2299 | 829 | 0.9185 | 0.9204 | -0.0019 | 0.0065 | 0.0246 | 0.0671 | pass (outside span) |
+| Chess.com | rapid | 2300-2399 | 452 | 0.9309 | 0.8850 | +0.0459 | 0.0574 | 0.0303 | 0.0976 | fail |
+| Lichess | blitz | 800-899 | 278 | 0.7095 | 0.6547 | +0.0548 | 0.0712 | 0.0779 | 0.1861 | allowed |
+| Lichess | blitz | 900-999 | 520 | 0.7226 | 0.7231 | -0.0005 | 0.0460 | 0.0558 | 0.1641 | allowed |
+| Lichess | blitz | 1000-1099 | 708 | 0.7165 | 0.6794 | +0.0371 | 0.0485 | 0.0487 | 0.1748 | allowed |
+| Lichess | blitz | 1100-1199 | 1014 | 0.7376 | 0.7377 | -0.0000 | 0.0323 | 0.0399 | 0.1451 | allowed |
+| Lichess | blitz | 1200-1299 | 1340 | 0.7468 | 0.7381 | +0.0087 | 0.0341 | 0.0346 | 0.1594 | allowed |
+| Lichess | blitz | 1300-1399 | 1610 | 0.7561 | 0.7683 | -0.0122 | 0.0202 | 0.0310 | 0.1399 | allowed |
+| Lichess | blitz | 1400-1499 | 1861 | 0.7619 | 0.7695 | -0.0075 | 0.0231 | 0.0284 | 0.1394 | allowed |
+| Lichess | blitz | 1500-1599 | 2070 | 0.7767 | 0.7908 | -0.0141 | 0.0158 | 0.0260 | 0.1307 | allowed |
+| Lichess | blitz | 1600-1699 | 2173 | 0.7807 | 0.7809 | -0.0003 | 0.0183 | 0.0254 | 0.1336 | allowed |
+| Lichess | blitz | 1700-1799 | 2269 | 0.7939 | 0.7959 | -0.0021 | 0.0145 | 0.0237 | 0.1307 | allowed |
+| Lichess | blitz | 1800-1899 | 2226 | 0.8091 | 0.8122 | -0.0031 | 0.0186 | 0.0235 | 0.1247 | allowed |
+| Lichess | blitz | 1900-1999 | 1845 | 0.8242 | 0.8396 | -0.0154 | 0.0184 | 0.0252 | 0.1105 | allowed |
+| Lichess | blitz | 2000-2099 | 1355 | 0.8436 | 0.8494 | -0.0058 | 0.0125 | 0.0275 | 0.1070 | allowed |
+| Lichess | blitz | 2100-2199 | 896 | 0.8556 | 0.8471 | +0.0085 | 0.0185 | 0.0324 | 0.1091 | allowed |
+| Lichess | blitz | 2200-2299 | 525 | 0.8644 | 0.8514 | +0.0129 | 0.0291 | 0.0405 | 0.1006 | allowed |
+| Lichess | blitz | 2300-2399 | 286 | 0.8809 | 0.8322 | +0.0487 | 0.0675 | 0.0532 | 0.1100 | fail |
+| Lichess | rapid | 700-799 | 355 | 0.6333 | 0.5606 | +0.0727 | 0.0736 | 0.0751 | 0.2005 | allowed |
+| Lichess | rapid | 800-899 | 669 | 0.6708 | 0.6293 | +0.0415 | 0.0507 | 0.0535 | 0.1922 | allowed |
+| Lichess | rapid | 900-999 | 931 | 0.6691 | 0.6574 | +0.0118 | 0.0207 | 0.0449 | 0.1846 | allowed |
+| Lichess | rapid | 1000-1099 | 1210 | 0.6979 | 0.6868 | +0.0112 | 0.0164 | 0.0384 | 0.1764 | allowed |
+| Lichess | rapid | 1100-1199 | 1447 | 0.7152 | 0.7249 | -0.0097 | 0.0279 | 0.0343 | 0.1624 | allowed |
+| Lichess | rapid | 1200-1299 | 1637 | 0.7345 | 0.7489 | -0.0144 | 0.0386 | 0.0313 | 0.1502 | allowed |
+| Lichess | rapid | 1300-1399 | 2019 | 0.7567 | 0.7632 | -0.0065 | 0.0153 | 0.0277 | 0.1452 | allowed |
+| Lichess | rapid | 1400-1499 | 2047 | 0.7785 | 0.7855 | -0.0071 | 0.0089 | 0.0265 | 0.1389 | allowed |
+| Lichess | rapid | 1500-1599 | 2565 | 0.7939 | 0.7747 | +0.0193 | 0.0207 | 0.0224 | 0.1451 | allowed |
+| Lichess | rapid | 1600-1699 | 2375 | 0.8147 | 0.8008 | +0.0138 | 0.0201 | 0.0221 | 0.1284 | allowed |
+| Lichess | rapid | 1700-1799 | 2146 | 0.8317 | 0.8131 | +0.0186 | 0.0195 | 0.0227 | 0.1237 | allowed |
+| Lichess | rapid | 1800-1899 | 1896 | 0.8496 | 0.8265 | +0.0231 | 0.0242 | 0.0224 | 0.1205 | fail |
+| Lichess | rapid | 1900-1999 | 1323 | 0.8701 | 0.8519 | +0.0183 | 0.0212 | 0.0251 | 0.1058 | pass (outside span) |
+| Lichess | rapid | 2000-2099 | 763 | 0.8892 | 0.8676 | +0.0216 | 0.0270 | 0.0304 | 0.0977 | pass (outside span) |
+| Lichess | rapid | 2100-2199 | 409 | 0.9016 | 0.8851 | +0.0166 | 0.0297 | 0.0381 | 0.0837 | pass (outside span) |
+| Lichess | classical | 900-999 | 287 | 0.6158 | 0.6132 | +0.0025 | 0.0563 | 0.0848 | 0.1798 | allowed |
+| Lichess | classical | 1000-1099 | 583 | 0.6370 | 0.6226 | +0.0143 | 0.0547 | 0.0593 | 0.2014 | allowed |
+| Lichess | classical | 1100-1199 | 775 | 0.6571 | 0.6594 | -0.0022 | 0.0386 | 0.0493 | 0.1847 | allowed |
+| Lichess | classical | 1200-1299 | 1234 | 0.7053 | 0.7083 | -0.0030 | 0.0222 | 0.0374 | 0.1775 | allowed |
+| Lichess | classical | 1300-1399 | 1586 | 0.7333 | 0.7383 | -0.0051 | 0.0288 | 0.0321 | 0.1589 | allowed |
+| Lichess | classical | 1400-1499 | 1957 | 0.7695 | 0.7629 | +0.0066 | 0.0198 | 0.0275 | 0.1438 | allowed |
+| Lichess | classical | 1500-1599 | 3050 | 0.7920 | 0.7685 | +0.0234 | 0.0311 | 0.0211 | 0.1512 | fail |
+| Lichess | classical | 1600-1699 | 2618 | 0.8243 | 0.8189 | +0.0053 | 0.0152 | 0.0210 | 0.1227 | pass (outside span) |
+| Lichess | classical | 1700-1799 | 2728 | 0.8397 | 0.8394 | +0.0003 | 0.0086 | 0.0197 | 0.1128 | pass (outside span) |
+| Lichess | classical | 1800-1899 | 1898 | 0.8604 | 0.8609 | -0.0005 | 0.0053 | 0.0215 | 0.1036 | pass (outside span) |
+| Lichess | classical | 1900-1999 | 1378 | 0.8816 | 0.8839 | -0.0022 | 0.0230 | 0.0236 | 0.0875 | pass (outside span) |
+| Lichess | classical | 2000-2099 | 710 | 0.8989 | 0.9183 | -0.0194 | 0.0194 | 0.0297 | 0.0692 | pass (outside span) |
+| Lichess | classical | 2100-2199 | 282 | 0.9211 | 0.9326 | -0.0115 | 0.0216 | 0.0413 | 0.0548 | pass (outside span) |
+| Lichess | ultraBullet | 1000-1099 | 234 | 0.5454 | 0.4573 | +0.0882 | 0.1013 | 0.0979 | 0.2231 | fail |
+| Lichess | ultraBullet | 1100-1199 | 419 | 0.5562 | 0.4654 | +0.0908 | 0.0965 | 0.0722 | 0.2157 | fail |
+| Lichess | ultraBullet | 1200-1299 | 725 | 0.5424 | 0.5172 | +0.0252 | 0.0629 | 0.0550 | 0.2163 | fail |
+| Lichess | ultraBullet | 1300-1399 | 816 | 0.5683 | 0.5049 | +0.0634 | 0.0641 | 0.0519 | 0.2184 | fail |
+| Lichess | ultraBullet | 1400-1499 | 1068 | 0.5652 | 0.5150 | +0.0503 | 0.0504 | 0.0455 | 0.2114 | fail |
+| Lichess | ultraBullet | 1500-1599 | 1731 | 0.5793 | 0.5667 | +0.0126 | 0.0420 | 0.0350 | 0.2019 | pass (outside span) |
+| Lichess | ultraBullet | 1600-1699 | 2510 | 0.5771 | 0.5785 | -0.0014 | 0.0150 | 0.0293 | 0.2038 | pass (outside span) |
+| Lichess | ultraBullet | 1700-1799 | 2809 | 0.5848 | 0.5924 | -0.0076 | 0.0198 | 0.0279 | 0.2037 | pass (outside span) |
+| Lichess | ultraBullet | 1800-1899 | 2936 | 0.5902 | 0.6172 | -0.0270 | 0.0346 | 0.0271 | 0.2008 | fail |
+| Lichess | ultraBullet | 1900-1999 | 2874 | 0.5950 | 0.6322 | -0.0372 | 0.0372 | 0.0275 | 0.2013 | fail |
+| Lichess | ultraBullet | 2000-2099 | 2266 | 0.6182 | 0.6222 | -0.0040 | 0.0223 | 0.0301 | 0.2002 | allowed |
+| Lichess | ultraBullet | 2100-2199 | 1538 | 0.6248 | 0.6099 | +0.0149 | 0.0253 | 0.0371 | 0.2069 | allowed |
+| Lichess | ultraBullet | 2200-2299 | 1089 | 0.6535 | 0.6474 | +0.0061 | 0.0366 | 0.0437 | 0.1942 | allowed |
+| Lichess | ultraBullet | 2300-2399 | 521 | 0.6654 | 0.6967 | -0.0313 | 0.0506 | 0.0610 | 0.1857 | allowed |
+| Lichess | ultraBullet | 2400-2499 | 494 | 0.6791 | 0.6822 | -0.0031 | 0.0706 | 0.0616 | 0.1775 | allowed |
+
+```sh
+python scripts/fit_review_recalibration.py \
+  --prepared eval_results/neural-find-rate/prepared-v2 \
+  --output eval_results/review-recalibration/reviewRecalibration.json
+python scripts/calibrate_review_find_rate.py \
+  --data-root data/engine \
+  --prepared eval_results/neural-find-rate/prepared-v2 \
+  --chesscom-extra data/engine/chesscom-rapid-v1/training.parquet \
+  --output eval_results/review-recalibration/baseline --draws 2000 --seed 24 --workers 1
+python scripts/calibrate_review_find_rate.py \
+  --data-root data/engine \
+  --prepared eval_results/neural-find-rate/prepared-v2 \
+  --chesscom-extra data/engine/chesscom-rapid-v1/training.parquet \
+  --recalibration eval_results/review-recalibration/reviewRecalibration.json \
+  --output eval_results/review-recalibration/recalibrated --draws 2000 --seed 24 --workers 1
+```
+
 ## Deployment
 
 - I run the Python tests, TypeScript tests and build, and Chrome extension build in GitHub Actions on pull requests and pushes to main.
@@ -1857,7 +2035,7 @@ python scripts/calibrate_review_find_rate.py --data-root data/engine \
 
 ## Ideas for later
 
-- Recalibrate the review find rate per site and speed as a function of rating, fitted on the validation players, to fix the slope error that per-speed clocks could not fix in Lichess classical.
+- Correct the rating slope for Lichess classical alone, the one pair where validation and test players agree on the slope error. Choosing that pair used this test split, so it needs newly collected held-out players and a rule set before looking at them.
 - Compare each opening against all Lichess players at the same rating, using the open Lichess database.
 - Tag blunders by tactical motif (forks, pins, back-rank) and link matching Lichess puzzles.
 - Load the tables into BigQuery; the SQL is standard and only the connection changes.

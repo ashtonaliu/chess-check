@@ -9,7 +9,8 @@
 import { DEFAULT_SITE, type SafetyKey, type Site, type SiteId } from "../browser/site";
 import { defaultSite, siteForId } from "../browser/sites";
 import type { Callback } from "../browser/callbackGame";
-import { defaultWorkers, finishEngineTiming, pruneAnalysisCache, startEngineTiming, type GameAnalysis } from "../browser/engine";
+import { gradeEvaluatedMove, isStoredBestMove, resolveBoardMove, type BoardGradeResult } from "../browser/boardMove";
+import { DEEP_DEPTH_BROWSER, defaultWorkers, finishEngineTiming, pruneAnalysisCache, runPool, startEngineTiming, type GameAnalysis } from "../browser/engine";
 import { moveFeatures } from "../browser/findRate";
 import { analyzeGame, type Profile } from "../browser/follow";
 import { fetchGames, fetchOpponentGames, type Game } from "../browser/games";
@@ -18,7 +19,7 @@ import { Pace, SharedPace, startingWorkers } from "../browser/pace";
 import { analyzeInBrowser } from "../browser/pipeline";
 import { buildRecap, opponentNote, type Recap } from "../browser/recap";
 import { withExpected, type GameRow } from "../browser/stats";
-import { configureWasmChess } from "../browser/wasmChess";
+import { configureWasmChess, getWasmChess } from "../browser/wasmChess";
 import { itemsFromBlunders, type ReviewItem, type ReviewRateRequest } from "../browser/reviewQueue";
 import { reviewFindRate } from "./reviewFindRate";
 import type { BlunderRec } from "../browser/tactics";
@@ -34,6 +35,7 @@ export type Request = { site?: SiteId } & (
   | { type: "stalls" }                         // the page the cube is on stuttered (pace.ts)
   | { type: "pace" }                           // the worker count now, for testing
   | { type: "rate"; items: ReviewRateRequest[] }
+  | { type: "grade-move"; fen: string; board: string; best: string; played?: string }
   | { type: "recap"; username: string; gameId: string; evidence?: unknown });
 export type Reply =
   | { status: "building"; progress: string }
@@ -45,6 +47,7 @@ export type Reply =
   | { status: "recap"; recap: Recap; games: number; partial?: string; retry?: boolean; timingCacheHit?: true }
   | { status: "seed"; items: ReviewItem[] }    // empty until a profile exists
   | { status: "rates"; rates: Record<string, number | null> }
+  | { status: "grade"; result: BoardGradeResult }
   | { status: "pace"; workers: number | null; max: number; remembered: number | null }
   | { status: "error"; message: string };
 
@@ -253,6 +256,26 @@ export async function handle(req: Request): Promise<Reply> {
     if (req.type === "rate") {
       // the cube's script does without chess.js, so the find rate is worked out here
       return { status: "rates", rates: Object.fromEntries(req.items.map(i => [i.id, reviewFindRate(i, site.id)])) };
+    }
+    if (req.type === "grade-move") {
+      const wasm = await getWasmChess();
+      signal.throwIfAborted();
+      const resolved = resolveBoardMove(req.fen, req.board, wasm);
+      if (!resolved) return { status: "grade", result: { kind: "not-a-move" } };
+      if (isStoredBestMove(resolved.san, req.best)) {
+        return { status: "grade", result: { kind: "correct", san: resolved.san, best: req.best } };
+      }
+      if (req.played && resolved.san === req.played) return { status: "grade", result: { kind: "game-move", san: resolved.san } };
+      let result: BoardGradeResult = { kind: "not-a-move" };
+      await runPool(1, { engineUrl: ENGINE_URL, signal, workers: 1 }, async eng => {
+        const before = await eng.analyse(req.fen, DEEP_DEPTH_BROWSER);
+        let cpAfter: number;
+        if (resolved.mate) cpAfter = 3000;
+        else if (resolved.over) cpAfter = 0;
+        else cpAfter = -(await eng.analyse(resolved.afterFen, DEEP_DEPTH_BROWSER)).cp;
+        result = gradeEvaluatedMove(resolved.san, req.best, before.cp, cpAfter);
+      });
+      return { status: "grade", result };
     }
     if (req.type === "seed") {
       // from the finished profiles (in memory, or saved for the player's main time class)

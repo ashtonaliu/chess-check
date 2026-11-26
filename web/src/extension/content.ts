@@ -11,11 +11,13 @@
 // is known, shown or analyzed while it is being played, and any profile build
 // still running is stopped.
 import siteCss from "../../style.css";
+import { formatBoardGrade, isBoardAnswerFound, type BoardGradeResult } from "../browser/boardPlacement";
 import type { Recap } from "../browser/recap";
-import { addItems, applyReviewRates, grade, itemFromRecap, patchItems, pendingReviewRates, reviewRate,
+import { addItems, applyReviewRates, grade, itemFromRecap, patchItems, pendingReviewRates, reviewRateSentence,
   type ReviewItem } from "../browser/reviewQueue";
 import { createRecapView, esc, moveLink, quizHint, tacticSentence } from "../ui/recapCard";
 import { DEFAULT_SITE, defaultSitePages, pageSite, type FinishedPage } from "../browser/site";
+import { BoardWatcher } from "./boardWatch";
 import { gameIdFromPage, isPlayPage } from "./guard";
 import { loadStoredQueue, queueKey, updateQueue, type QueueDeps } from "./queueStore";
 import {
@@ -85,9 +87,17 @@ root.innerHTML = `<style>${siteCss.replace(/:root/g, ":host")}
   .review .grade { display: flex; gap: 8px; margin: 0 0 8px; }
   .review .grade button { font-size: 13px; font-weight: 650; padding: 6px 12px; border-radius: 8px; }
   .review .grade .missed { background: var(--chip); color: var(--ink); }
+  .review .board-note { font-size: 12px; color: var(--muted); }
+  .review .board-grade { font-weight: 700; }
+  .review .board-grade.good { color: var(--good); }
+  .review .board-grade.weak { color: var(--weak); }
   .cube:active { cursor: grabbing; }
   .panel { position: fixed; width: 340px; max-width: calc(100vw - 16px); box-sizing: border-box; overflow: auto; background: var(--bg); color: var(--ink);
     border-radius: 14px; box-shadow: 0 10px 40px rgba(0,0,0,.45); border: 1px solid var(--line); padding: 12px 14px; }
+  .panel.compact { width: 280px; padding: 10px 12px; }
+  .panel.compact .head { margin-bottom: 4px; justify-content: flex-end; }
+  .panel.compact .head > span:first-child { display: none; }
+  .panel.compact .fine { display: none; }
   .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: 700; }
   .head button { background: none; color: var(--muted); padding: 2px 6px; font-weight: 600; }
   .panel .note { font-size: 13px; }
@@ -213,38 +223,142 @@ function updateRecapReviewLink() {
 }
 
 let asked: ReviewItem | null = null;   // the entry as this tab asked it, to grade against
+const gradedVisits = new Set<string>(); // first attempt per card per visit
+let boardResult: { item: ReviewItem; grade: Exclude<BoardGradeResult, { kind: "not-a-move" | "game-move" }>; back: "back" | "show" | null } | null = null;
+let checkingCardId: string | null = null;
+let boardError = "";
+
+function setCompact(compact: boolean) {
+  if (panel.classList.contains("compact") === compact) return;
+  panel.classList.toggle("compact", compact);
+  placeTries = 0;
+  place();
+}
+
+const boardWatcher = new BoardWatcher({
+  doc: document,
+  readBoard: doc => site.readBoard(doc),
+  onCandidateMove: (itemId, placement) => { void handleBoardMove(itemId, placement); },
+});
+
+async function handleBoardMove(itemId: string, placement: string) {
+  const item = asked;
+  if (!item || item.id !== itemId || current !== itemId || !item.fen || gradedVisits.has(itemId)
+      || !reviewAllowed(pageUrl(), state) || panel.classList.contains("hidden") || view !== "review") {
+    return;
+  }
+  const version = checkVersion;
+  checkingCardId = itemId;
+  boardError = "";
+  renderPanel();
+  let reply: Reply;
+  try {
+    reply = await ask({ type: "grade-move", fen: item.fen, board: placement, best: item.best, played: item.san });
+  } catch (e) {
+    if (version !== checkVersion || checkingCardId !== itemId) return;
+    checkingCardId = null;
+    boardError = (e as Error).message;
+    boardWatcher.resume(itemId);
+    renderPanel();
+    return;
+  }
+  if (version !== checkVersion || current !== itemId || panel.classList.contains("hidden")
+      || view !== "review" || gradedVisits.has(itemId)) {
+    if (checkingCardId === itemId) checkingCardId = null;
+    return;
+  }
+  checkingCardId = null;
+  if (reply.status !== "grade") {
+    boardError = reply.status === "error" ? reply.message : "";
+    boardWatcher.resume(itemId);
+    renderPanel();
+    return;
+  }
+  if (reply.result.kind === "not-a-move" || reply.result.kind === "game-move") {
+    // Stepping forward through the game shows the move that was played, so it is not an answer.
+    if (reply.result.kind === "game-move") {
+      boardError = `${reply.result.san} is the move from the game. Go back a move and try another, or reveal the answer.`;
+    }
+    boardWatcher.resume(itemId);
+    renderPanel();
+    return;
+  }
+  gradedVisits.add(itemId);
+  boardWatcher.stop();
+  const card = reviewCard(due(), current, state, !!recap, pageUrl(), tally(), nextText());
+  const found = isBoardAnswerFound(reply.result);
+  const now = Date.now(), shown = { step: item.step, due: item.due };
+  queue = grade(queue, itemId, found, now, shown);
+  addTally(found);
+  void changeQueue(q => grade(q, itemId, found, now, shown)).then(decorateCube);
+  boardResult = { item, grade: reply.result, back: card.back };
+  renderPanel();
+  decorateCube();
+}
+
 function openReview(id: string | null = null) {
-  view = "review"; current = id; reviewRevealed = false;
+  view = "review"; current = id; reviewRevealed = false; boardResult = null; checkingCardId = null; boardError = "";
   if (panel.classList.contains("hidden")) togglePanel(true); else renderPanel();
   void rateQueuedItems(queueOwner);
 }
 
 function renderReview() {
+  if (boardResult) {
+    boardWatcher.stop();
+    setCompact(true);
+    const { item: it, grade: res, back: backKind } = boardResult;
+    const found = isBoardAnswerFound(res);
+    const tags = tacticSentence(it.tactics.filter(x => x.kind === "missed"));
+    const odds = reviewRateSentence(it);
+    const details = `${tags}${odds}`.trim();
+    const more = due().length;
+    const back = backKind === "back" ? `<button class="linkish" data-act="back">Back to this game's recap</button>`
+      : backKind === "show" ? `<button class="linkish" data-act="recap">Show this game's recap</button>` : "";
+    body.innerHTML = `<div class="review">
+      <p class="board-grade ${found ? "good" : "weak"}">${esc(formatBoardGrade(res))}</p>
+      ${details ? `<p>${esc(details)}</p>` : ""}
+      <div class="grade"><button type="button" data-act="next-review">${more ? "Next position" : "Done"}</button></div>
+      ${back ? `<p>${back}</p>` : ""}</div>`;
+    return;
+  }
   const card = reviewCard(due(), current, state, !!recap, pageUrl(), tally(), nextText());
   const back = card.back === "back" ? `<button class="linkish" data-act="back">Back to this game's recap</button>`
     : card.back === "show" ? `<button class="linkish" data-act="recap">Show this game's recap</button>` : "";
   if (card.kind === "done") {
+    boardWatcher.stop();
+    setCompact(false);
     body.innerHTML = `<div class="review"><p>${esc(card.summary)}</p>${back ? `<p>${back}</p>` : ""}</div>`;
     current = null;
     return;
   }
   const { item: it, position: pos, total, here } = card;
+  setCompact(here);
   current = it.id; asked = it;
   const tags = tacticSentence(it.tactics.filter(x => x.kind === "missed"));   // the hint already said what it allowed
-  const rate = reviewRate(it);
-  const odds = rate === null || !it.rating ? ""
-    : ` In blitz, players near ${Math.round(it.rating / 50) * 50} find moves like this about ${Math.round(rate * 20) * 5}% of the time.`;
+  const odds = reviewRateSentence(it);
+  const alreadyGraded = gradedVisits.has(it.id);
+  const boardNote = !here || reviewRevealed ? ""
+    : checkingCardId === it.id ? `<p class="board-note">Checking your move…</p>`
+    : alreadyGraded ? `<p class="board-note">First attempt already graded on this visit.</p>`
+    : `<p class="board-note">Play your move on the board. Only your first move is graded.</p>`;
   body.innerHTML = `<div class="review">
     <p class="count">Review · ${pos} of ${total}</p>
     <p>From your game vs ${esc(it.opponent)} ${esc(daysAgo(it.endTime, Date.now()))}.
       You played <span class="moves">${esc(it.label)}</span> and lost <strong class="weak">${Math.round(it.loss)}%</strong>.
       Find the better move.<span class="quiz-q">${esc(quizHint(it.tactics))}</span></p>
+    ${boardNote}${boardError && here ? `<p class="board-note">${esc(boardError)}</p>` : ""}
     ${reviewRevealed
       ? `<p><span class="lbl">Answer</span>Better was <span class="moves">${esc(it.best)}</span>.${esc(tags)}${esc(odds)}</p>
          <div class="grade"><button type="button" data-grade="1">Got it</button><button type="button" class="missed" data-grade="0">Missed it</button></div>`
       : `<div class="quiz-actions">${here ? "" : `<a class="quiz-board" data-review="${esc(it.id)}" href="${esc(moveLink(it.url, it.ply))}">Find it on the board</a>`}
            <button type="button" class="quiz-reveal">Reveal the move</button></div>`}
     ${back ? `<p>${back}</p>` : ""}</div>`;
+  boardWatcher.sync({
+    pageUrl: pageUrl(), state, view,
+    panelOpen: !panel.classList.contains("hidden"),
+    card,
+    alreadyGraded: alreadyGraded || reviewRevealed,
+  });
 }
 
 panel.addEventListener("click", e => {
@@ -254,18 +368,28 @@ panel.addEventListener("click", e => {
     return;
   }
   if (el.closest(".quiz-board")) return;   // marked by the listener below; the link loads the game
-  if (el.closest(".quiz-reveal")) { reviewRevealed = true; renderPanel(); body.querySelector<HTMLButtonElement>("[data-grade]")?.focus(); return; }
+  if (el.closest('[data-act="next-review"]')) {
+    boardResult = null; current = null; reviewRevealed = false; checkingCardId = null; boardError = "";
+    renderPanel(); decorateCube();
+    return;
+  }
+  if (el.closest(".quiz-reveal")) {
+    boardWatcher.stop(); reviewRevealed = true; checkingCardId = null; boardError = "";
+    renderPanel(); body.querySelector<HTMLButtonElement>("[data-grade]")?.focus();
+    return;
+  }
   const g = el.closest<HTMLElement>("[data-grade]");
   if (g && current && asked?.id === current) {
     const found = g.dataset.grade === "1", id = current, now = Date.now(), shown = { step: asked.step, due: asked.due };
+    gradedVisits.add(id); boardWatcher.stop(); boardResult = null;
     queue = grade(queue, id, found, now, shown); addTally(found);           // shown at once,
     // and saved onto the latest, unless another tab already answered this same question
     void changeQueue(q => grade(q, id, found, now, shown)).then(decorateCube);
     current = null; reviewRevealed = false; renderPanel(); decorateCube();
     return;
   }
-  if (el.closest('[data-act="back"]')) { view = "game"; renderPanel(); return; }
-  if (el.closest('[data-act="recap"]')) { view = "game"; void requestRecap(); }
+  if (el.closest('[data-act="back"]')) { boardWatcher.stop(); boardResult = null; setCompact(false); view = "game"; renderPanel(); return; }
+  if (el.closest('[data-act="recap"]')) { boardWatcher.stop(); boardResult = null; setCompact(false); view = "game"; void requestRecap(); }
 });
 
 /** Add a finished game's turning point, and start an empty queue from the games already analyzed. */
@@ -337,6 +461,9 @@ function renderPanel() {
   reset.hidden = !accounts.length || !!signedIn;
   view = panelView(view, state, pageUrl(), due().length);
   if (view === "review") { renderReview(); return; }
+  boardWatcher.stop();
+  boardResult = null;
+  setCompact(false);
   if (state === "ready" && recap) {
     // Keep the turning point and its controls mounted while the history fills in.
     if (!recapView || !body.contains(recapView.element)) {
@@ -392,10 +519,43 @@ function renderPanel() {
 // ---------- position and dragging ----------
 
 let pos = { right: 24, bottom: 120 };
+let placeRetry: ReturnType<typeof setTimeout> | undefined, placeTries = 0;
 function place() {
+  clearTimeout(placeRetry);
   pos.right = Math.min(Math.max(pos.right, 4), window.innerWidth - 48);
   pos.bottom = Math.min(Math.max(pos.bottom, 4), window.innerHeight - 48);
   cube.style.right = `${pos.right}px`; cube.style.bottom = `${pos.bottom}px`;
+  if (panel.classList.contains("compact")) {
+    // Keep the compact review card off the board and the move list where the player's try appears:
+    // left of the board when there is room, else at the bottom of the column right of the board
+    // (below Chess.com's move list), else the bottom-left corner on narrow windows.
+    const width = Math.min(280, window.innerWidth - 16);
+    const boardRect = reviewAllowed(pageUrl(), state) ? site.readBoard(document)?.element.getBoundingClientRect() : null;
+    if (boardRect && boardRect.width > 0 && boardRect.left >= width + 16) {
+      const top = Math.max(8, Math.round(boardRect.top));
+      panel.style.left = `${Math.max(8, Math.round(boardRect.left - width - 12))}px`;
+      panel.style.right = "";
+      panel.style.top = `${top}px`;
+      panel.style.bottom = "";
+      panel.style.maxHeight = `${Math.max(160, window.innerHeight - top - 8)}px`;
+    } else if (boardRect && boardRect.width > 0 && window.innerWidth - boardRect.right >= width + 24) {
+      // 120px up, where the full panel sits, leaves the site's move buttons below it clickable.
+      panel.style.left = `${Math.round(boardRect.right + 12)}px`;
+      panel.style.right = "";
+      panel.style.bottom = "120px";
+      panel.style.top = "";
+      panel.style.maxHeight = `${Math.min(360, window.innerHeight - 128)}px`;
+    } else {
+      // The site may not have drawn its board yet when the card turns compact; look again shortly.
+      if (!boardRect && placeTries < 10) { placeTries++; placeRetry = setTimeout(place, 500); }
+      panel.style.left = "8px";
+      panel.style.right = "";
+      panel.style.bottom = "8px";
+      panel.style.top = "";
+      panel.style.maxHeight = `${Math.min(360, window.innerHeight - 16)}px`;
+    }
+    return;
+  }
   // open the panel on whichever side of the cube has room, or centered when neither does (narrow windows)
   const width = Math.min(340, window.innerWidth - 16);
   const cubeLeft = window.innerWidth - pos.right - 44, cubeRight = window.innerWidth - pos.right;
@@ -446,6 +606,13 @@ function togglePanel(force?: boolean) {
   const open = force ?? panel.classList.contains("hidden");
   const wasOpen = !panel.classList.contains("hidden");
   panel.classList.toggle("hidden", !open);
+  if (!open) {
+    boardWatcher.stop();
+    boardResult = null;
+    checkingCardId = null;
+    boardError = "";
+    setCompact(false);
+  }
   if (open && state === "ready") { markSeen(store, lastId); decorateCube(); }
   if (open && state === "idle" && reviewAllowed(pageUrl(), state)
       && (!queue.length || pendingReviewRates(queue).length || queue.some(q => !q.fen || q.timeClass === undefined))) {
@@ -506,7 +673,11 @@ async function check() {
   // Same game as before (Chess.com rewrites /game/<id> to /live/game/<id> after loading): leave
   // any polling running. Clearing the timer first left the cube stuck on "Setting up" for good.
   // Pages that are not games always run, to warm up or stop.
-  if (id && id === lastId && state !== "error" && state !== "pending") return;
+  if (id && id === lastId && state !== "error" && state !== "pending") {
+    // Only the move changed (the site's arrows): an open review card may now be at its position again.
+    if (view === "review" && !panel.classList.contains("hidden")) renderPanel();
+    return;
+  }
   const pageKey = site.pageSafetyKey(new URL(url));
   const markPage = (finished: boolean) => ask({ type: "page-state", pageKey, finished }).catch(() => {});
   const changedGame = id !== lastId;
@@ -516,7 +687,14 @@ async function check() {
     timingCacheHit = false;
     delete host.dataset.chessCheckRecapTiming;
   }
-  if (changedGame || onPlay) togglePanel(false);
+  if (changedGame || onPlay) {
+    boardWatcher.stop();
+    gradedVisits.clear();
+    boardResult = null;
+    checkingCardId = null;
+    boardError = "";
+    togglePanel(false);
+  }
   if (id !== lastId || intent) {
     boardIntent = intent;
     retryBoardLookup = !!intent;

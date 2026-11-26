@@ -3,7 +3,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { chromium, expect, test as base } from "@playwright/test";
 import { LIVE_POLL_MS } from "../../src/browser/sites/chesscomPages.ts";
-import { chessOrigin, chessGame, chessId, lichessGame, lichessId, serveFixtures } from "./fixtures.mjs";
+import { chessOrigin, chessGame, chessId, chessFens, chessUser, lichessGame, lichessId, lichessFens, lichessUser, serveFixtures } from "./fixtures.mjs";
+import { itemId } from "../../src/browser/reviewQueue.ts";
+import { queueKey } from "../../src/extension/queueStore.ts";
 
 const test = base.extend({
   session: async ({}, use) => {
@@ -162,5 +164,103 @@ for (const [site, game, result] of [
     expect(requests()).toHaveLength(before + 1);
     await expect(cube(page)).toHaveAttribute("aria-expanded", "true");
     await expectRecap(page, result);
+  });
+}
+
+for (const [site, siteId, game, fens, user, result] of [
+  ["Chess.com", "chesscom", chessGame, chessFens, chessUser, /^You won/],
+  ["Lichess", "lichess", lichessGame, lichessFens, lichessUser, /^You (won|lost)/],
+]) {
+  test(site + " grades a review move played on the board and updates the queue due date", async ({ session: { page, worker } }) => {
+    const { Chess } = await import("chess.js");
+    await page.goto(game);
+    await expect(cube(page)).toHaveClass(ready);
+    await cube(page).click();
+    await expectRecap(page, result);
+    // The fixtures never build a profile, so no review item is saved on its own. Seed one due card
+    // at the recap's turning point, with a stored best move the board can play.
+    const link = new URL(await onBoard(page).getAttribute("href"));
+    const ply = Number(site === "Lichess" ? link.hash.slice(1) : link.searchParams.get("move"));
+    link.hash = ""; link.searchParams.delete("move");
+    const fen = fens[ply];
+    const [best, played] = new Chess(fen).moves();
+    const seeded = { id: itemId(link.toString(), ply), url: link.toString(), ply, label: played, san: played, best,
+      loss: 30, tactics: [], opponent: "fixture", endTime: Date.now() - 3_600_000, fen, rating: 1500,
+      timeClass: "blitz", step: 0, due: Date.now() - 10_000 };
+    const key = queueKey(user, siteId);
+    await worker.evaluate(({ k, items }) => chrome.storage.local.set({ [k]: items }), { k: key, items: [seeded] });
+    const item = seeded;
+    await page.reload();
+    await expect(cube(page)).toHaveClass(ready);
+    await cube(page).click();
+    await expectRecap(page, result);
+
+    await expect(panel(page).locator(".recap-review button")).toBeVisible();
+    await panel(page).locator(".recap-review button").click();
+    await expect(onBoard(page)).toBeVisible();
+    await onBoard(page).click();
+
+    await expect(panel(page)).toBeVisible();
+    await expect(panel(page)).toHaveClass(/\bcompact\b/);
+    await expect(panel(page)).toContainText("Only your first move is graded.");
+    // Compact panel stays off the right-side move list (x = 850).
+    const box = await panel(page).boundingBox();
+    expect(box.x + box.width).toBeLessThan(850);
+
+    // Set the site's board DOM to the position after a move, as the site would show it.
+    const showMove = async san => {
+      const board = new Chess(item.fen);
+      expect(board.move(san)).toBeTruthy();
+      const placement = board.fen().split(" ")[0];
+      await page.evaluate(({ siteName, placement }) => {
+        const ranks = placement.split("/");
+        if (siteName === "Chess.com") {
+          const el = document.querySelector("wc-chess-board");
+          const divs = [];
+          for (let r = 0; r < 8; r++) {
+            let f = 0;
+            for (const ch of ranks[r]) {
+              if (ch >= "1" && ch <= "8") { f += Number(ch); continue; }
+              const color = ch === ch.toUpperCase() ? "w" : "b";
+              divs.push(`<div class="piece ${color}${ch.toLowerCase()} square-${f + 1}${8 - r}"></div>`);
+              f++;
+            }
+          }
+          el.innerHTML = divs.join("");
+        } else {
+          const el = document.querySelector("cg-board");
+          const role = { p: "pawn", n: "knight", b: "bishop", r: "rook", q: "queen", k: "king" };
+          const pieces = [];
+          for (let r = 0; r < 8; r++) {
+            let f = 0;
+            for (const ch of ranks[r]) {
+              if (ch >= "1" && ch <= "8") { f += Number(ch); continue; }
+              const color = ch === ch.toUpperCase() ? "white" : "black";
+              pieces.push(`<piece class="${color} ${role[ch.toLowerCase()]}" style="transform: translate(${f * 64}px, ${r * 64}px);"></piece>`);
+              f++;
+            }
+          }
+          el.innerHTML = pieces.join("");
+        }
+      }, { siteName: site, placement });
+    };
+
+    // Stepping forward shows the move from the game, which is not taken as an answer.
+    await showMove(played);
+    await expect(panel(page)).toContainText("is the move from the game");
+    expect((await worker.evaluate(({ k }) => chrome.storage.local.get([k]), { k: key }))[key][0].step).toBe(item.step);
+    await showMove(best);
+    await expect(panel(page)).toContainText("Correct");
+    await expect.poll(async () => worker.evaluate(async ({ k, id }) => {
+      const items = (await chrome.storage.local.get([k]))[k] ?? [];
+      const found = items.find(it => it.id === id);
+      return found ? { step: found.step, due: found.due } : null;
+    }, { k: key, id: item.id })).toMatchObject({ step: item.step + 1 });
+
+    const afterItem = await worker.evaluate(async ({ k, id }) => {
+      const items = (await chrome.storage.local.get([k]))[k] ?? [];
+      return items.find(it => it.id === id);
+    }, { k: key, id: item.id });
+    expect(afterItem.due).toBeGreaterThan(item.due + 24 * 3600 * 1000);
   });
 }

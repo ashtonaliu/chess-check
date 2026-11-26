@@ -45,6 +45,13 @@ https://ashtonaliu.github.io/chess-check/privacy.html
 
 ## What's new in 0.9.1
 
+You can now answer review cards by playing your move directly on the Chess.com or Lichess board
+after clicking "Find it on the board". The extension grades your first move automatically (accepting
+the best move or any alternative within 5 percentage points of winning chances), keeps the review
+card off the board, and keeps "Reveal the move" as a fallback. The turning
+point move in recaps now links directly to that ply, review cards name the actual site and time
+control in their find-rate line, and Chess.com opening names restore missing apostrophes.
+
 Review cards use a find-rate model retrained with Chess.com rapid and bullet games. Chess.com
 cards now show how often players at your rating find the move in rapid from 600 to 1499 and in
 bullet from 600 to 1599, where it passed held-out calibration checks. On Lichess the ranges widened

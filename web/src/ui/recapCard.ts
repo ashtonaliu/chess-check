@@ -82,14 +82,16 @@ function renderTurningPoint(section: HTMLElement, r: Recap, opts: RecapOptions) 
   const clock = t.clockFrac !== null && t.clockFrac <= 0.3
     ? (t.clockFrac <= 0.1 ? ", in time trouble" : ", low on time") : "";
   const tags = tacticSentence(t.tactics);
-  const consequence = `<strong class="moves">${esc(t.label)}</strong> ${describeTurningPoint(t)}.`;
+  const moveHref = moveLink(r.url, t.ply);
+  const moveTarget = opts.sameTab ? "" : ' target="_blank" rel="noopener"';
+  const consequence = `<a class="quiz-board moves" href="${esc(moveHref)}"${moveTarget}>${esc(t.label)}</a> ${describeTurningPoint(t)}.`;
   const context = `<span class="recap-context">${esc(t.phase[0].toUpperCase() + t.phase.slice(1))}${clock}</span>`;
   section.className = "recap-turning recap-grid" + (board ? "" : " noboard");
   section.innerHTML = `<div class="recap-lines"><p><span class="lbl">Turning point</span>
       ${t.loss < 20 ? "No blunders. " : ""}${consequence}${context}
       ${quiz ? `<span class="quiz-q">${esc(quizHint(t.tactics))}</span>` : esc(tags)}</p>
       ${quiz ? `<div class="quiz-actions">
-        <a class="quiz-board" href="${esc(moveLink(r.url, t.ply))}"${opts.sameTab ? "" : ' target="_blank" rel="noopener"'}>Find it on the board</a>
+        <a class="quiz-board" href="${esc(moveHref)}"${moveTarget}>Find it on the board</a>
         <button type="button" class="quiz-reveal">Reveal the move</button>
       </div>
       <p class="quiz-answer" tabindex="-1"><span class="lbl">Answer</span>Better was <span class="moves">${esc(t.best!)}</span>.${esc(tags)}</p>` : ""}

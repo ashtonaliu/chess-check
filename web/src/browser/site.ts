@@ -1,3 +1,4 @@
+import type { BoardReading } from "./boardPlacement";
 import type { Game } from "./games";
 import { chesscomPages } from "./sites/chesscomPages";
 import { lichessPages } from "./sites/lichessPages";
@@ -30,6 +31,7 @@ export interface SitePages {
   pollDelay(url: URL): number;
   moveLink(url: string, ply: number): string;
   isAtPly(url: URL, ply: number): boolean;
+  readBoard(doc: Document): BoardReading | null;
 }
 
 export interface Site extends SitePages {

@@ -164,3 +164,93 @@ for (const [site, game, result] of [
     await expectRecap(page, result);
   });
 }
+
+for (const [site, game, result] of [
+  ["Chess.com", chessGame, /^You won/],
+  ["Lichess", lichessGame, /^You (won|lost)/],
+]) {
+  test(site + " grades a review move played on the board and updates the queue due date", async ({ session: { page, worker } }) => {
+    const { Chess } = await import("chess.js");
+    await page.goto(game);
+    await expect(cube(page)).toHaveClass(ready);
+    await cube(page).click();
+    await expectRecap(page, result);
+    // Wait for the review queue item to be persisted, then make it due now.
+    await expect.poll(async () => worker.evaluate(async () => {
+      const all = await chrome.storage.local.get(null);
+      return Object.entries(all).some(([k, v]) => k.startsWith("review:") && Array.isArray(v) && v.length > 0);
+    })).toBe(true);
+
+    const { key, item } = await worker.evaluate(async () => {
+      const all = await chrome.storage.local.get(null);
+      const [k, items] = Object.entries(all).find(([key, v]) => key.startsWith("review:") && Array.isArray(v) && v.length > 0);
+      const dueNow = Date.now() - 10_000;
+      const updated = items.map((it, idx) => idx === 0 ? { ...it, due: dueNow } : it);
+      await chrome.storage.local.set({ [k]: updated });
+      return { key: k, item: updated[0] };
+    });
+
+    await expect(panel(page).locator(".recap-review button")).toBeVisible();
+    await panel(page).locator(".recap-review button").click();
+    await expect(onBoard(page)).toBeVisible();
+    await onBoard(page).click();
+
+    await expect(panel(page)).toBeVisible();
+    await expect(panel(page)).toHaveClass(/\bcompact\b/);
+    await expect(panel(page)).toContainText("Only your first move is graded.");
+    // Compact panel stays off the right-side move list (x = 850).
+    const box = await panel(page).boundingBox();
+    expect(box.x + box.width).toBeLessThan(850);
+
+    // Compute the board placement after playing the best move and update the site's board DOM.
+    const board = new Chess(item.fen);
+    const mv = board.move(item.best);
+    expect(mv).toBeTruthy();
+    const afterPlacement = board.fen().split(" ")[0];
+    await page.evaluate(({ siteName, placement }) => {
+      const ranks = placement.split("/");
+      if (siteName === "Chess.com") {
+        const el = document.querySelector("wc-chess-board");
+        const divs = [];
+        for (let r = 0; r < 8; r++) {
+          let f = 0;
+          const rankNum = 8 - r;
+          for (const ch of ranks[r]) {
+            if (ch >= "1" && ch <= "8") { f += Number(ch); continue; }
+            const color = ch === ch.toUpperCase() ? "w" : "b";
+            divs.push(`<div class="piece ${color}${ch.toLowerCase()} square-${f + 1}${rankNum}"></div>`);
+            f++;
+          }
+        }
+        el.innerHTML = divs.join("");
+      } else {
+        const el = document.querySelector("cg-board");
+        const role = { p: "pawn", n: "knight", b: "bishop", r: "rook", q: "queen", k: "king" };
+        const pieces = [];
+        for (let r = 0; r < 8; r++) {
+          let f = 0;
+          for (const ch of ranks[r]) {
+            if (ch >= "1" && ch <= "8") { f += Number(ch); continue; }
+            const color = ch === ch.toUpperCase() ? "white" : "black";
+            pieces.push(`<piece class="${color} ${role[ch.toLowerCase()]}" style="transform: translate(${f * 64}px, ${r * 64}px);"></piece>`);
+            f++;
+          }
+        }
+        el.innerHTML = pieces.join("");
+      }
+    }, { siteName: site, placement: afterPlacement });
+
+    await expect(panel(page)).toContainText("Correct");
+    await expect.poll(async () => worker.evaluate(async ({ k, id }) => {
+      const items = (await chrome.storage.local.get([k]))[k] ?? [];
+      const found = items.find(it => it.id === id);
+      return found ? { step: found.step, due: found.due } : null;
+    }, { k: key, id: item.id })).toMatchObject({ step: item.step + 1 });
+
+    const afterItem = await worker.evaluate(async ({ k, id }) => {
+      const items = (await chrome.storage.local.get([k]))[k] ?? [];
+      return items.find(it => it.id === id);
+    }, { k: key, id: item.id });
+    expect(afterItem.due).toBeGreaterThan(item.due + 24 * 3600 * 1000);
+  });
+}

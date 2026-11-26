@@ -179,6 +179,10 @@ chrome.runtime.onMessage.addListener((msg: BackgroundMessage, sender, sendRespon
         sendResponse({ status: "pending" });
         return;
       }
+      if (msg.type === "grade-move" && !page.key.startsWith("game:")) {
+        sendResponse({ status: "paused" });
+        return;
+      }
       if (hasPausedTab()) {
         sendResponse({ status: "paused" });
         return;

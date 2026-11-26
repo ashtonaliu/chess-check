@@ -65,6 +65,27 @@ class Game:
     site: str = "chesscom"
 
 
+OPENING_POSSESSIVES = {
+    "Kings": "King's",
+    "Queens": "Queen's",
+    "Bishops": "Bishop's",
+    "Birds": "Bird's",
+    "Alekhines": "Alekhine's",
+    "Petrovs": "Petrov's",
+    "Owens": "Owen's",
+    "Philidors": "Philidor's",
+    "Ponzianis": "Ponziani's",
+    "Anderssens": "Anderssen's",
+    "Larsens": "Larsen's",
+    "Laskers": "Lasker's",
+    "Stauntons": "Staunton's",
+    "Damianos": "Damiano's",
+    "Grobs": "Grob's",
+    "Fools": "Fool's",
+    "Scholars": "Scholar's",
+}
+
+
 def opening_names(eco_url: str) -> tuple[str, str]:
     """Return (full name, family) from a Chess.com ECO URL slug."""
     slug = eco_url.rstrip("/").rsplit("/", 1)[-1] if eco_url else ""
@@ -75,18 +96,20 @@ def opening_names(eco_url: str) -> tuple[str, str]:
         tokens.append(tok)
     if not tokens:
         return "Unknown", "Unknown"
-    full = " ".join(tokens)
+    raw_full = " ".join(tokens)
+    formatted = [OPENING_POSSESSIVES.get(tok, tok) for tok in tokens]
+    full = " ".join(formatted)
     # The family named first wins ("Four Knights Game Scotch Variation" is a
     # Four Knights game; "Nimzowitsch Larsen Attack Modern Variation" is not a
     # Modern Defense); on a tie, the longer (more specific) name.
-    hits = [(f" {full} ".find(f" {key} "), -len(key), canon) for key, canon in CANONICAL
-            if f" {key} " in f" {full} "]
+    hits = [(f" {raw_full} ".find(f" {key} "), -len(key), canon) for key, canon in CANONICAL
+            if f" {key} " in f" {raw_full} "]
     if hits:
         return full, min(hits)[2]
     for i, tok in enumerate(tokens[:5]):
         if tok in FAMILY_ENDINGS:
-            return full, " ".join(tokens[: i + 1])
-    return full, " ".join(tokens[:2])
+            return full, " ".join(formatted[: i + 1])
+    return full, " ".join(formatted[:2])
 
 
 def _score(result: str) -> float:

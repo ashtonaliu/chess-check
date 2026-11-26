@@ -147,6 +147,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .recap .lbl { display: block; color: var(--muted); font-size: 12px; font-weight: 650; margin-bottom: 2px; }
 .recap-context { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
 .recap-turning .moves { font-size: 15px; }
+.recap-turning a.moves { font-weight: 700; color: var(--accent); text-decoration: none; }
+.recap-turning a.moves:hover { text-decoration: underline; }
 .meter { margin: 0 0 12px; }
 .meter p { margin-bottom: 10px; }
 .meter .track { position: relative; height: 10px; border-radius: 99px; background: linear-gradient(90deg, var(--weak-soft), var(--chip), var(--good-soft)); }

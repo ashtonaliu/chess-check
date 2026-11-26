@@ -17,7 +17,7 @@ Chess Check works on Chess.com and Lichess. Type in a username and find out what
 4. Checks each opening against what your rating predicted, so a bad result against stronger players does not count against you.
 5. Estimates whether you blunder more than similar players would in the same positions, and whether time pressure is the cause.
 6. Has an AI coach write a short report, then checks every number and move in it against the real data before showing it.
-7. Shows a short recap after each game you finish, in the Chrome extension or on the website, and asks you to find the move you missed.
+7. Shows a short recap after each game you finish, in the Chrome extension or on the website, and asks you to find the move you missed. Missed moves go into a spaced review queue that you can answer by playing the move directly on the site's board (graded by Stockfish, with Reveal as a fallback).
 
 Everything is compared with your opponents in the same games. A typical result, from my own games: *"You miss discovered attacks: 18 times in positions where you blundered, against 4 for your opponents."*
 

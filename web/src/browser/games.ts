@@ -55,6 +55,27 @@ const CANONICAL: [string, string][] = [
   ["Owens", "Owen's Defense"], ["Indian", "Indian Game"],
 ];
 
+// Common possessive words that lose their apostrophe in Chess.com opening URL slugs.
+const OPENING_POSSESSIVES: Record<string, string> = {
+  Kings: "King's",
+  Queens: "Queen's",
+  Bishops: "Bishop's",
+  Birds: "Bird's",
+  Alekhines: "Alekhine's",
+  Petrovs: "Petrov's",
+  Owens: "Owen's",
+  Philidors: "Philidor's",
+  Ponzianis: "Ponziani's",
+  Anderssens: "Anderssen's",
+  Larsens: "Larsen's",
+  Laskers: "Lasker's",
+  Stauntons: "Staunton's",
+  Damianos: "Damiano's",
+  Grobs: "Grob's",
+  Fools: "Fool's",
+  Scholars: "Scholar's",
+};
+
 export function openingNames(ecoUrl: string): [string, string] {
   const slug = ecoUrl ? ecoUrl.replace(/\/+$/, "").split("/").pop() ?? "" : "";
   const tokens: string[] = [];
@@ -63,20 +84,22 @@ export function openingNames(ecoUrl: string): [string, string] {
     tokens.push(tok);
   }
   if (!tokens.length) return ["Unknown", "Unknown"];
-  const full = tokens.join(" ");
+  const rawFull = tokens.join(" ");
+  const formatted = tokens.map(tok => OPENING_POSSESSIVES[tok] ?? tok);
+  const full = formatted.join(" ");
   // The family named first wins; on a tie, the longer (more specific) name.
   let best: [number, number, string] | null = null;
   for (const [key, canon] of CANONICAL) {
-    const at = ` ${full} `.indexOf(` ${key} `);
+    const at = ` ${rawFull} `.indexOf(` ${key} `);
     if (at < 0) continue;
     const cand: [number, number, string] = [at, -key.length, canon];
     if (!best || cand[0] < best[0] || (cand[0] === best[0] && (cand[1] < best[1] || (cand[1] === best[1] && cand[2] < best[2])))) best = cand;
   }
   if (best) return [full, best[2]];
   for (let i = 0; i < Math.min(tokens.length, 5); i++) {
-    if (FAMILY_ENDINGS.has(tokens[i])) return [full, tokens.slice(0, i + 1).join(" ")];
+    if (FAMILY_ENDINGS.has(tokens[i])) return [full, formatted.slice(0, i + 1).join(" ")];
   }
-  return [full, tokens.slice(0, 2).join(" ")];
+  return [full, formatted.slice(0, 2).join(" ")];
 }
 
 const scoreOf = (result: string) => (result === "win" ? 1 : DRAWS.has(result) ? 0.5 : 0);

@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { Chess } from "chess.js";
 
+import { parseFenBoard, resolveBoardMove } from "../src/browser/boardMove";
 import { moveFeatures } from "../src/browser/findRate";
 import { parseGame } from "../src/browser/games";
 import { WasmChess } from "../src/browser/wasmChess";
@@ -121,4 +122,11 @@ test("the WebAssembly motif detector matches TypeScript on all 3,000 puzzle posi
     const js = motifs(p.fen, { from: p.from, to: p.to, promotion: p.promotion ?? undefined });
     assert.deepEqual([...(found[i] ?? [])].sort(), [...js].sort(), `${p.fen} ${p.from}${p.to}`);
   }
+});
+
+test("resolveBoardMove uses WasmChess for normal, capture, castling, en passant, and promotion", () => {
+  assert.equal(resolveBoardMove("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", parseFenBoard("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR"), wasm)?.san, "e4");
+  assert.equal(resolveBoardMove("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R3K2R w KQkq - 0 1", parseFenBoard("r3k2r/pppppppp/8/8/8/8/PPPPPPPP/R4RK1"), wasm)?.san, "O-O");
+  assert.equal(resolveBoardMove("rnbqkbnr/ppp1pppp/8/3pP3/8/8/PPPP1PPP/RNBQKBNR w KQkq d6 0 3", parseFenBoard("rnbqkbnr/ppp1pppp/3P4/8/8/8/PPPP1PPP/RNBQKBNR"), wasm)?.san, "exd6");
+  assert.equal(resolveBoardMove("3rk3/4P3/8/8/8/8/8/4K3 w - - 0 1", parseFenBoard("3Qk3/8/8/8/8/8/8/4K3"), wasm)?.san, "exd8=Q+");
 });

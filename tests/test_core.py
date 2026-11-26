@@ -56,7 +56,11 @@ def test_opening_names_canonical():
     # the family named first wins, not the first entry in the table
     assert opening_names("x/Nimzowitsch-Larsen-Attack-Modern-Variation")[1] == "Nimzowitsch-Larsen Attack"
     assert opening_names("x/Four-Knights-Game-Scotch-Variation")[1] == "Four Knights Game"
-    assert opening_names("x/Kings-Indian-Attack")[1] == "King's Indian Attack"
+    assert opening_names("x/Kings-Indian-Attack") == ("King's Indian Attack", "King's Indian Attack")
+    assert opening_names("x/Queens-Gambit-Declined-Three-Knights-Variation") == (
+        "Queen's Gambit Declined Three Knights Variation", "Queen's Gambit",
+    )
+    assert opening_names("x/Birds-Opening-From-Gambit") == ("Bird's Opening From Gambit", "Bird's Opening")
 
 
 def _games(n_sic=12, sic_score=0.0):

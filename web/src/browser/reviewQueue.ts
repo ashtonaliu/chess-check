@@ -103,6 +103,23 @@ const reviewRateEligible = (q: ReviewItem): q is ReviewItem & { rating: number; 
 export const reviewRate = (q: ReviewItem): number | null =>
   reviewRateEligible(q) ? q.neuralFindRate ?? null : null;
 
+const SPEED_LABEL: Record<ReviewSpeed, string> = {
+  ultraBullet: "UltraBullet",
+  bullet: "bullet",
+  blitz: "blitz",
+  rapid: "rapid",
+  classical: "classical",
+};
+
+/** Sentence showing how often players on the same site, speed, and rating find moves like this. */
+export function reviewRateSentence(q: ReviewItem): string {
+  const rate = reviewRate(q);
+  if (rate === null || !q.rating || !isReviewSpeed(q.timeClass)) return "";
+  const siteName = (pageSite(q.url) ?? { name: "Chess.com" }).name;
+  const speed = SPEED_LABEL[q.timeClass];
+  return ` In ${siteName} ${speed}, players near ${Math.round(q.rating / 50) * 50} find moves like this about ${Math.round(rate * 20) * 5}% of the time.`;
+}
+
 /** Legacy logistic scores are ignored. Only request unfinished reviews the neural model can score. */
 export function pendingReviewRates(queue: ReviewItem[]): ReviewRateRequest[] {
   return queue.flatMap(q => !q.done && q.neuralFindRate === undefined && q.fen && reviewRateEligible(q)

@@ -16,7 +16,7 @@ export const REVIEW_RATE_RANGES: Record<SiteId, Partial<Record<ReviewSpeed, read
     rapid: [600, 1499],
   },
   lichess: {
-    ultraBullet: [1000, 1999],
+    ultraBullet: [1000, 2099],
     bullet: [900, 2599],
     blitz: [900, 2299],
     rapid: [1100, 2199],

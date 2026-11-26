@@ -1,0 +1,14 @@
+{
+  "chesscom": {
+    "bullet": 0.605,
+    "blitz": 0.6561,
+    "rapid": 0.7903
+  },
+  "lichess": {
+    "ultraBullet": 0.6,
+    "bullet": 0.6,
+    "blitz": 0.6733,
+    "rapid": 0.8017,
+    "classical": 0.8806
+  }
+}

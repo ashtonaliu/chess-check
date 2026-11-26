@@ -132,12 +132,18 @@ def load_test_split(data_root: Path, prepared: Path | None, workers: int,
 
 
 def predict_review_clock(model: NeuralFindRate, artifact: dict, rows: pd.DataFrame, boards: np.ndarray,
-                         batch_size: int = 2048) -> np.ndarray:
+                         batch_size: int = 2048,
+                         review_clocks: dict[str, dict[str, float]] | None = None) -> np.ndarray:
     scaled_rating = np.zeros(len(rows), dtype=np.float32)
     for source, scale in artifact["ratings"].items():
         mask = rows["source"] == source
         scaled_rating[mask] = (rows.loc[mask, "pregame_rating"].to_numpy(dtype=np.float32) - scale["mean"]) / scale["std"]
     clock_arr = np.full(len(rows), REVIEW_CLOCK_FRACTION, dtype=np.float32)
+    if review_clocks is not None:
+        for source, speeds in review_clocks.items():
+            for speed, fraction in speeds.items():
+                mask = (rows["source"] == source) & (rows["time_class"] == speed)
+                clock_arr[mask] = float(fraction)
     missing_arr = np.zeros(len(rows), dtype=np.float32)
     is_lichess = (rows["source"] == "lichess").to_numpy(dtype=np.float32)
     speed_cols = [(rows["time_class"] == speed).to_numpy(dtype=np.float32) for speed in SPEEDS]
@@ -301,6 +307,8 @@ def main():
     parser.add_argument("--chesscom-extra", type=Path, default=None,
                         help="Optional Chess.com rapid/bullet training.parquet (defaults to <data-root>/chesscom-rapid-v1/training.parquet if present)")
     parser.add_argument("--weights", type=Path, default=ROOT / "web" / "src" / "extension" / "neuralFindRateWeights.json")
+    parser.add_argument("--review-clocks", type=Path, default=None,
+                        help="Optional JSON file mapping {site: {speed: clock_fraction}}; defaults to fixed 0.6561")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--draws", type=int, default=DEFAULT_DRAWS)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
@@ -316,9 +324,10 @@ def main():
         if candidate.exists():
             extra_path = candidate
 
+    review_clocks = json.loads(args.review_clocks.read_text()) if args.review_clocks is not None else None
     model, artifact = load_shipped_model(args.weights)
     rows, boards = load_test_split(args.data_root, args.prepared, args.workers, extra_path)
-    preds = predict_review_clock(model, artifact, rows, boards)
+    preds = predict_review_clock(model, artifact, rows, boards, review_clocks=review_clocks)
     table, first_ranges, new_ranges = evaluate_groups(rows, preds, args.draws, args.seed)
 
     args.output.mkdir(parents=True, exist_ok=True)

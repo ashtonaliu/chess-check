@@ -48,7 +48,9 @@ https://ashtonaliu.github.io/chess-check/privacy.html
 Review cards use a find-rate model retrained with Chess.com rapid and bullet games. Chess.com
 cards now show how often players at your rating find the move in rapid from 600 to 1499 and in
 bullet from 600 to 1599, where it passed held-out calibration checks. On Lichess the ranges widened
-for blitz, rapid, bullet and UltraBullet and narrowed for classical, to 1100 to 1499.
+for blitz, rapid, bullet and UltraBullet and narrowed for classical, to 1100 to 1499. Review cards
+now use a per-site, per-speed reference clock instead of one fixed clock for every speed, which
+widens Lichess UltraBullet to 1000 to 2099.
 
 When a finished game's turning point matches one of your tactic patterns, the recap now offers
 up to three Lichess practice puzzles with that theme from a bundled CC0 index.

@@ -126,6 +126,12 @@ bullet. Review cards now show an estimate for Chess.com rapid from 600 to 1499 a
 to 1599, where the first model was only calibrated from 1800 and 1700 up to 2099. Lichess rapid got
 0.0023 worse with recorded clocks. [Retraining methods](docs/methods.md#retraining-with-chesscom-rapid-and-bullet)
 
+**Per-speed review clocks.** Replacing the single fixed 0.6561 review clock with each site and
+speed's non-test median clock fraction (from 0.6000 in Lichess bullet and UltraBullet to 0.8806 in
+Lichess classical) widened Lichess UltraBullet from 1000 to 1999 to 1000 to 2099 and left the other
+seven ranges unchanged. Lichess classical stayed at 1100 to 1499 because raising its clock fixed
+1900 to 1999 but left 1500 to 1599 over-predicted by 3.2 points. [Per-speed clock methods](docs/methods.md#per-speed-review-clocks)
+
 **Engine dataset.** To make later questions cheap, I analyzed 664,898 games (49.1 million positions) once with Stockfish 19, keeping the two best moves, win/draw/loss chances and clock time for every position. It took 33 hours on my laptop, and profiles for all 171,126 players in it now take 12 seconds to compute. On all 14,739 test games, none of the engine profiles (accuracy, blunders, conversion, time trouble, form, a rating implied by move quality) improved on the odds formula. The test was precise enough to rule out effects bigger than about 2 points of expected score.
 
 **Lichess pipeline.** I scanned every rated standard game in the October 2026 archive and wrote
